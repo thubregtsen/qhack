@@ -65,12 +65,12 @@ def run_vqe(H):
     energy = 0
 
     # QHACK #
-    dev = qml.device('qulacs.simulator', wires=num_qubits)
+    dev = qml.device('default.qubit', wires=num_qubits)
 
     cost_fn = qml.ExpvalCost(variational_ansatz, H, dev)
     optimizers = [
+            (qml.AdamOptimizer, {'stepsize': 0.30, "beta1": 0.9, 'beta2': 0.999, 'eps': 1e-7}),
             (qml.RotosolveOptimizer, {}),
-            (qml.AdamOptimizer, {'stepsize': 0.10, "beta1": 0.9, 'beta2': 0.999, 'eps': 1e-7}),
             (qml.QNGOptimizer, {'stepsize':0.1, 'lam': 1e-3}),
             ]
 
@@ -83,8 +83,8 @@ def run_vqe(H):
             if np.abs(energy - last_cost)<5e-4 and np.linalg.norm(qml.grad(cost_fn)(params))<1e-2:
                 solved = True
                 break
-            #if i%10==0:
-                #print(f"At step {i}, have cost {energy} at params {params}.")
+            if i%10==0:
+                print(f"At step {i}, have cost {energy} at params {params}.")
         if solved:
             break
 
