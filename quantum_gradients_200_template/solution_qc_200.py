@@ -46,6 +46,7 @@ def gradient_200(weights, dev):
     hessian = np.zeros([5, 5], dtype=np.float64)
 
     # QHACK #
+
     def gradient_and_diagonal_hessian_elements(circuit, weights, index, f_theta):
         shift = np.pi/2
         shifted_weights = weights.copy()
@@ -86,7 +87,7 @@ def gradient_200(weights, dev):
     for i in range(5):
         for j in range(i+1, 5):
             hessian[i][j] = non_diagonal_hessian_elements(circuit, weights, i, j)
-            hessian[j][i] = non_diagonal_hessian_elements(circuit, weights, i, j)
+            hessian[j][i] = hessian[i][j]
 
     # compute diagonal and gradients
     f_theta = circuit(weights)
