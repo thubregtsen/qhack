@@ -34,7 +34,8 @@ def find_max_independent_set(graph, params):
     wires = range(NODES)
     depth = N_LAYERS
 
-    dev = qml.device("qulacs.simulator", wires=wires)
+    #dev = qml.device("qulacs.simulator", wires=wires)
+    dev = qml.device("default.qubit", wires=wires)
 
     # find cost and mixer Hamiltonians
     cost_h, mixer_h = qml.qaoa.cost.max_independent_set(graph, constrained = True)
@@ -65,21 +66,17 @@ def find_max_independent_set(graph, params):
 
     # find the highest probable state, and convert the decimal number, e.g. 14, to binary: 1110
     highest_prob = bin(np.argmax(probs))[2:]
+    
+    def decomp(x):
+        pws = []
+        i = 1
+        while i <= x:
+            if i & x:
+                pws.append(i)
+            i <<= 1
+        return pws
 
-    # convert it to a 6-digit binary string, e.g. 1110 to 001110
-    for i in range(6-len(highest_prob)):
-        highest_prob = "0" + highest_prob
-    # stop laughing. there must indeed be a package for this, but it's a hackathon and this works + is the quickest
-
-    # convert the binary string to the nodes that give the answer
-    nodes = []
-    counter = 0
-    for i in range(len(highest_prob)):
-        if highest_prob[i] == "1":
-            nodes.append(counter)
-        counter += 1
-    # seriously, stop laughing. Return the answer
-    max_ind_set = nodes
+    max_ind_set = np.sort([int(5-np.log2(x)) for x in decomp(np.argmax(probs))]).tolist()
 
     # QHACK #
 
