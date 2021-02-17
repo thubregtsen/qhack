@@ -100,6 +100,7 @@ def gradient_200(weights, dev):
     print("gradients")
     print(gradient)
 
+    print(circuit.diff_options["method"])
 
     # QHACK #
 
