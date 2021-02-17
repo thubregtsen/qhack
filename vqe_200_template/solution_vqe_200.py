@@ -6,43 +6,33 @@ import numpy as np
 
 
 def variational_ansatz(params, wires):
-    """
-    DO NOT MODIFY anything in this function! It is used to judge your solution.
+    """The variational ansatz circuit.
 
-    This is ansatz is used to help with the problem structure. It applies
-    alternating layers of rotations and CNOTs.
+    Fill in the details of your ansatz between the # QHACK # comment markers. Your
+    ansatz should produce an n-qubit state of the form
 
-    Don't worry about the contents of this function for now—you'll be designing
-    your own ansatze in a later problem.
+        a_0 |10...0> + a_1 |01..0> + ... + a_{n-2} |00...10> + a_{n-1} |00...01>
+
+    where {a_i} are real-valued coefficients.
 
     Args:
-        params (np.ndarray): An array of floating-point numbers with size (n, 3),
-            where n is the number of parameter sets required (this is determined by
-            the problem Hamiltonian).
-        wires (qml.Wires): The device wires this circuit will run on.
+         params (np.array): The variational parameters.
+         wires (qml.Wires): The device wires that this circuit will run on.
     """
-    n_qubits = len(wires)
-    n_rotations = len(params)
 
-    if n_rotations > 1:
-        n_layers = n_rotations // n_qubits
-        n_extra_rots = n_rotations - n_layers * n_qubits
+    # QHACK #
+    qml.RY(params[0], wires=wires[0])
+    for i in range(1, len(wires)-1):
+        qml.CRY(params[i], wires=[wires[i-1], wires[i]])
+        #qml.CNOT(wires=wires[i:i+2])
 
-        # Alternating layers of unitary rotations on every qubit followed by a
-        # ring cascade of CNOTs.
-        for layer_idx in range(n_layers):
-            layer_params = params[layer_idx * n_qubits : layer_idx * n_qubits + n_qubits, :]
-            qml.broadcast(qml.Rot, wires, pattern="single", parameters=layer_params)
-            qml.broadcast(qml.CNOT, wires, pattern="ring")
+    for i in range(len(wires)-1):
+        qml.CNOT(wires=[wires[i-1], wires[i]])
+        qml.PauliX(wires=wires[i])
+    qml.CNOT(wires=wires[:2])
+    qml.PauliX(wires=wires[0])
 
-        # There may be "extra" parameter sets required for which it's not necessarily
-        # to perform another full alternating cycle. Apply these to the qubits as needed.
-        extra_params = params[-n_extra_rots:, :]
-        extra_wires = wires[: n_qubits - 1 - n_extra_rots : -1]
-        qml.broadcast(qml.Rot, extra_wires, pattern="single", parameters=extra_params)
-    else:
-        # For 1-qubit case, just a single rotation to the qubit
-        qml.Rot(*params[0], wires=wires[0])
+    # QHACK #
 
 
 def run_vqe(H):
@@ -57,40 +47,38 @@ def run_vqe(H):
     Returns:
         The ground state energy of the Hamiltonian.
     """
-    # Initialize parameters
-    num_qubits = len(H.wires)
-    num_param_sets = (2 ** num_qubits) - 1
-    params = np.random.uniform(low=-np.pi / 2, high=np.pi / 2, size=(num_param_sets, 3))
-
     energy = 0
 
     # QHACK #
-    dev = qml.device('qulacs.simulator', wires=num_qubits)
 
+    N = len(H.wires)
+    n = N-1
+    # Initialize the quantum device
+    dev = qml.device('default.qubit', wires=N)
+    # Randomly choose initial parameters (how many do you need?)
+    params = np.random.random(n)*0.1+0.05
+    # Set up a cost function
     cost_fn = qml.ExpvalCost(variational_ansatz, H, dev)
-    optimizers = [
-            (qml.RotosolveOptimizer, {}),
-            (qml.AdamOptimizer, {'stepsize': 0.10, "beta1": 0.9, 'beta2': 0.999, 'eps': 1e-7}),
-            (qml.QNGOptimizer, {'stepsize':0.1, 'lam': 1e-3}),
-            ]
 
-    solved = False
-    for Opt, kwargs in optimizers:
-        opt = Opt(**kwargs)
-        for i in range(500):
-            last_cost = energy
-            params, energy = opt.step_and_cost(cost_fn, params)
-            if np.abs(energy - last_cost)<5e-4 and np.linalg.norm(qml.grad(cost_fn)(params))<1e-2:
-                solved = True
-                break
-            #if i%10==0:
-                #print(f"At step {i}, have cost {energy} at params {params}.")
-        if solved:
+    @qml.qnode(dev)
+    def qnode(params):
+        variational_ansatz(params, wires=range(N))
+        return qml.state()
+
+    # Set up an optimizer
+    opt = qml.RotosolveOptimizer()
+
+    # Run the VQE by iterating over many steps of the optimizer
+    for i in range(500):
+        last_cost = energy
+        if i%10==0:
+            print(f"At step {i}, have cost {energy} at params {params}.")
+            print(qnode(params))
+        params, energy = opt.step_and_cost(cost_fn, params)
+        if np.abs(energy - last_cost)<5e-4 and np.linalg.norm(qml.grad(cost_fn)(params))<1e-2:
+            solved = True
             break
-
-    # Create a quantum device, set up a cost funtion and optimizer, and run the VQE.
-    # (We recommend ~500 iterations to ensure convergence for this problem,
-    # or you can design your own convergence criteria)
+    print(qnode(params))
 
     # QHACK #
 
