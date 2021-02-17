@@ -34,21 +34,42 @@ def optimize_circuit(params):
     @qml.qnode(dev, diff_method="parameter-shift")
     def circuit(weights):
         return variational_circuit(weights)
+    
 
-    gradient = np.zeros_like(params) # will hold our gradient values
-    grad_function = qml.grad(circuit) # the gradient function (defined in qml.qnode)
-    opt = qml.GradientDescentOptimizer(stepsize = 0.5) # init optimizer
-    if (2 == DEBUG):
-        print("progress:", circuit(params))
-    for i in range(100): # alternatively, one could observe convergence through delta in param
-        gradient = grad_function(params)[0] # calculate gradients
-        params = opt.apply_grad(gradient, params) # update parameters
-        if (2 == DEBUG):
-            print("progress:", circuit(params))
+    ### new ###
+    # gradient calculation
+    def psr(params, par):
+        h = np.pi/2
+        y_pred = circuit(params)
+        shifted_params = params.copy()
+        shifted_params[par] += h
+        y_p = circuit(shifted_params)
+        shifted_params[par] -= 2*h
+        y_m = circuit(shifted_params)
+        gradient = (y_p - y_m)/2
+        #gradient = (l2_loss(y, y_p) - l2_loss(y, y_m))/(2)
+        return gradient
+
+
+    # training
+    for sample in range(100):
+
+        gradients_psr = np.zeros((len(params)))
+        # calculate gradient for every component of the gradient vector
+        for par in range(len(params)):
+            gradient_psr = psr(params, par) # using PSR
+            gradients_psr[par] = gradient_psr
+
+        # parameter update for every parameter in the parameter vector
+        for par in range(len(params)):
+            if sample < 100: lr_psr = 0.2
+            elif sample < 200: lr_psr = 0.1
+            elif sample < 250: lr_psr = 0.05
+            # learning rate PSR
+            params[par] = (params[par] - lr_psr * gradients_psr[par]) % (2*np.pi)
+
 
     optimal_value = circuit(params)
-    if (1 <= DEBUG):
-        print("Final value:", optimal_value)
     # QHACK #
 
     # Return the value of the minimized QNode

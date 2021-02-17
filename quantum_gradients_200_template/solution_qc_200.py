@@ -23,7 +23,7 @@ def gradient_200(weights, dev):
             * hessian is a real NumPy array of size (5, 5).
     """
 
-    @qml.qnode(dev, interface=None, diff_method="parameter-shift")
+    @qml.qnode(dev, interface=None)
     def circuit(w):
         for i in range(3):
             qml.RX(w[i], wires=i)
@@ -94,12 +94,6 @@ def gradient_200(weights, dev):
         (grad, hessian_element) = gradient_and_diagonal_hessian_elements(circuit, weights, i, f_theta)
         gradient[i] = grad
         hessian[i][i] = hessian_element
-
-    print("hessian")
-    print(hessian)
-    print("gradients")
-    print(gradient)
-
 
     # QHACK #
 
