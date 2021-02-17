@@ -68,13 +68,25 @@ def run_vqe(H):
     dev = qml.device('qulacs.simulator', wires=num_qubits)
 
     cost_fn = qml.ExpvalCost(variational_ansatz, H, dev)
+    optimizers = [
+            (qml.RotosolveOptimizer, {}),
+            (qml.AdamOptimizer, {'stepsize': 0.10, "beta1": 0.9, 'beta2': 0.999, 'eps': 1e-7}),
+            (qml.QNGOptimizer, {'stepsize':0.1, 'lam': 1e-3}),
+            ]
 
-    opt = qml.RotosolveOptimizer()#stepsize=0.10, beta1=0.9, beta2=0.999, eps=1e-7)
-    for i in range(30):
-        params, current_cost = opt.step_and_cost(cost_fn, params)
-        #if i%10==0:
-            #print(f"At step {i}, have cost {current_cost} at params {params}.")
-    energy = current_cost
+    solved = False
+    for Opt, kwargs in optimizers:
+        opt = Opt(**kwargs)
+        for i in range(500):
+            last_cost = energy
+            params, energy = opt.step_and_cost(cost_fn, params)
+            if np.abs(energy - last_cost)<5e-4 and np.linalg.norm(qml.grad(cost_fn)(params))<1e-2:
+                solved = True
+                break
+            if i%10==0:
+                print(f"At step {i}, have cost {energy} at params {params}.")
+        if solved:
+            break
 
     # Create a quantum device, set up a cost funtion and optimizer, and run the VQE.
     # (We recommend ~500 iterations to ensure convergence for this problem,
