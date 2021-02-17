@@ -55,7 +55,7 @@ def run_vqe(H):
     dev = qml.device('default.qubit', wires=N)
     # Randomly choose initial parameters (how many do you need?)
     params = [-1, -3]
-    #params = np.random.random(n)*0.1+0.05
+    params = np.random.random(n)*0.1+0.05
 
     # Set up a cost function
     cost_fn = qml.ExpvalCost(variational_ansatz, H, dev)
@@ -66,10 +66,11 @@ def run_vqe(H):
         return qml.state()
 
     # Set up an optimizer
-    opt = qml.RotosolveOptimizer()
+    #opt = qml.RotosolveOptimizer()
+    opt = qml.AdamOptimizer(stepsize=0.30, beta1=0.9, beta2=0.999, eps=1e-7)
 
     # Run the VQE by iterating over many steps of the optimizer
-    for i in range(100):
+    for i in range(200):
         last_cost = energy
         if i % 10 == 0:
             print(f"At step {i}, have cost {energy} at params {params}.")

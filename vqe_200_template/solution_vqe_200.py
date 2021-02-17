@@ -4,6 +4,17 @@ import sys
 import pennylane as qml
 import numpy as np
 
+def multiCRY(par, wires):
+    if len(wires)==1:
+        qml.RY(par, wires=wires)
+    elif len(wires)==2:
+        qml.CRY(par, wires=wires)
+    else:
+        multiCRY(par / 2, wires[1:])
+        qml.CNOT(wires=wires[:2])
+        multiCRY(-par / 2, wires[1:])
+        qml.CNOT(wires=wires[:2])
+        multiCRY(par / 2, [wires[0]] + wires[1:])
 
 def variational_ansatz(params, wires):
     """The variational ansatz circuit.
@@ -19,19 +30,18 @@ def variational_ansatz(params, wires):
          params (np.array): The variational parameters.
          wires (qml.Wires): The device wires that this circuit will run on.
     """
-
+    N = len(wires)
     # QHACK #
-    qml.RY(params[0], wires=wires[0])
-    for i in range(1, len(wires)-1):
-        qml.CRY(params[i], wires=[wires[i-1], wires[i]])
-        #qml.CNOT(wires=wires[i:i+2])
-
-    for i in range(len(wires)-1):
-        qml.CNOT(wires=[wires[i-1], wires[i]])
-        qml.PauliX(wires=wires[i])
-    qml.CNOT(wires=wires[:2])
-    qml.PauliX(wires=wires[0])
-
+    for i in range(N-1):
+        multiCRY(params[i], wires=wires[:i+1])
+        qml.PauliY(wires=wires[i])
+    qml.Hadamard(wires=wires[-1])
+    D = np.ones(2**N)
+    D[-1] = -1.
+    qml.DiagonalQubitUnitary(D, wires=wires)
+    qml.Hadamard(wires=wires[-1])
+    for i in range(N-1):
+        qml.PauliX(wires[i])
     # QHACK #
 
 
@@ -66,19 +76,18 @@ def run_vqe(H):
         return qml.state()
 
     # Set up an optimizer
-    opt = qml.RotosolveOptimizer()
+    opt = qml.AdamOptimizer(stepsize=0.30, beta1=0.9, beta2=0.999, eps=1e-7)
 
     # Run the VQE by iterating over many steps of the optimizer
     for i in range(500):
         last_cost = energy
-        if i%10==0:
-            print(f"At step {i}, have cost {energy} at params {params}.")
-            print(qnode(params))
+        #if i%10==0:
+            #print(f"At step {i}, have cost {energy} at params {params}.")
+            #print(qnode(params))
         params, energy = opt.step_and_cost(cost_fn, params)
         if np.abs(energy - last_cost)<5e-4 and np.linalg.norm(qml.grad(cost_fn)(params))<1e-2:
             solved = True
             break
-    print(qnode(params))
 
     # QHACK #
 
