@@ -57,10 +57,10 @@ def find_excited_states(H):
     max_iterations = 200
     conv_tol = 1e-06
 
-    params = np.random.uniform(0, 2*np.pi, 3*3*3)
+    params = np.random.uniform(0, 2*np.pi, 3*3*5)
     for n in range(max_iterations):
-        params, prev_energy = opt.step_and_cost(lambda params: cost(params, H, []), params)
-        energy = cost(params, H, [])
+        params, prev_energy = opt.step_and_cost(lambda params: cost(params, []), params)
+        energy = cost(params, [])
         conv = np.abs(energy - prev_energy)
 
         if n % 20 == 0:
