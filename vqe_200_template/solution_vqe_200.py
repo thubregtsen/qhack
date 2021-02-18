@@ -14,7 +14,7 @@ def multiCRY(par, wires):
         qml.CNOT(wires=wires[:2])
         multiCRY(-par / 2, wires[1:])
         qml.CNOT(wires=wires[:2])
-        multiCRY(par / 2, [wires[0]] + wires[1:])
+        multiCRY(par / 2, [wires[0]] + list(wires[2:]))
 
 def variational_ansatz(params, wires):
     """The variational ansatz circuit.
