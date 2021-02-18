@@ -2,8 +2,9 @@
 
 import sys
 import pennylane as qml
-import numpy as np
+from pennylane import numpy as np
 
+@qml.template
 def ansatz(params, wires):
     N = len(wires)
     n = len(params)
@@ -37,123 +38,29 @@ def find_excited_states(H):
     # QHACK #
     print(H)
 
-    init_params = [0.3, 0.25, 0.2]
-    n_steps = 100
+    N_qubits = 3
+    dev = qml.device('default.qubit', wires=N_qubits)
 
-    dev = qml.device("default.qubit", wires=3)
-    def RGen(param, generator, wires):
-        if generator == "X":
-            qml.RX(param, wires=wires)
-        elif generator == "Y":
-            qml.RY(param, wires=wires)
-        elif generator == "Z":
-            qml.RZ(param, wires=wires)
-
-
-    def ansatz_rsel(params, generators):
-        RGen(params[0], generators[0], wires=0)
-        RGen(params[1], generators[1], wires=1)
-        RGen(params[2], generators[2], wires=1)
-        qml.CNOT(wires=[0, 1])
-
+    energy_cost = qml.ExpvalCost(ansatz, H, dev)
 
     @qml.qnode(dev)
-    def circuit_rsel(params, generators):
-        ansatz_rsel(params, generators)
-        return qml.expval(qml.PauliX(0)), qml.expval(qml.PauliX(1)), qml.expval(qml.PauliX(2))
+    def overlap_circuit(params1, param2):
+        ansatz(params1, range(N_qubits))
+        qml.inv(ansatz(params2, range(N_qubits)))
 
+        return qml.probs()
 
-    @qml.qnode(dev)
-    def circuit_rsel2(params, generators):
-        ansatz_rsel(params, generators)
-        return qml.expval(qml.PauliZ(1) @ qml.PauliZ(2))
-
-
-    def cost_rsel(params, generators):
-        X0, X1, X2 = circuit_rsel(params, generators)
-        Z1Z2 = circuit_rsel2(params, generators)
-        #return 0.5 * Y_2 + 0.8 * Z_1 - 0.2 * X_1
-        return 0.35807927646889326 * X0 + 0.7556205249987815 * X1 + 0.04828309125493235 * X2 + 0.07927207111541623 * Z1Z2
-
-
-    def rotosolve(d, params, generators, cost, M_0):  # M_0 only calculated once
-        params[d] = np.pi / 2.0
-        M_0_plus = cost(params, generators)
-        params[d] = -np.pi / 2.0
-        M_0_minus = cost(params, generators)
-        a = np.arctan2(
-            2.0 * M_0 - M_0_plus - M_0_minus, M_0_plus - M_0_minus
-        )  # returns value in (-pi,pi]
-        params[d] = -np.pi / 2.0 - a
-        if params[d] <= -np.pi:
-            params[d] += 2 * np.pi
-        return cost(params, generators)
-
-
-    def optimal_theta_and_gen_helper(d, params, generators, cost):
-        params[d] = 0.0
-        M_0 = cost(params, generators)  # M_0 independent of generator selection
-        for generator in ["X", "Y", "Z"]:
-            generators[d] = generator
-            params_cost = rotosolve(d, params, generators, cost, M_0)
-            # initialize optimal generator with first item in list, "X", and update if necessary
-            if generator == "X" or params_cost <= params_opt_cost:
-                params_opt_d = params[d]
-                params_opt_cost = params_cost
-                generators_opt_d = generator
-        return params_opt_d, generators_opt_d
-
-
-    def rotoselect_cycle(cost, params, generators):
-        for d in range(len(params)):
-            params[d], generators[d] = optimal_theta_and_gen_helper(d, params, generators, cost)
-        return params, generators
-
-    costs_rsel = []
-    params_rsel = init_params.copy()
-    init_generators = ["X", "Y", "Z"]
-    generators = init_generators
-    for _ in range(n_steps):
-        costs_rsel.append(cost_rsel(params_rsel, generators))
-        params_rsel, generators = rotoselect_cycle(cost_rsel, params_rsel, generators)
-
-    print("Optimal generators are: {}".format(generators)) 
-
-    qubits = 3
-    dev = qml.device('default.qubit', wires=qubits)
-
-    @qml.qnode(dev)
-    def circuit_1(params):
-        qml.RY(params[0], wires=0)
-        qml.RY(params[1], wires=1)
-        qml.RY(params[2], wires=2)
-        qml.CNOT(wires=[0, 1])
-        return qml.expval(qml.PauliX(0)), qml.expval(qml.PauliX(1)), qml.expval(qml.PauliX(2))
-
-
-    @qml.qnode(dev)
-    def circuit_2(params):
-        qml.RY(params[0], wires=0)
-        qml.RY(params[1], wires=1)
-        qml.RY(params[2], wires=2)
-        qml.CNOT(wires=[0, 1])
-        return qml.expval(qml.PauliZ(1) @ qml.PauliZ(2))
-
-
-    def cost_r12(params):
-        X0, X1, X2 = circuit_1(params)
-        Z1Z2 = circuit_2(params)
-        #return 0.5 * Y_2 + 0.8 * Z_1 - 0.2 * X_1
-        return 0.35807927646889326 * X0 + 0.7556205249987815 * X1 + 0.04828309125493235 * X2 + 0.07927207111541623 * Z1Z2
+    def cost(params, excluded_params):
+        return energy_cost(params) + 3 * np.sum([overlap_circuit(params, excluded_param)[0] for param in excluded_params])
 
     opt = qml.GradientDescentOptimizer(stepsize=0.4)
     max_iterations = 200
     conv_tol = 1e-06
 
-    params = params_rsel
+    params = np.random.uniform(0, 2*np.pi, 3*3*3)
     for n in range(max_iterations):
-        params, prev_energy = opt.step_and_cost(cost_r12, params)
-        energy = cost_r12(params)
+        params, prev_energy = opt.step_and_cost(lambda params: cost(params, H, []), params)
+        energy = cost(params, H, [])
         conv = np.abs(energy - prev_energy)
 
         if n % 20 == 0:
