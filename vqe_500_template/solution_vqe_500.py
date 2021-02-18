@@ -36,9 +36,10 @@ def find_excited_states(H):
     energies = np.zeros(3)
 
     # QHACK #
-    print(H)
+    # print(H)
+    wires = H.wires
+    N_qubits = len(wires)
 
-    N_qubits = 3
     dev = qml.device('default.qubit', wires=N_qubits)
     overlap_dev = qml.device('default.qubit', wires=N_qubits)
 
@@ -58,10 +59,11 @@ def find_excited_states(H):
 
         return energy_cost(params) + 6 * overlaps
 
-    opt = qml.GradientDescentOptimizer(stepsize=0.2)
+    opt = qml.GradientDescentOptimizer(stepsize=0.25)
     max_iterations = 200
-    conv_tol = 1e-06
-    N_params = 3*3*5
+    conv_tol = 5e-05
+    N_layers = 5
+    N_params = N_qubits * 3 * N_layers
 
     params1 = np.random.uniform(0, 2*np.pi, N_params)
     for n in range(max_iterations):
@@ -69,17 +71,17 @@ def find_excited_states(H):
         energy = cost(params1, [])
         conv = np.abs(energy - prev_energy)
 
-        if n % 20 == 0:
-            print('[1] Iteration = {:},  Energy = {:.8f} Ha'.format(n, energy))
+        # if n % 20 == 0:
+            # print('[1] Iteration = {:},  Energy = {:.8f} Ha'.format(n, energy))
 
         if conv <= conv_tol:
             break
 
     energies[0] = energy
 
-    print('[1] Final convergence parameter = {:.8f} Ha'.format(conv))
-    print('[1] Final value of the state energy = {:.8f} Ha'.format(energy))
-    print()
+    # print('[1] Final convergence parameter = {:.8f} Ha'.format(conv))
+    # print('[1] Final value of the state energy = {:.8f} Ha'.format(energy))
+    # print()
 
     params2 = np.random.uniform(0, 2*np.pi, N_params)
     prev_energy = energy_cost(params2)
@@ -89,18 +91,18 @@ def find_excited_states(H):
         conv = np.abs(energy - prev_energy)
         prev_energy = energy
 
-        if n % 10 == 0:
-            print('[2] Iteration = {:},  Energy = {:.8f} Ha, Cost = {:.8f}, Overlap = {:.8f}'.format(n, energy, cost(params2, [params1]), overlap_circuit(params2, params1)[0]))
+        # if n % 10 == 0:
+            # print('[2] Iteration = {:},  Energy = {:.8f} Ha, Cost = {:.8f}, Overlap = {:.8f}'.format(n, energy, cost(params2, [params1]), overlap_circuit(params2, params1)[0]))
 
         if conv <= conv_tol:
             break
 
     energies[1] = energy
 
-    print('[2] Final convergence parameter = {:.8f} Ha'.format(conv))
-    print('[2] Final value of the state energy = {:.8f} Ha'.format(energy))
-    print('[2] Final overlap with ground state = {:.8f}'.format(overlap_circuit(params2, params1)[0]))
-    print()
+    # print('[2] Final convergence parameter = {:.8f} Ha'.format(conv))
+    # print('[2] Final value of the state energy = {:.8f} Ha'.format(energy))
+    # print('[2] Final overlap with ground state = {:.8f}'.format(overlap_circuit(params2, params1)[0]))
+    # print()
 
     params3 = np.random.uniform(0, 2*np.pi, N_params)
     prev_energy = energy_cost(params3)
@@ -110,23 +112,22 @@ def find_excited_states(H):
         conv = np.abs(energy - prev_energy)
         prev_energy = energy
 
-
-        if n % 20 == 0:
-            print('[3] Iteration = {:},  Energy = {:.8f} Ha, Overlaps = {:.8f}, {:.8f}'.format(n, energy, overlap_circuit(params3, params1)[0], overlap_circuit(params3, params2)[0]))
+        # if n % 20 == 0:
+            # print('[3] Iteration = {:},  Energy = {:.8f} Ha, Overlaps = {:.8f}, {:.8f}'.format(n, energy, overlap_circuit(params3, params1)[0], overlap_circuit(params3, params2)[0]))
 
         if conv <= conv_tol:
             break
 
     energies[2] = energy
 
-    print('[3] Final convergence parameter = {:.8f} Ha'.format(conv))
-    print('[3] Final value of the state energy = {:.8f} Ha'.format(energy))
-    print('[3] Final overlap with ground state = {:.8f}'.format(overlap_circuit(params3, params1)[0]))
-    print('[3] Final overlap with first excited = {:.8f}'.format(overlap_circuit(params3, params2)[0]))
-    print()
+    # print('[3] Final convergence parameter = {:.8f} Ha'.format(conv))
+    # print('[3] Final value of the state energy = {:.8f} Ha'.format(energy))
+    # print('[3] Final overlap with ground state = {:.8f}'.format(overlap_circuit(params3, params1)[0]))
+    # print('[3] Final overlap with first excited = {:.8f}'.format(overlap_circuit(params3, params2)[0]))
+    # print()
 
-    print('Final energies: ')
-    print(energies)
+    # print('Final energies: ')
+    # print(energies)
 
     # QHACK #
 
