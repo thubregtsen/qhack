@@ -12,9 +12,9 @@ def ansatz(params, wires):
     L = n//sub_n
     for l in range(L):
         for i in range(N):
-            qml.RZ(params[l*sub_n+i], wires=wires[i])
-            qml.RX(params[l*sub_n+i+1], wires=wires[i])
-            qml.RZ(params[l*sub_n+i+2], wires=wires[i])
+            qml.RX(params[l*sub_n+i], wires=wires[i])
+            qml.RY(params[l*sub_n+i+1], wires=wires[i])
+            qml.RX(params[l*sub_n+i+2], wires=wires[i])
         for i in range(N):
             qml.CNOT(wires=[wires[i], wires[(i+1)%N]])
 
@@ -40,49 +40,97 @@ def find_excited_states(H):
 
     N_qubits = 3
     dev = qml.device('default.qubit', wires=N_qubits)
+    overlap_dev = qml.device('default.qubit', wires=N_qubits)
 
     energy_cost = qml.ExpvalCost(ansatz, H, dev)
 
-    @qml.qnode(dev)
-    def overlap_circuit(params1, param2):
-        ansatz(params1, range(N_qubits))
-        qml.inv(ansatz(params2, range(N_qubits)))
+    @qml.qnode(overlap_dev)
+    def overlap_circuit(p1, p2):
+        ansatz(p1, range(N_qubits))
+        qml.inv(ansatz(p2, range(N_qubits)))
 
-        return qml.probs()
+        return qml.probs(range(N_qubits))
 
     def cost(params, excluded_params):
-        return energy_cost(params) + 3 * np.sum([overlap_circuit(params, excluded_param)[0] for param in excluded_params])
+        overlaps = 0
+        for excluded_param in excluded_params:
+            overlaps += overlap_circuit(params, excluded_param)[0]
 
-    opt = qml.GradientDescentOptimizer(stepsize=0.4)
+        return energy_cost(params) + 6 * overlaps
+
+    opt = qml.GradientDescentOptimizer(stepsize=0.2)
     max_iterations = 200
     conv_tol = 1e-06
+    N_params = 3*3*5
 
-    params = np.random.uniform(0, 2*np.pi, 3*3*5)
+    params1 = np.random.uniform(0, 2*np.pi, N_params)
     for n in range(max_iterations):
-        params, prev_energy = opt.step_and_cost(lambda params: cost(params, []), params)
-        energy = cost(params, [])
+        params1, prev_energy = opt.step_and_cost(lambda params: cost(params, []), params1)
+        energy = cost(params1, [])
         conv = np.abs(energy - prev_energy)
 
         if n % 20 == 0:
-            print('Iteration = {:},  Energy = {:.8f} Ha'.format(n, energy))
+            print('[1] Iteration = {:},  Energy = {:.8f} Ha'.format(n, energy))
 
         if conv <= conv_tol:
             break
 
+    energies[0] = energy
+
+    print('[1] Final convergence parameter = {:.8f} Ha'.format(conv))
+    print('[1] Final value of the state energy = {:.8f} Ha'.format(energy))
     print()
-    print('Final convergence parameter = {:.8f} Ha'.format(conv))
-    print('Final value of the ground-state energy = {:.8f} Ha'.format(energy))
-    print('Accuracy with respect to the FCI energy: {:.8f} Ha ({:.8f} kcal/mol)'.format(
-        np.abs(energy - (-1.136189454088)), np.abs(energy - (-1.136189454088))*627.503
-        )
-    )
+
+    params2 = np.random.uniform(0, 2*np.pi, N_params)
+    prev_energy = energy_cost(params2)
+    for n in range(max_iterations):
+        params2 = opt.step(lambda params: cost(params, [params1, ]), params2)
+        energy = energy_cost(params2)
+        conv = np.abs(energy - prev_energy)
+        prev_energy = energy
+
+        if n % 10 == 0:
+            print('[2] Iteration = {:},  Energy = {:.8f} Ha, Cost = {:.8f}, Overlap = {:.8f}'.format(n, energy, cost(params2, [params1]), overlap_circuit(params2, params1)[0]))
+
+        if conv <= conv_tol:
+            break
+
+    energies[1] = energy
+
+    print('[2] Final convergence parameter = {:.8f} Ha'.format(conv))
+    print('[2] Final value of the state energy = {:.8f} Ha'.format(energy))
+    print('[2] Final overlap with ground state = {:.8f}'.format(overlap_circuit(params2, params1)[0]))
     print()
-    print('Final circuit parameters = \n', params)
+
+    params3 = np.random.uniform(0, 2*np.pi, N_params)
+    prev_energy = energy_cost(params3)
+    for n in range(max_iterations):
+        params3 = opt.step(lambda params: cost(params, [params1, params2]), params3)
+        energy = energy_cost(params3)
+        conv = np.abs(energy - prev_energy)
+        prev_energy = energy
+
+
+        if n % 20 == 0:
+            print('[3] Iteration = {:},  Energy = {:.8f} Ha, Overlaps = {:.8f}, {:.8f}'.format(n, energy, overlap_circuit(params3, params1)[0], overlap_circuit(params3, params2)[0]))
+
+        if conv <= conv_tol:
+            break
+
+    energies[2] = energy
+
+    print('[3] Final convergence parameter = {:.8f} Ha'.format(conv))
+    print('[3] Final value of the state energy = {:.8f} Ha'.format(energy))
+    print('[3] Final overlap with ground state = {:.8f}'.format(overlap_circuit(params3, params1)[0]))
+    print('[3] Final overlap with first excited = {:.8f}'.format(overlap_circuit(params3, params2)[0]))
+    print()
+
+    print('Final energies: ')
+    print(energies)
 
     # QHACK #
 
-    return energy
-    #return ",".join([str(E) for E in energies])
+    return ",".join([str(E) for E in energies])
 
 
 def pauli_token_to_operator(token):
