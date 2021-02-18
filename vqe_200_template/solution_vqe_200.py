@@ -76,7 +76,7 @@ def run_vqe(H):
         return qml.state()
 
     # Set up an optimizer
-    opt = qml.AdamOptimizer(stepsize=0.30, beta1=0.9, beta2=0.999, eps=1e-7)
+    opt = qml.AdamOptimizer(stepsize=0.40, beta1=0.85, beta2=0.95, eps=1e-7)
 
     # Run the VQE by iterating over many steps of the optimizer
     for i in range(500):
@@ -85,7 +85,7 @@ def run_vqe(H):
             #print(f"At step {i}, have cost {energy} at params {params}.")
             #print(qnode(params))
         params, energy = opt.step_and_cost(cost_fn, params)
-        if np.abs(energy - last_cost)<5e-4 and np.linalg.norm(qml.grad(cost_fn)(params))<1e-2:
+        if np.abs(energy - last_cost)<5e-3 and np.linalg.norm(qml.grad(cost_fn)(params))<1e-2:
             solved = True
             break
 
