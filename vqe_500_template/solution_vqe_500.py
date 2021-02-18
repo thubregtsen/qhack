@@ -59,8 +59,8 @@ def find_excited_states(H):
 
         return energy_cost(params) + 6 * overlaps
 
-    opt = qml.GradientDescentOptimizer(stepsize=0.25)
-    max_iterations = 200
+    opt = qml.AdamOptimizer(stepsize=0.25)
+    max_iterations = 100
     conv_tol = 5e-05
     N_layers = 5
     N_params = N_qubits * 3 * N_layers
