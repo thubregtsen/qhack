@@ -103,7 +103,6 @@ def kernel_matrix(A, B):
 # the actual call that feeds X_train into kernel_matrix(A,B) and calculated the distances between all points
 # svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
 
-
 # +
 def polarization(kernel, X_train, Y_train, kernel_args=(), samples=None, seed=None, normalize=False):
     """Compute the polarization of a given kernel on training data.
@@ -287,7 +286,5 @@ perf_train = validate(svm, X_train, y_train)
 perf_test = validate(svm, X_test, y_test)
 print(f"At 'optimal' parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
 # -
-
-
 
 
