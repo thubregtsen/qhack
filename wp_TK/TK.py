@@ -83,23 +83,6 @@ dev_kernel = qml.device("qulacs.simulator", wires=n_qubits)
 projector = np.zeros((2**n_qubits, 2**n_qubits))
 projector[0, 0] = 1
 
-# The actual kernel
-@qml.qnode(dev_kernel)
-def kernel(x1, x2):
-    """The quantum kernel."""
-    AngleEmbedding(x1, wires=range(n_qubits))
-    qml.inv(AngleEmbedding(x2, wires=range(n_qubits)))
-    return qml.expval(qml.Hermitian(projector, wires=range(n_qubits)))
-
-# a helper method that calculates the k(a,b) for all in A and B
-def kernel_matrix(A, B):
-    """Compute the matrix whose entries are the kernel
-       evaluated on pairwise data from sets A and B."""
-    return np.array([[kernel(a, b) for b in B] for a in A])
-
-# the actual call that feeds X_train into kernel_matrix(A,B) and calculated the distances between all points
-svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
-
 
 # -
 
@@ -130,48 +113,89 @@ def polarization(kernel, X_train, Y_train, kernel_args=(), samples=None, seed=No
     # Only need to compute the upper right triangle of the kernel matrix and y_correl_matrix (they are symmetric)
     # Actually, the diagonal is usually going to be 1 (for y_correl it is for labels +-1), but we can see that later
     for i, (x1, y1) in enumerate(zip(x, y)):
-        P += y1*y1 * kernel(x1, x1, *kernel_args) # Usually will be 1
+        P += y1*y1 * kernel(x1, x1) # Usually will be 1
         for x2, y2 in zip(x[i+1:], y[i+1:]):
-            P += 2 * y1 * y2 * kernel(x1, x2, *kernel_args)
+            P += 2 * y1 * y2 * kernel(x1, x2)
             
     return P
 
 
-def polarization_cost(param,  X_train, y_train, samples=None, seed=None):
-    # The actual kernel
-    @qml.qnode(dev_kernel)
-    def kernel(x1, x2, param):
-        """The quantum kernel."""
-        AngleEmbedding(x1, wires=range(n_qubits))
-#         [qml.CRX(param[0], wires=[i, (i+1)%n_qubits]) for i in range(n_qubits)]
-        qml.CRX(param[0], wires=[0, 1])
-        qml.inv(AngleEmbedding(x2, wires=range(n_qubits)))
-        return qml.expval(qml.Hermitian(projector, wires=range(n_qubits)))
-    return polarization(kernel, X_train, y_train, kernel_args=[param], samples=samples, seed=seed)
+# +
+# The actual kernel
+@qml.qnode(dev_kernel)
+def kernel(x1, x2):
+    """The quantum kernel."""
+    global param # as opposed to changing sklearn.SVC
+    AngleEmbedding(x1, wires=range(n_qubits))
+    qml.CRX(param[0], wires=[0, 1])
+    qml.inv(AngleEmbedding(x2, wires=range(n_qubits)))
+    return qml.expval(qml.Hermitian(projector, wires=range(n_qubits)))
+
+#def polarization_cost(param, X_train, y_train, kernel, samples=None, seed=None):
+#    return polarization(kernel, X_train, y_train, kernel_args=[param], samples=samples, seed=seed)
 
 
-#dim = 3
-dim = len(X_train)
-P = np.asarray([y_train[i]*y_train[j]*kernel(X_train[i], X_train[j]) for i in range(dim) for j in range(dim)]).reshape((dim, dim))
+# -
 
-
-P2 = polarization(kernel, X_train, y_train)
-
-P.shape
-
-print(np.sum(P))
-print(P2)
 
 param = np.random.random(1)*2*np.pi
-print(param)
-polarization_cost(param, X_train, y_train)
+#polarization_cost(param, X_train, y_train, kernel)
+polarization(kernel, X_train, y_train, kernel_args=[param])
 
 
-param
 
-qml.grad(polarization_cost, argnum=0)(param, X_train, y_train)
 
-dx = 1e-6
-(polarization_cost(param+dx/2, X_train, y_train)-polarization_cost(param-dx/2, X_train, y_train))/dx
+# +
+
+# a helper method that calculates the k(a,b) for all in A and B
+def kernel_matrix(A, B):
+    """Compute the matrix whose entries are the kernel
+       evaluated on pairwise data from sets A and B."""
+    return np.array([[kernel(a, b) for b in B] for a in A])
+
+# the actual call that feeds X_train into kernel_matrix(A,B) and calculated the distances between all points
+def validate(model, X, y_true):
+    y_pred = model.predict(X)
+    errors = np.sum(np.abs([(y_train[i] - y_pred[i])/2 for i in range(len(y_train))]))
+    return (len(y_true)-errors)/len(y_true)
+
+
+# +
+svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
+param = np.random.random(1)*2*np.pi
+print("random p; p untrained; kernel untrained", validate(svm, X_train, y_train))
+
+svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
+print("random p; p untrained; kernel trained", validate(svm, X_train, y_train))
+
+param = [0 for x in param]
+print("p at zero; kernel untrained", validate(svm, X_train, y_train))
+
+svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
+print("p at zero; kernel trained", validate(svm, X_train, y_train))
+
+
+# -
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

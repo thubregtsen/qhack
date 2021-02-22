@@ -106,11 +106,11 @@ def kernel_matrix(A, B):
 
 # actually computer the kernel (on the quantum machine) using the scikit framework
 svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
+# -
 
-# +
 print("A plot of the decision boundary by inputting an input set that is uniformly spread")
 print("Here we see the non-linear boundaries")
-sweep = True
+sweep = False
 if sweep:
 
     precision = 10 # higher is preciser and more compute time
@@ -167,7 +167,7 @@ print("The only thing left to is to sign it:", np.sign(result)[0], "to match the
 # ![image.png](attachment:image.png)
 
 # +
-print("Now, how does on train such a model?")
+print("Now, how does one train such a model?")
 print("In the case of the tutorial, one has to calculate the kernel between every element in X_train (see code comments)")
 
 n_qubits = len(X_train[0]) # -> equals number of features
@@ -195,7 +195,15 @@ svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
 
 print("as far as I can see, no further training happend. Is this correct?")
 print("y_train is purely fed to have it ready for pred(), but not used during training?")
+
+
 # -
+
+def validate(model, X, y_true):
+    y_pred = model.predict(X)
+    errors = np.sum(np.abs([(y_train[i] - y_pred[i])/2 for i in range(len(y_train))]))
+    return (len(y_true)-errors)/len(y_true)
+validate(svm, X_train, y_train)
 
 # # Comparison to classical
 
