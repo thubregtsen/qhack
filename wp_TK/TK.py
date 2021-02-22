@@ -78,7 +78,7 @@ plt.legend()
 
 # +
 n_qubits = len(X_train[0]) # -> equals number of features
-dev_kernel = qml.device("default.qubit", wires=n_qubits)
+dev_kernel = qml.device("qulacs.simulator", wires=n_qubits)
 
 projector = np.zeros((2**n_qubits, 2**n_qubits))
 projector[0, 0] = 1
@@ -103,7 +103,7 @@ svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
 
 # -
 
-def polarization(kernel, X_train, Y_train, samples=None, seed=None):
+def polarization(kernel, X_train, Y_train, kernel_args=(), samples=None, seed=None):
     """Compute the polarization of a given kernel on training data.
     Args:
       kernel (qml.kernels.Kernel): The (variational) quantum kernel (imaginary class that does not exist yet)
@@ -130,11 +130,24 @@ def polarization(kernel, X_train, Y_train, samples=None, seed=None):
     # Only need to compute the upper right triangle of the kernel matrix and y_correl_matrix (they are symmetric)
     # Actually, the diagonal is usually going to be 1 (for y_correl it is for labels +-1), but we can see that later
     for i, (x1, y1) in enumerate(zip(x, y)):
-        P += y1*y1 * kernel(x1, x1) # Usually will be 1
+        P += y1*y1 * kernel(x1, x1, *kernel_args) # Usually will be 1
         for x2, y2 in zip(x[i+1:], y[i+1:]):
-            P += 2 * y1 * y2 * kernel(x1, x2)
+            P += 2 * y1 * y2 * kernel(x1, x2, *kernel_args)
             
     return P
+
+
+def polarization_cost(param,  X_train, y_train, samples=None, seed=None):
+    # The actual kernel
+    @qml.qnode(dev_kernel)
+    def kernel(x1, x2, param):
+        """The quantum kernel."""
+        AngleEmbedding(x1, wires=range(n_qubits))
+#         [qml.CRX(param[0], wires=[i, (i+1)%n_qubits]) for i in range(n_qubits)]
+        qml.CRX(param[0], wires=[0, 1])
+        qml.inv(AngleEmbedding(x2, wires=range(n_qubits)))
+        return qml.expval(qml.Hermitian(projector, wires=range(n_qubits)))
+    return polarization(kernel, X_train, y_train, kernel_args=[param], samples=samples, seed=seed)
 
 
 #dim = 3
@@ -148,5 +161,17 @@ P.shape
 
 print(np.sum(P))
 print(P2)
+
+param = np.random.random(1)*2*np.pi
+print(param)
+polarization_cost(param, X_train, y_train)
+
+
+param
+
+qml.grad(polarization_cost, argnum=0)(param, X_train, y_train)
+
+dx = 1e-6
+(polarization_cost(param+dx/2, X_train, y_train)-polarization_cost(param-dx/2, X_train, y_train))/dx
 
 
