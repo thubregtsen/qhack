@@ -27,8 +27,11 @@ from sklearn.metrics import accuracy_score
 import pennylane as qml
 from pennylane.templates import AngleEmbedding, StronglyEntanglingLayers
 from pennylane.operation import Tensor
+import pennylane.kernels as kern
 
+import matplotlib
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 import jupytext
 
@@ -45,7 +48,7 @@ print("y contains the following classes", np.unique(y))
 # pick inputs and labels from the first two classes only,
 # corresponding to the first 100 samples
 # -> meanig y now consists of 2 classes: 0, 1; still stored in order, balanced 50:50
-X = X[:100,0:2]
+X = X[:100,:2]
 y = y[:100]
 
 print("The dataset is trimmed so that the total number of samples are ", len(X))
@@ -78,14 +81,14 @@ plt.legend()
 
 # +
 n_qubits = len(X_train[0]) # -> equals number of features
-dev_kernel = qml.device("qulacs.simulator", wires=n_qubits)
+dev_kernel = qml.device("default.qubit", wires=n_qubits)
 
 projector = np.zeros((2**n_qubits, 2**n_qubits))
 projector[0, 0] = 1
 
 # The actual kernel
 @qml.qnode(dev_kernel)
-def kernel(x1, x2):
+def kernel(x1, x2, args=()):
     """The quantum kernel."""
     AngleEmbedding(x1, wires=range(n_qubits))
     qml.inv(AngleEmbedding(x2, wires=range(n_qubits)))
@@ -98,12 +101,11 @@ def kernel_matrix(A, B):
     return np.array([[kernel(a, b) for b in B] for a in A])
 
 # the actual call that feeds X_train into kernel_matrix(A,B) and calculated the distances between all points
-svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
+# svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
 
 
-# -
-
-def polarization(kernel, X_train, Y_train, kernel_args=(), samples=None, seed=None):
+# +
+def polarization(kernel, X_train, Y_train, kernel_args=(), samples=None, seed=None, normalize=False):
     """Compute the polarization of a given kernel on training data.
     Args:
       kernel (qml.kernels.Kernel): The (variational) quantum kernel (imaginary class that does not exist yet)
@@ -114,64 +116,178 @@ def polarization(kernel, X_train, Y_train, kernel_args=(), samples=None, seed=No
     Returns:
       P (float): The polarization of the kernel on the given data.
     """        
+#     print(kernel_args, samples, seed, normalize)
     if seed is None:
         seed = np.random.randint(0, 1000000)
+    m = len(Y_train)
     np.random.seed(seed)
-    if samples is None:
+    if samples is None or samples>m:
         x = X_train
         y = Y_train
-        samples = len(y)
+        samples = m
     else:
-        sampled = np.random.choice(list(range(len(Y_train))), samples)
+        sampled = np.random.choice(list(range(m)), samples)
         x = X_train[sampled]
         y = Y_train[sampled]
     
     P = 0
+    K = 0
     # Only need to compute the upper right triangle of the kernel matrix and y_correl_matrix (they are symmetric)
     # Actually, the diagonal is usually going to be 1 (for y_correl it is for labels +-1), but we can see that later
     for i, (x1, y1) in enumerate(zip(x, y)):
-        P += y1*y1 * kernel(x1, x1, *kernel_args) # Usually will be 1
+        k = kernel(x1, x1, kernel_args)
+        K += np.abs(k)**2
+        P += y1*y1 * k # Usually will be 1
         for x2, y2 in zip(x[i+1:], y[i+1:]):
-            P += 2 * y1 * y2 * kernel(x1, x2, *kernel_args)
+            k = kernel(x1, x2, kernel_args)
+            K += 2* np.abs(k)**2
+            P += 2 * y1 * y2 * k
+    
+    if normalize:
+        P /= np.sqrt(K) * len(y)
+    else:
+        # Adapt to sampling number if we do not normalize anyways. (When normalizing, this would cancel for K and P)
+        P /= (samples/m)**2
             
     return P
 
-
-def polarization_cost(param,  X_train, y_train, samples=None, seed=None):
-    # The actual kernel
-    @qml.qnode(dev_kernel)
-    def kernel(x1, x2, param):
-        """The quantum kernel."""
-        AngleEmbedding(x1, wires=range(n_qubits))
-#         [qml.CRX(param[0], wires=[i, (i+1)%n_qubits]) for i in range(n_qubits)]
-        qml.CRX(param[0], wires=[0, 1])
-        qml.inv(AngleEmbedding(x2, wires=range(n_qubits)))
-        return qml.expval(qml.Hermitian(projector, wires=range(n_qubits)))
-    return polarization(kernel, X_train, y_train, kernel_args=[param], samples=samples, seed=seed)
-
-
-#dim = 3
-dim = len(X_train)
-P = np.asarray([y_train[i]*y_train[j]*kernel(X_train[i], X_train[j]) for i in range(dim) for j in range(dim)]).reshape((dim, dim))
+def polarization_grad(kernel, X_train, y_train, kernel_args, dx=1e-6, **kwargs):
+    g = np.zeros_like(kernel_args)
+    shifts = np.eye(len(kernel_args))*dx/2
+    need_to_set_seed = 'seed' not in kwargs
+    for i, shift in enumerate(shifts):
+        # Even if no seed is given, fix the seed per gradient entry
+        if need_to_set_seed:
+            kwargs['seed'] = np.random.randint(0,100000) 
+        upper = polarization(kernel, X_train, y_train, kernel_args=kernel_args+shift, **kwargs)
+        lower = polarization(kernel, X_train, y_train, kernel_args=kernel_args-shift, **kwargs)
+        g[i] = (upper-lower)/dx
+#     print(g)
+    return g
 
 
-P2 = polarization(kernel, X_train, y_train)
+# -
 
-P.shape
+# Kernel optimization function
+def optimize_kernel_param(
+    kernel,
+    X_train,
+    y_train,
+    init_kernel_args,
+    samples=None,
+    seed=None,
+    normalize=False,
+    optimizer=qml.AdamOptimizer,
+    optimizer_kwargs={'stepsize':0.2},
+    N_epoch=100,
+    verbose=5,
+    dx=1e-6,
+    atol=1e-3,
+):
+    opt = optimizer(**optimizer_kwargs)
+    param = np.copy(init_kernel_args)
+    cost_fn = lambda param: -polarization(kernel, X_train, y_train, kernel_args=param, samples=samples,
+                                          seed=seed, normalize=normalize)
+    grad_fn = lambda param: (-polarization_grad(
+        kernel, X_train, y_train, kernel_args=param, samples=samples, seed=seed, dx=dx, normalize=normalize,
+    ),)
+#     def grad_fn(param):
+#         g = qml.grad(cost_fn)(param)
+#         print(g)
+#         return g
+        
+    last_cost = 1e10
+    for i in range(N_epoch):
+        param, current_cost = opt.step_and_cost(cost_fn, param, grad_fn=grad_fn)
+        if i%verbose==0:
+            print(f"At iteration {i} the polarization is {-current_cost} (params={param})")
+        if np.abs(last_cost-current_cost)<atol:
+            break
+        last_cost = current_cost
+        
+    return param, -current_cost
+                                            
 
-print(np.sum(P))
-print(P2)
 
-param = np.random.random(1)*2*np.pi
-print(param)
-polarization_cost(param, X_train, y_train)
+# +
+# This works but it is rather slow with parameter shift rule with default.qubit device
+# qml.grad(polarization_cost, argnum=0)(param, X_train, y_train)
+# -
+
+# This cell demonstrates that not too many samples are required to reproduce the polarization kind of okay-ish.
+# This is useful because the computational cost for the polarization scale quadratically in the number of samples
+# %matplotlib notebook
+P = []
+samples_ = [5*i for i in range(1, 15)]+[None]
+# samples_ = samples_[:9]
+for samples in samples_:
+    print(samples, end='   ')
+    P.append(polarization(kernel, X_train, y_train, samples=samples, normalize=True))
+print()
+sns.lineplot(x=samples_, y=P);
 
 
-param
+# +
+def train_svm(kernel, X_train, y_train, param):
+    kernel_matrix = lambda A, B: np.array([[kernel(a, b, param) for b in B] for a in A])
+    svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
+    return svm
+    
+def validate(model, X, y_true):
+    y_pred = model.predict(X)
+    errors = np.sum(np.abs([(y_true[i] - y_pred[i])/2 for i in range(len(y_true))]))
+    return (len(y_true)-errors)/len(y_true)
 
-qml.grad(polarization_cost, argnum=0)(param, X_train, y_train)
 
-dx = 1e-6
-(polarization_cost(param+dx/2, X_train, y_train)-polarization_cost(param-dx/2, X_train, y_train))/dx
+
+# +
+@qml.template
+def ansatz(x, params):
+    qml.Hadamard(wires=[0])
+    qml.CRX(params[0],wires=[0,1])
+#     qml.CRX(params[1],wires=[1,2])
+#     qml.CRX(params[2],wires=[2,3])
+    AngleEmbedding(x, wires=range(n_qubits))
+
+trainable_kernel = kern.EmbeddingKernel(ansatz, dev_kernel) # WHOOP WHOOP 
+
+init_par = np.random.random(3)
+# print(init_par.ndim)
+seed = 42
+samples = 20
+normalize = True
+vanilla_polarization = polarization(trainable_kernel, X_train, y_train, kernel_args=np.zeros_like(init_par),
+                                    samples=samples, seed=seed, normalize=normalize,)
+print(f"At param=[0....] the polarization is {vanilla_polarization}")
+opt_param, last_cost = optimize_kernel_param(
+    trainable_kernel,
+    X_train, 
+    y_train,
+    init_kernel_args=init_par,
+    samples=samples,
+    seed=seed,
+    normalize=normalize,
+    verbose=1,
+)
+
+# +
+# Compare the original ansatz to a random-parameter to a polarization-trained-parameter kernel - It seems to work!
+svm = train_svm(trainable_kernel, X_train, y_train, np.zeros_like(init_par))
+perf_train = validate(svm, X_train, y_train)
+perf_test = validate(svm, X_test, y_test)
+print(f"At zero parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
+
+svm = train_svm(trainable_kernel, X_train, y_train, init_par)
+perf_train = validate(svm, X_train, y_train)
+perf_test = validate(svm, X_test, y_test)
+print(f"At init parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
+
+svm = train_svm(trainable_kernel, X_train, y_train, opt_param)
+perf_train = validate(svm, X_train, y_train)
+perf_test = validate(svm, X_test, y_test)
+print(f"At 'optimal' parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
+# -
+
+
 
 
