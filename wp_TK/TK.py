@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py
+#     formats: ipynb,py:light
 #     text_representation:
 #       extension: .py
 #       format_name: light
@@ -99,12 +99,54 @@ def kernel_matrix(A, B):
 
 # the actual call that feeds X_train into kernel_matrix(A,B) and calculated the distances between all points
 svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
+
+
 # -
+
+def polarization(kernel, X_train, Y_train, samples=None, seed=None):
+    """Compute the polarization of a given kernel on training data.
+    Args:
+      kernel (qml.kernels.Kernel): The (variational) quantum kernel (imaginary class that does not exist yet)
+      X_train (ndarray): Training data inputs.
+      Y_train (ndarray): Training data outputs.
+      samples (int): Number of samples to draw from the training data. If None, all data will be used.
+      seed (int): Seed for random sampling from the data, if None, a random seed will be used.
+    Returns:
+      P (float): The polarization of the kernel on the given data.
+    """        
+    if seed is None:
+        seed = np.random.randint(0, 1000000)
+    np.random.seed(seed)
+    if samples is None:
+        x = X_train
+        y = Y_train
+        samples = len(y)
+    else:
+        sampled = np.random.choice(list(range(len(Y_train))), samples)
+        x = X_train[sampled]
+        y = Y_train[sampled]
+    
+    P = 0
+    # Only need to compute the upper right triangle of the kernel matrix and y_correl_matrix (they are symmetric)
+    # Actually, the diagonal is usually going to be 1 (for y_correl it is for labels +-1), but we can see that later
+    for i, (x1, y1) in enumerate(zip(x, y)):
+        P += y1*y1 * kernel(x1, x1) # Usually will be 1
+        for x2, y2 in zip(x[i+1:], y[i+1:]):
+            P += 2 * y1 * y2 * kernel(x1, x2)
+            
+    return P
+
 
 #dim = 3
 dim = len(X_train)
 P = np.asarray([y_train[i]*y_train[j]*kernel(X_train[i], X_train[j]) for i in range(dim) for j in range(dim)]).reshape((dim, dim))
 
+
+P2 = polarization(kernel, X_train, y_train)
+
 P.shape
+
+print(np.sum(P))
+print(P2)
 
 
