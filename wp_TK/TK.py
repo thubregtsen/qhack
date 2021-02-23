@@ -35,7 +35,22 @@ import seaborn as sns
 
 import jupytext
 
+import time
+
 np.random.seed(42)
+# -
+have_floq_key = False
+if have_floq_key:
+    print("you rock")
+    f = open("floq_key", "r")
+    floq_key = f.read().replace("\n", "")
+    from remote_cirq import RemoteSimulator
+    import cirq
+    import sympy
+    import remote_cirq
+
+
+
 
 # +
 # load the data
@@ -81,27 +96,29 @@ plt.legend()
 
 # +
 n_qubits = len(X_train[0]) # -> equals number of features
-dev_kernel = qml.device("default.qubit", wires=n_qubits)
-
+if have_floq_key:
+    sim = remote_cirq.RemoteSimulator(floq_key)
+    dev_kernel = qml.device("cirq.simulator",
+                 wires=n_qubits,
+                 simulator=sim,
+                 analytic=False)
+else:
+    dev_kernel = qml.device("default.qubit", wires=n_qubits)
+    
+    
 projector = np.zeros((2**n_qubits, 2**n_qubits))
 projector[0, 0] = 1
 
-# The actual kernel
-@qml.qnode(dev_kernel)
-def kernel(x1, x2, args=()):
-    """The quantum kernel."""
-    AngleEmbedding(x1, wires=range(n_qubits))
-    qml.inv(AngleEmbedding(x2, wires=range(n_qubits)))
-    return qml.expval(qml.Hermitian(projector, wires=range(n_qubits)))
+# -
 
-# a helper method that calculates the k(a,b) for all in A and B
-def kernel_matrix(A, B):
-    """Compute the matrix whose entries are the kernel
-       evaluated on pairwise data from sets A and B."""
-    return np.array([[kernel(a, b) for b in B] for a in A])
 
-# the actual call that feeds X_train into kernel_matrix(A,B) and calculated the distances between all points
-# svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
+
+
+
+
+
+
+
 
 # +
 def polarization(kernel, X_train, Y_train, kernel_args=(), samples=None, seed=None, normalize=False):
@@ -119,6 +136,7 @@ def polarization(kernel, X_train, Y_train, kernel_args=(), samples=None, seed=No
     if seed is None:
         seed = np.random.randint(0, 1000000)
     m = len(Y_train)
+    seed = 42 # NOTE: I FIXED THE SEED with a guarfor performance testing
     np.random.seed(seed)
     if samples is None or samples>m:
         x = X_train
@@ -178,7 +196,7 @@ def optimize_kernel_param(
     normalize=False,
     optimizer=qml.AdamOptimizer,
     optimizer_kwargs={'stepsize':0.2},
-    N_epoch=100,
+    N_epoch=20,
     verbose=5,
     dx=1e-6,
     atol=1e-3,
@@ -205,26 +223,70 @@ def optimize_kernel_param(
         last_cost = current_cost
         
     return param, -current_cost
-                                            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+dev_kernel
+
+dev_kernel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # +
 # This works but it is rather slow with parameter shift rule with default.qubit device
 # qml.grad(polarization_cost, argnum=0)(param, X_train, y_train)
-# -
 
+# +
 # This cell demonstrates that not too many samples are required to reproduce the polarization kind of okay-ish.
 # This is useful because the computational cost for the polarization scale quadratically in the number of samples
-# %matplotlib notebook
-P = []
-samples_ = [5*i for i in range(1, 15)]+[None]
-# samples_ = samples_[:9]
-for samples in samples_:
-    print(samples, end='   ')
-    P.append(polarization(kernel, X_train, y_train, samples=samples, normalize=True))
-print()
-sns.lineplot(x=samples_, y=P);
-
+# #%matplotlib notebook
+#P = []
+#samples_ = [5*i for i in range(1, 15)]+[None]
+## samples_ = samples_[:9]
+#for samples in samples_:
+#    print(samples, end='   ')
+#    P.append(polarization(kernel, X_train, y_train, samples=samples, normalize=True))
+#print()
+#sns.lineplot(x=samples_, y=P);
 
 # +
 def train_svm(kernel, X_train, y_train, param):
@@ -237,14 +299,17 @@ def validate(model, X, y_true):
     errors = np.sum(np.abs([(y_true[i] - y_pred[i])/2 for i in range(len(y_true))]))
     return (len(y_true)-errors)/len(y_true)
 
+# -
+
 
 
 # +
 @qml.template
 def ansatz(x, params):
     qml.Hadamard(wires=[0])
-    qml.CRX(params[0],wires=[0,1])
-#     qml.CRX(params[1],wires=[1,2])
+    #qml.RX(params[0],wires=0)
+#    cirq.XPowGate(exponent=params[0] / np.pi, global_shift=-0.5)
+    qml.CRX(params[1],wires=[0,1])
 #     qml.CRX(params[2],wires=[2,3])
     AngleEmbedding(x, wires=range(n_qubits))
 
@@ -253,11 +318,12 @@ trainable_kernel = kern.EmbeddingKernel(ansatz, dev_kernel) # WHOOP WHOOP
 init_par = np.random.random(3)
 # print(init_par.ndim)
 seed = 42
-samples = 20
+samples = 30
 normalize = True
 vanilla_polarization = polarization(trainable_kernel, X_train, y_train, kernel_args=np.zeros_like(init_par),
                                     samples=samples, seed=seed, normalize=normalize,)
 print(f"At param=[0....] the polarization is {vanilla_polarization}")
+start = time.time()
 opt_param, last_cost = optimize_kernel_param(
     trainable_kernel,
     X_train, 
@@ -268,6 +334,8 @@ opt_param, last_cost = optimize_kernel_param(
     normalize=normalize,
     verbose=1,
 )
+end = time.time()
+print("time elapsed:", end-start)
 
 # +
 # Compare the original ansatz to a random-parameter to a polarization-trained-parameter kernel - It seems to work!
@@ -286,5 +354,7 @@ perf_train = validate(svm, X_train, y_train)
 perf_test = validate(svm, X_test, y_test)
 print(f"At 'optimal' parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
 # -
+dev_kernel.num_executions
+
 
 
