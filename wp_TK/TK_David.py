@@ -58,8 +58,8 @@ if data=='iris':
     # pick inputs and labels from the first two classes only,
     # corresponding to the first 100 samples
     # -> meanig y now consists of 2 classes: 0, 1; still stored in order, balanced 50:50
-    X = X[:100,:2]
-    y = y[:100]
+    X = X[:100:4,:2]
+    y = y[:100:4]
 
     print("The dataset is trimmed so that the total number of samples are ", len(X))
     print("The original tutorial sticked with 4 features, I (Tom) reduced it to ", len(X[0]))
@@ -85,9 +85,9 @@ if data=='iris':
     print("Lastly, the data is shuffled and split into", len(X_train), "training samples and", len(X_test), "samples")
 
     print("The training data is as follows:")
-#     plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", label=1)
-#     plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", label=-1)
-#     plt.legend()
+    plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", label=1)
+    plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", label=-1)
+    plt.legend()
 elif data=='cake':
     num_sectors = 15
     num_samples = 0
@@ -168,6 +168,10 @@ def target_alignment_grad(X_train, y_train, kernel, kernel_args, dx=1e-6, **kwar
 
 # +
 @qml.template
+def angle_embedding(x, params):
+    AngleEmbedding(x, wires=range(n_qubits))
+
+@qml.template
 def simple_variational_ansatz(x, params):
     qml.Hadamard(wires=[0])
     qml.CRX(params[1],wires=[0,1])
@@ -232,6 +236,8 @@ def optimize_kernel_param(
     last_cost = 1e10
     for i in range(N_epoch):
         x, y = sample_data(X_train, y_train, samples, seed)
+        x = X_train
+        y = y_train
     #     print(x, y)
         cost_fn = lambda param: -kernel.target_alignment(x, y, param)
         grad_fn = lambda param: (-target_alignment_grad(
@@ -266,8 +272,15 @@ if False:
 
 # +
 def train_svm(kernel, X_train, y_train, param):
-    k_mat = lambda X, Y: kernel.kernel_matrix(X, param)
-    svm = SVC(kernel=k_mat).fit(X_train, y_train)
+    def kernel_matrix(A, B):
+        M = np.eye(len(A))
+        for i, a in enumerate(A):
+            for j, b in enumerate(B[i+1:]):
+                M[i, j] = kernel(a, b, param)
+                M[j, i] = M[i, j]
+        return M
+#     k_mat = lambda X, Y: kern.kernel_matrix(X, Y, kernel, param)
+    svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
     return svm
     
 def validate(model, X, y_true):
@@ -283,7 +296,8 @@ def validate(model, X, y_true):
 num_param = 2
 init_par = np.random.random(num_param) * 2 * np.pi
 ansatz = lambda x, param: product_embedding(x, param, rxrzrx_template)
-trainable_kernel = kern.EmbeddingKernel(ansatz, dev_kernel) # WHOOP WHOOP 
+
+trainable_kernel = kern.EmbeddingKernel(angle_embedding, dev_kernel) # WHOOP WHOOP 
 
 seed = 42
 samples = 10
@@ -310,6 +324,8 @@ print("time elapsed:", end-start)
 # +
 # Compare the original ansatz to a random-parameter to a polarization-trained-parameter kernel - It seems to work!
 x, y = sample_data(X_train, y_train, samples=10)
+x = X_train
+y = y_train
 svm = train_svm(trainable_kernel, x, y, np.zeros_like(init_par))
 perf_train = validate(svm, x, y)
 perf_test = validate(svm, X_test, y_test)
@@ -327,7 +343,7 @@ print(f"At 'optimal' parameters, the kernel has training set performance {perf_t
 # -
 print("we have run a total of", dev_kernel.num_executions, "circuit executions")
 
-svm.__dict__
+
 
 svm = train_svm(trainable_kernel, X_train, y_train, np.random.random(2))
 perf_train = validate(svm, X_train, y_train)
