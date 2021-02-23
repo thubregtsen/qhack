@@ -31,6 +31,7 @@ from pennylane.operation import Tensor
 import pennylane.kernels as kern
 
 import matplotlib
+from matplotlib import cm
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -45,7 +46,7 @@ np.random.seed(42)
 # # Data
 
 
-data = 'cake'
+data = 'iris'
 if data=='iris':
     # load the data
     X, y = load_iris(return_X_y=True) 
@@ -84,11 +85,11 @@ if data=='iris':
     print("Lastly, the data is shuffled and split into", len(X_train), "training samples and", len(X_test), "samples")
 
     print("The training data is as follows:")
-    plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", label=1)
-    plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", label=-1)
-    plt.legend()
+#     plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", label=1)
+#     plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", label=-1)
+#     plt.legend()
 elif data=='cake':
-    num_sectors = 25
+    num_sectors = 15
     num_samples = 0
     cake = Cake(num_samples, num_sectors)
     X = np.array([[x, y] for x, y in zip(cake.X, cake.Y)])
@@ -125,7 +126,7 @@ if have_floq_key:
                  analytic=False)
 else:
     print("Lame backend selected")
-    dev_kernel = qml.device("default.qubit", wires=n_qubits)
+    dev_kernel = qml.device("default.qubit.tf", wires=n_qubits)
 
 
 # -
@@ -149,15 +150,13 @@ def sample_data(X_train, Y_train, samples=None, seed=None):
         y = Y_train[sampled]
     return x, y
 
-def polarization_grad(X_train, y_train, kernel, kernel_args, dx=1e-6, **kwargs):
+def target_alignment_grad(X_train, y_train, kernel, kernel_args, dx=1e-6, **kwargs):
     g = np.zeros_like(kernel_args)
     shifts = np.eye(len(kernel_args))*dx/2
     for i, shift in enumerate(shifts):
-        k_plus = lambda x, y: kernel(x, y, kernel_args+shift)
-        k_minus = lambda x, y: kernel(x, y, kernel_args-shift)
-        p_plus = kern.kernel_polarization(X_train, y_train, k_plus, **kwargs)
-        p_minus = kern.kernel_polarization(X_train, y_train, k_minus, **kwargs)
-        g[i] = (p_plus-p_minus)/dx
+        ta_plus = kernel.target_alignment(X_train, y_train, kernel_args+shift)
+        ta_minus = kernel.target_alignment(X_train, y_train, kernel_args-shift)
+        g[i] = (ta_plus-ta_minus)/dx
 #     print(g)
     return g
 
@@ -200,8 +199,11 @@ def product_embedding(x, param, rotation_template=rz_template):
     for i in range(1, m):
         for j in range(i):
             qml.CNOT(wires=[j, i])
-            rotation_template(x[i]*x[j], [i], param)
+            rotation_template((np.pi-x[i])*(np.pi-x[j]), [i], param)
+#             rotation_template(x[i]*x[j], [i], param)
             qml.CNOT(wires=[j, i])
+    
+
 # -
 
 # # Kernel optimization
@@ -225,19 +227,16 @@ def optimize_kernel_param(
 ):
     opt = optimizer(**optimizer_kwargs)
     param = np.copy(init_kernel_args)
-    k = lambda X, Y: kernel(X, Y, param)
-    x, y = sample_data(X_train, y_train, samples, seed)
-    cost_fn = lambda param: -kern.kernel_polarization(X_train, y_train, k, assume_normalized_kernel=True)
-    grad_fn = lambda param: (-polarization_grad(
-        X_train, y_train, kernel, kernel_args=param, dx=dx, assume_normalized_kernel=True
-    ),)
-#     def grad_fn(param):
-#         g = qml.grad(cost_fn)(param)
-#         print(g)
-#         return g
+
         
     last_cost = 1e10
     for i in range(N_epoch):
+        x, y = sample_data(X_train, y_train, samples, seed)
+    #     print(x, y)
+        cost_fn = lambda param: -kernel.target_alignment(x, y, param)
+        grad_fn = lambda param: (-target_alignment_grad(
+            x, y, kernel, kernel_args=param, dx=dx, assume_normalized_kernel=True
+        ),)
         param, current_cost = opt.step_and_cost(cost_fn, param, grad_fn=grad_fn)
         if i%verbose==0:
             print(f"At iteration {i} the polarization is {-current_cost} (params={param})")
@@ -246,7 +245,6 @@ def optimize_kernel_param(
         last_cost = current_cost
         
     return param, -current_cost
-
 
 # This cell demonstrates that not too many samples are required to reproduce the polarization kind of okay-ish.
 # This is useful because the computational cost for the polarization scale quadratically in the number of samples
@@ -257,7 +255,9 @@ if False:
     # samples_ = samples_[:9]
     for samples in samples_:
         print(samples, end='   ')
-        P.append(polarization(kernel, X_train, y_train, samples=samples, normalize=True))
+        x, y = sample_data(X_train, y_train, samples=samples)
+        P.append(kernel.target_alignment(x, y, ()))
+#         P.append(polarization(kernel, X_train, y_train, samples=samples, normalize=True))
     print()
     sns.lineplot(x=samples_, y=P);
 
@@ -275,6 +275,8 @@ def validate(model, X, y_true):
     errors = np.sum(np.abs((y_true - y_pred)/2))
     return (len(y_true)-errors)/len(y_true)
 
+# -
+
 
 
 # +
@@ -284,11 +286,12 @@ ansatz = lambda x, param: product_embedding(x, param, rxrzrx_template)
 trainable_kernel = kern.EmbeddingKernel(ansatz, dev_kernel) # WHOOP WHOOP 
 
 seed = 42
-samples = 30
+samples = 10
+
 normalize = True
-k_zero = lambda x, y: trainable_kernel(x, y, np.zeros_like(init_par))
-vanilla_polarization = kern.kernel_polarization(X_train, y_train, k_zero, assume_normalized_kernel=True)
-print(f"At param=[0....] the polarization is {vanilla_polarization}")
+
+# vanilla_polarization = trainable_kernel.target_alignment(X_train, y_train, np.zeros_like(init_par))
+# print(f"At param=[0....] the polarization is {vanilla_polarization}")
 start = time.time()
 opt_param, last_cost = optimize_kernel_param(
     trainable_kernel,
@@ -306,36 +309,70 @@ print("time elapsed:", end-start)
 
 # +
 # Compare the original ansatz to a random-parameter to a polarization-trained-parameter kernel - It seems to work!
-svm = train_svm(trainable_kernel, X_train, y_train, np.zeros_like(init_par))
-perf_train = validate(svm, X_train, y_train)
-# perf_test = validate(svm, X_test, y_test)
+x, y = sample_data(X_train, y_train, samples=10)
+svm = train_svm(trainable_kernel, x, y, np.zeros_like(init_par))
+perf_train = validate(svm, x, y)
+perf_test = validate(svm, X_test, y_test)
 print(f"At zero parameters, the kernel has training set performance {perf_train} and test set performance {' '}.")
 
-svm = train_svm(trainable_kernel, X_train, y_train, init_par)
-perf_train = validate(svm, X_train, y_train)
+svm = train_svm(trainable_kernel, x, y, init_par)
+perf_train = validate(svm, x, y)
 # perf_test = validate(svm, X_test, y_test)
 print(f"At init parameters, the kernel has training set performance {perf_train} and test set performance {' '}.")
 
-svm = train_svm(trainable_kernel, X_train, y_train, opt_param)
-perf_train = validate(svm, X_train, y_train)
+svm = train_svm(trainable_kernel, x, y, opt_param)
+perf_train = validate(svm, x, y)
 # perf_test = validate(svm, X_test, y_test)
 print(f"At 'optimal' parameters, the kernel has training set performance {perf_train} and test set performance {' '}.")
 # -
 print("we have run a total of", dev_kernel.num_executions, "circuit executions")
 
+svm.__dict__
 
+svm = train_svm(trainable_kernel, X_train, y_train, np.random.random(2))
+perf_train = validate(svm, X_train, y_train)
+perf_test = validate(svm, X_test, y_test)
+print(f"At init parameters, the kernel has training set performance {perf_train} and test set performance {' '}.")
 
+# +
+n_alpha = 10
+n_beta = n_alpha
+alphas = np.linspace(-np.pi/2, np.pi/2, n_alpha)
+betas = np.linspace(-np.pi/2, np.pi/2, n_beta)
+target_alignment = np.zeros((n_alpha,n_beta))
+classification = np.zeros((n_alpha,n_beta))
 
+for i, a in enumerate(alphas):
+    print(f"i", end='   ')
+    for j, b in enumerate(betas):
+        par = np.array([a,b])
+        target_alignment[i, j] = trainable_kernel.target_alignment(X_train, y_train, par)
+        svm = train_svm(trainable_kernel, X_train, y_train, par)
+        classification[i, j] = validate(svm, X_train, y_train)
 
+alphas, betas = np.meshgrid(alphas, betas)        
 
+# +
+# %matplotlib notebook
+fig = plt.figure()
+ax = fig.gca(projection='3d')
 
+pl = ax.plot_surface(alphas, betas, target_alignment, antialiased=False, cmap=cm.coolwarm)
 
+# +
+# %matplotlib notebook
+fig = plt.figure()
+ax = fig.gca(projection='3d')
 
+pl = ax.plot_surface(alphas, betas, classification, antialiased=False, cmap=cm.coolwarm)
+# -
 
+print("we have run a total of", dev_kernel.num_executions, "circuit executions")
 
-
-
-
+print(X_train.shape)
+print(X_test.shape)
+print(y_train.shape)
+print(y_test.shape)
 
 
 
