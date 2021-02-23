@@ -39,17 +39,9 @@ import time
 
 np.random.seed(42)
 # -
-have_floq_key = False
-if have_floq_key:
-    print("you rock")
-    f = open("floq_key", "r")
-    floq_key = f.read().replace("\n", "")
-    from remote_cirq import RemoteSimulator
-    import cirq
-    import sympy
-    import remote_cirq
 
 
+# # Data
 
 
 # +
@@ -93,31 +85,44 @@ print("The training data is as follows:")
 plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", label=1)
 plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", label=-1)
 plt.legend()
+# -
+
+# # Devices
 
 # +
 n_qubits = len(X_train[0]) # -> equals number of features
+
+# select backend
+# for floq you'll need to create a file "floq_key" with the key in it in the current dir
+# make sure it is excluded with git ignore
+have_floq_key = False
 if have_floq_key:
+    print("You rock")
+    f = open("floq_key", "r")
+    floq_key = f.read().replace("\n", "")
+    from remote_cirq import RemoteSimulator
+    import cirq
+    import sympy
+    import remote_cirq
     sim = remote_cirq.RemoteSimulator(floq_key)
     dev_kernel = qml.device("cirq.simulator",
                  wires=n_qubits,
                  simulator=sim,
                  analytic=False)
 else:
+    print("Lame backed selected")
     dev_kernel = qml.device("default.qubit", wires=n_qubits)
     
-    
-projector = np.zeros((2**n_qubits, 2**n_qubits))
-projector[0, 0] = 1
 
 # -
 
+# David, do you use this? Please either remove the comment or the code
+projector = np.zeros((2**n_qubits, 2**n_qubits))
+projector[0, 0] = 1
 
 
 
-
-
-
-
+# # Kernel
 
 
 # +
@@ -185,6 +190,7 @@ def polarization_grad(kernel, X_train, y_train, kernel_args, dx=1e-6, **kwargs):
 
 # -
 
+
 # Kernel optimization function
 def optimize_kernel_param(
     kernel,
@@ -225,68 +231,21 @@ def optimize_kernel_param(
     return param, -current_cost
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-dev_kernel
-
-dev_kernel
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# +
-# This works but it is rather slow with parameter shift rule with default.qubit device
-# qml.grad(polarization_cost, argnum=0)(param, X_train, y_train)
-
-# +
 # This cell demonstrates that not too many samples are required to reproduce the polarization kind of okay-ish.
 # This is useful because the computational cost for the polarization scale quadratically in the number of samples
-# #%matplotlib notebook
-#P = []
-#samples_ = [5*i for i in range(1, 15)]+[None]
-## samples_ = samples_[:9]
-#for samples in samples_:
-#    print(samples, end='   ')
-#    P.append(polarization(kernel, X_train, y_train, samples=samples, normalize=True))
-#print()
-#sns.lineplot(x=samples_, y=P);
+# %matplotlib notebook
+if False:
+    P = []
+    samples_ = [5*i for i in range(1, 15)]+[None]
+    # samples_ = samples_[:9]
+    for samples in samples_:
+        print(samples, end='   ')
+        P.append(polarization(kernel, X_train, y_train, samples=samples, normalize=True))
+    print()
+    sns.lineplot(x=samples_, y=P);
+
+
+# # Train and validate
 
 # +
 def train_svm(kernel, X_train, y_train, param):
@@ -299,24 +258,18 @@ def validate(model, X, y_true):
     errors = np.sum(np.abs([(y_true[i] - y_pred[i])/2 for i in range(len(y_true))]))
     return (len(y_true)-errors)/len(y_true)
 
-# -
-
 
 
 # +
 @qml.template
 def ansatz(x, params):
     qml.Hadamard(wires=[0])
-    #qml.RX(params[0],wires=0)
-#    cirq.XPowGate(exponent=params[0] / np.pi, global_shift=-0.5)
     qml.CRX(params[1],wires=[0,1])
-#     qml.CRX(params[2],wires=[2,3])
     AngleEmbedding(x, wires=range(n_qubits))
 
 trainable_kernel = kern.EmbeddingKernel(ansatz, dev_kernel) # WHOOP WHOOP 
 
 init_par = np.random.random(3)
-# print(init_par.ndim)
 seed = 42
 samples = 30
 normalize = True
@@ -354,7 +307,72 @@ perf_train = validate(svm, X_train, y_train)
 perf_test = validate(svm, X_test, y_test)
 print(f"At 'optimal' parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
 # -
-dev_kernel.num_executions
+
+
+print("we have run a total of", dev_kernel.num_executions, "circuit executions")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
