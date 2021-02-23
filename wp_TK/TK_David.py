@@ -184,6 +184,12 @@ def rxrzrx_template(x, wires, param):
     qml.RZ(x, wires=wires)
     qml.RX(param[1], wires=wires)
     
+@qml.template
+def ryrzry_template(x, wires, param):
+    qml.RY(param[0], wires=wires)
+    qml.RZ(x, wires=wires)
+    qml.RY(param[1], wires=wires)
+    
 # This can be made into a trainable embedding that inherits from the PL embedding class later on
 @qml.template
 def product_embedding(x, param, rotation_template=rz_template):
@@ -259,8 +265,9 @@ if False:
 # # Train and validate
 
 # +
-def train_svm(kernel, X_train, y_train, param, assume_normalized_kernel=True):
-    svm = SVC(kernel=kernel.kernel_matrix).fit(X_train, y_train)
+def train_svm(kernel, X_train, y_train, param):
+    k_mat = lambda X, Y: kernel.kernel_matrix(X, param)
+    svm = SVC(kernel=k_mat).fit(X_train, y_train)
     return svm
     
 def validate(model, X, y_true):
@@ -292,6 +299,7 @@ opt_param, last_cost = optimize_kernel_param(
     seed=seed,
     normalize=normalize,
     verbose=1,
+    N_epoch=10,
 )
 end = time.time()
 print("time elapsed:", end-start)
@@ -300,18 +308,18 @@ print("time elapsed:", end-start)
 # Compare the original ansatz to a random-parameter to a polarization-trained-parameter kernel - It seems to work!
 svm = train_svm(trainable_kernel, X_train, y_train, np.zeros_like(init_par))
 perf_train = validate(svm, X_train, y_train)
-perf_test = validate(svm, X_test, y_test)
-print(f"At zero parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
+# perf_test = validate(svm, X_test, y_test)
+print(f"At zero parameters, the kernel has training set performance {perf_train} and test set performance {' '}.")
 
 svm = train_svm(trainable_kernel, X_train, y_train, init_par)
 perf_train = validate(svm, X_train, y_train)
-perf_test = validate(svm, X_test, y_test)
-print(f"At init parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
+# perf_test = validate(svm, X_test, y_test)
+print(f"At init parameters, the kernel has training set performance {perf_train} and test set performance {' '}.")
 
 svm = train_svm(trainable_kernel, X_train, y_train, opt_param)
 perf_train = validate(svm, X_train, y_train)
-perf_test = validate(svm, X_test, y_test)
-print(f"At 'optimal' parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
+# perf_test = validate(svm, X_test, y_test)
+print(f"At 'optimal' parameters, the kernel has training set performance {perf_train} and test set performance {' '}.")
 # -
 print("we have run a total of", dev_kernel.num_executions, "circuit executions")
 
