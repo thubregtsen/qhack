@@ -95,7 +95,7 @@ n_qubits = len(X_train[0]) # -> equals number of features
 # select backend
 # for floq you'll need to create a file "floq_key" with the key in it in the current dir
 # make sure it is excluded with git ignore
-have_floq_key = False
+have_floq_key = True
 if have_floq_key:
     print("You rock")
     f = open("floq_key", "r")
@@ -110,7 +110,7 @@ if have_floq_key:
                  simulator=sim,
                  analytic=False)
 else:
-    print("Lame backed selected")
+    print("Lame backend selected")
     dev_kernel = qml.device("default.qubit", wires=n_qubits)
 
 
