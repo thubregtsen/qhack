@@ -273,12 +273,9 @@ if False:
 # +
 def train_svm(kernel, X_train, y_train, param):
     def kernel_matrix(A, B):
-        M = np.eye(len(A))
-        for i, a in enumerate(A):
-            for j, b in enumerate(B[i+1:]):
-                M[i, j] = kernel(a, b, param)
-                M[j, i] = M[i, j]
-        return M
+        """Compute the matrix whose entries are the kernel
+           evaluated on pairwise data from sets A and B."""
+        return np.array([[kernel(a, b, param) for b in B] for a in A])
 #     k_mat = lambda X, Y: kern.kernel_matrix(X, Y, kernel, param)
     svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
     return svm
