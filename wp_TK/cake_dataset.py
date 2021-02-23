@@ -1,3 +1,5 @@
+import numpy as np
+
 class Dataset:
     def _make_data(self):    
         center_indices = np.random.randint(0, self.num_sectors, self.num_samples)
@@ -15,7 +17,7 @@ class Dataset:
         labels = np.remainder(center_indices, 2)
         labels_sym = 2 * np.remainder(np.floor_divide(angles, sector_angle), 2) - 1
 
-    return X, Y, labels, labels_sym 
+        return X, Y, labels, labels_sym 
 
     def _make_simple_data(self):    
         center_indices = np.array(range(0, self.num_sectors))
