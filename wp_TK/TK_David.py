@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.6.0
+#       jupytext_version: 1.10.2
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -275,7 +275,8 @@ ansatz = lambda x, param: reembed(x,
                                   param,
                                   product_embedding,
                                   n_layers=2,
-                                  num_wires=n_qubits, 
+                                  n_qubits=n_qubits, 
+                                  n_features=n_features,
                                   rotation_template=rxrzrx_template)
 
 trainable_kernel = kern.EmbeddingKernel(ansatz, dev_kernel) # WHOOP WHOOP 
@@ -290,7 +291,7 @@ opt_param, last_cost = tk_lib.optimize_kernel_param(
     trainable_kernel,
     X_train, 
     y_train,
-    init_kernel_args=init_param,
+    init_param=init_param,
 #     samples=samples,
 #     seed=seed,
     verbose=1,
@@ -418,7 +419,7 @@ inds = [1,4,6,7,10,11,12,15,16]
 n_datasets = len(inds)
 for dataset_index in inds:
 #     X, y = tk_lib.load_data('../plots_and_data/train.txt', dataset_index) 
-    X, y = tk_lib.gen_cubic_data(dataset_index)
+    X, y = tk_lib.gen_cubic_data(dataset_index) # [0,16]
     init_param = np.random.random(n_param) * 2 * np.pi 
 #     print(init_param)
     opt_param, opt_cost = tk_lib.optimize_kernel_param(
