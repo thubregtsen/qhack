@@ -16,6 +16,7 @@
 
 # +
 import numpy as np
+import pandas as pd
 # import torch
 # from torch.nn.functional import relu
 
@@ -39,6 +40,7 @@ import seaborn as sns
 
 # import jupytext # this is not really needed :-)
 from cake_dataset import Dataset as Cake
+import tk_lib
 import time
 
 np.random.seed(42)
@@ -48,7 +50,7 @@ np.random.seed(42)
 # # Data
 
 
-data = 'cake'
+data = 'tom'
 if data=='iris':
     # load the data
     X, y = load_iris(return_X_y=True) 
@@ -103,6 +105,12 @@ elif data=='cake':
     plt.scatter(X_train[y_train == 1,0], X_train[y_train == 1,1], color="b", label=1)
     plt.scatter(X_train[y_train == -1,0], X_train[y_train == -1,1], color="r", label=-1)
     plt.legend()
+elif data=='tom':
+    dataset_index = 7 # range(9)
+    train_data = pd.read_pickle("../plots_and_data/train.txt")
+    test_data = pd.read_pickle("../plots_and_data/test.txt")
+    X_train, y_train = train_data.iloc[dataset_index]
+    X_test, y_test = test_data.iloc[dataset_index]
 
 # # Devices
 
@@ -132,35 +140,7 @@ else:
 
 # # Utilities
 
-# +
 
-def sample_data(X_train, Y_train, samples=None, seed=None):
-    m = len(Y_train)
-    if samples is None or samples>m:
-        x = X_train
-        y = Y_train
-        samples = m
-    else:
-        if seed is None:
-            seed = np.random.randint(0, 1000000)
-        np.random.seed(seed)
-        sampled = np.random.choice(list(range(m)), samples)
-        x = X_train[sampled]
-        y = Y_train[sampled]
-    return x, y
-
-def target_alignment_grad(X_train, y_train, kernel, kernel_args, dx=1e-6, **kwargs):
-    g = np.zeros_like(kernel_args)
-    shifts = np.eye(len(kernel_args))*dx/2
-    for i, shift in enumerate(shifts):
-        ta_plus = kernel.target_alignment(X_train, y_train, kernel_args+shift)
-        ta_minus = kernel.target_alignment(X_train, y_train, kernel_args-shift)
-        g[i] = (ta_plus-ta_minus)/dx
-#     print(g)
-    return g
-
-
-# -
 
 
 # # Ansätze/Templates
@@ -195,7 +175,7 @@ def ryrzry_template(x, wires, param):
 # This can be made into a trainable embedding that inherits from the PL embedding class later on
 @qml.template
 def product_embedding(x, param, wires, rotation_template=rz_template):
-    m = len(x)
+    m = len(wires)
     for i in range(m):
         qml.Hadamard(wires=wires[i])
         rotation_template(x[i], [wires[i]], param)
@@ -207,16 +187,17 @@ def product_embedding(x, param, wires, rotation_template=rz_template):
             qml.CNOT(wires=[wires[j], wires[i]])
     
 @qml.template
-def reembed(x, param, embedding, n_layers=2, num_wires=2, **kwargs):
-    n_qubit_per_block = 2 # Hardcoded here that the embedding circuit acts on 2 qubits -> modify later
-    n_block = num_wires//n_qubit_per_block
+def reembed(x, param, embedding, n_layers=2, n_qubits=2, n_features=2, **kwargs):
+    n_block = n_qubits//n_features
     for j in range(n_layers):
         for i in range(n_block):
-            embedding(x, param, wires=list(range(n_qubit_per_block*i, n_qubit_per_block*(i+1))), **kwargs)
+            embedding(x, param, wires=list(range(n_features*i, n_features*(i+1))), **kwargs)
         if j!=n_layers-1:
             for i in range(1, n_block): # Entangle neighbouring qubits that are not in the same block
-                qml.CNOT(wires=[n_qubit_per_block*i-1, n_qubit_per_block*i])
+                qml.CNOT(wires=[n_features*i-1, n_features*i])
         
+
+
 
 
 # -
@@ -224,45 +205,45 @@ def reembed(x, param, embedding, n_layers=2, num_wires=2, **kwargs):
 # # Kernel optimization
 
 
-# Kernel optimization function
-def optimize_kernel_param(
-    kernel,
-    X_train,
-    y_train,
-    init_kernel_args,
-    samples=None,
-    seed=None,
-    normalize=False,
-    optimizer=qml.AdamOptimizer,
-    optimizer_kwargs={'stepsize':0.2},
-    N_epoch=20,
-    verbose=5,
-    dx=1e-6,
-    atol=1e-3,
-):
-    opt = optimizer(**optimizer_kwargs)
-    param = np.copy(init_kernel_args)
+# +
+# # Kernel optimization function
+# def optimize_kernel_param(
+#     kernel,
+#     X_train,
+#     y_train,
+#     init_kernel_args,
+#     samples=None,
+#     seed=None,
+#     optimizer=qml.AdamOptimizer,
+#     optimizer_kwargs={'stepsize':0.2},
+#     N_epoch=20,
+#     verbose=5,
+#     dx=1e-6,
+#     atol=1e-3,
+# ):
+#     opt = optimizer(**optimizer_kwargs)
+#     param = np.copy(init_kernel_args)
 
         
-    last_cost = 1e10
-    for i in range(N_epoch):
-        x, y = sample_data(X_train, y_train, samples, seed)
-    #     print(x, y)
-        cost_fn = lambda param: -kernel.target_alignment(x, y, param)
-        grad_fn = lambda param: (-target_alignment_grad(
-            x, y, kernel, kernel_args=param, dx=dx, assume_normalized_kernel=True
-        ),)
-        param, current_cost = opt.step_and_cost(cost_fn, param, grad_fn=grad_fn)
-        if i%verbose==0:
-            print(f"At iteration {i} the polarization is {-current_cost} (params={param})")
-        if np.abs(last_cost-current_cost)<atol:
-            break
+#     last_cost = 1e10
+#     for i in range(N_epoch):
+#         x, y = sample_data(X_train, y_train, samples, seed)
+#     #     print(x, y)
+#         cost_fn = lambda param: -kernel.target_alignment(x, y, param)
+#         grad_fn = lambda param: (
+#             -target_alignment_grad(x, y, kernel, kernel_args=param, dx=dx, assume_normalized_kernel=True),
+#         )
+#         param, current_cost = opt.step_and_cost(cost_fn, param, grad_fn=grad_fn)
+#         if i%verbose==0:
+#             print(f"At iteration {i} the polarization is {-current_cost} (params={param})")
+#         if current_cost<last_cost:
+#             opt_param = param.copy()
+#         if np.abs(last_cost-current_cost)<atol:
+#             break
+#         last_cost = current_cost
         
-        if current_cost<last_cost:
-            opt_param = param.copy()
-        last_cost = current_cost
-        
-    return opt_param, -current_cost
+#     return opt_param, -current_cost
+# -
 
 # This cell demonstrates that not too many samples are required to reproduce the polarization kind of okay-ish.
 # This is useful because the computational cost for the polarization scale quadratically in the number of samples
@@ -275,38 +256,19 @@ if False:
         print(samples, end='   ')
         x, y = sample_data(X_train, y_train, samples=samples)
         P.append(kernel.target_alignment(x, y, ()))
-#         P.append(polarization(kernel, X_train, y_train, samples=samples, normalize=True))
     print()
     sns.lineplot(x=samples_, y=P);
 
-
 # # Train and validate
 
-# +
-def train_svm(kernel, X_train, y_train, param):
-    def kernel_matrix(A, B):
-        """Compute the matrix whose entries are the kernel
-           evaluated on pairwise data from sets A and B."""
-        if A.shape==B.shape and np.allclose(A, B):
-            return kernel.square_kernel_matrix(A, param)
-        
-        return kernel.kernel_matrix(A, B, param)
-    
-    svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
-    return svm
-    
-def validate(model, X, y_true):
-    y_pred = model.predict(X)
-    errors = np.sum(np.abs((y_true - y_pred)/2))
-    return (len(y_true)-errors)/len(y_true)
 
-# -
+
 
 
 
 # +
 num_param = 2
-init_par = np.random.random(num_param) * 2 * np.pi
+init_param = np.random.random(num_param) * 2 * np.pi
 ansatz = lambda x, param: reembed(x,
                                   param,
                                   product_embedding,
@@ -317,21 +279,18 @@ ansatz = lambda x, param: reembed(x,
 trainable_kernel = kern.EmbeddingKernel(ansatz, dev_kernel) # WHOOP WHOOP 
 
 # seed = 42
-samples = 10
+# samples = 10
 
-normalize = True
-
-vanilla_ta = trainable_kernel.target_alignment(X_train, y_train, np.zeros_like(init_par))
+vanilla_ta = trainable_kernel.target_alignment(X_train, y_train, np.zeros_like(init_param))
 print(f"At param=[0....] the polarization is {vanilla_ta}")
 start = time.time()
-opt_param, last_cost = optimize_kernel_param(
+opt_param, last_cost = tk_lib.optimize_kernel_param(
     trainable_kernel,
     X_train, 
     y_train,
-    init_kernel_args=init_par,
-    samples=samples,
+    init_kernel_args=init_param,
+#     samples=samples,
 #     seed=seed,
-    normalize=normalize,
     verbose=1,
     N_epoch=20,
 )
@@ -342,20 +301,23 @@ print("time elapsed:", end-start)
 # +
 # Compare the original ansatz to a random-parameter to a polarization-trained-parameter kernel - It seems to work!
 x, y = sample_data(X_train, y_train, samples=10)
-svm = train_svm(trainable_kernel, x, y, np.zeros_like(init_par))
+svm = train_svm(trainable_kernel, x, y, np.zeros_like(init_param))
 perf_train = validate(svm, x, y)
 perf_test = validate(svm, X_test, y_test)
 print(f"At zero parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
+# print(f"Init parameters: {init_param}")
 
-svm = train_svm(trainable_kernel, x, y, init_par)
+svm = train_svm(trainable_kernel, x, y, init_param)
 perf_train = validate(svm, x, y)
 perf_test = validate(svm, X_test, y_test)
 print(f"At init parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
+print(f"Init parameters: {init_param}")
 
 svm = train_svm(trainable_kernel, x, y, opt_param)
 perf_train = validate(svm, x, y)
 perf_test = validate(svm, X_test, y_test)
 print(f"At 'optimal' parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
+print(f"'Optimal' parameters: {opt_param}")
 # -
 print("we have run a total of", dev_kernel.num_executions, "circuit executions")
 
@@ -420,6 +382,71 @@ print(y_test.shape)
 
 
 
+# # Evaluate all datasets
+
+
+
+# Config field
+n_blocks = 1
+n_features = 3
+n_param = 2
+n_layers = 1
+learning_rate = 0.2
+use_manual_grad = True
+
+# +
+n_qubits = n_blocks * n_features
+
+dev = qml.device("default.qubit.tf", wires=n_qubits)
+ansatz = lambda x, param: reembed(x,
+                                  param,
+                                  product_embedding,
+                                  n_layers=n_layers,
+                                  n_qubits=n_qubits, 
+                                  n_features=n_features,
+                                  rotation_template=rxrzrx_template)
+kernel = kern.EmbeddingKernel(ansatz, dev) # WHOOP WHOOP 
+opt_kwargs = {'stepsize': learning_rate}
+
+performance = []
+# n_datasets = 9
+n_datasets = 17
+for dataset_index in range(n_datasets):
+#     X, y = tk_lib.load_data('../plots_and_data/train.txt', dataset_index) 
+    X, y = tk_lib.gen_cubic_data(dataset_index)
+    init_param = np.random.random(n_param) * 2 * np.pi 
+#     print(init_param)
+    opt_param, opt_cost = tk_lib.optimize_kernel_param(
+        kernel,
+        X,
+        y,
+        init_param=init_param,
+        optimizer_kwargs=opt_kwargs,
+        use_manual_grad=use_manual_grad,
+    )
+    
+    zero_perf = tk_lib.validate(tk_lib.train_svm(kernel, X, y, np.zeros(n_param)), X, y)
+    init_perf = tk_lib.validate(tk_lib.train_svm(kernel, X, y, init_param), X, y)
+    opt_perf = tk_lib.validate(tk_lib.train_svm(kernel, X, y, opt_param), X, y)
+    new_perf = [zero_perf, init_perf, opt_perf]
+    performance.append(new_perf)
+    print(new_perf)
+
+# -
+
+n_qubits
+
+ # %matplotlib notebook
+indices = np.array(list(range(9)))
+plt.scatter(indices-0.1, np.array(performance)[:, 0], color='r', marker='x', label='Zero')
+plt.scatter(indices, np.array(performance)[:, 1], color='b', marker='o', label='Init')
+plt.scatter(indices+0.1, np.array(performance)[:, 2], color='g', marker='d', label='Opt')
+for ind in indices[:-1]:
+    plt.plot([ind+0.5]*2, [np.min(performance), np.max(performance)], color='0.7', ls=':')
+plt.legend()
+plt.xticks(indices)
+plt.xlabel('Dataset')
+plt.ylabel('Training set performance')
 
 
 
@@ -433,26 +460,44 @@ print(y_test.shape)
 
 
 
+sym_indices = [
+    [4,5,6,7,0,1,2,3],
+    [3,2,1,0,7,6,5,4],
+    [1,0,3,2,5,4,7,6],
+    [1,2,3,0,5,6,7,4],
+    [2,3,0,1,6,7,4,5],
+    [3,0,1,2,7,4,5,6],
+    [1,5,6,2,0,4,7,3],
+    [5,4,7,6,1,0,3,2],
+    [4,0,3,7,5,1,2,6],
+    [3,2,6,7,0,1,5,4],
+    [7,6,5,4,3,2,1,0],
+    [4,5,1,0,7,6,2,3],
+]
 
+import itertools
+unique = set(itertools.permutations('00001111'))
+new = set()
+for el in unique:
+    for ind in sym_indices:
+        _new = tuple(el[i] for i in ind)
+#         print(el)
+#         print(_new)
+#         print()
+        if _new in new:
+            break
+    else:
+        new.add(el)
 
+len(new)
 
+new
 
+list('ab')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+X, y = tk_lib.gen_cubic_data(3)
+print(X)
+print(y)
 
 
 
