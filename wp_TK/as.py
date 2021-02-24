@@ -208,7 +208,7 @@ def product_embedding(x, param, rotation_template=rz_template):
             rotation_template((np.pi-x[i])*(np.pi-x[j]), [i], param)
 #             rotation_template(x[i]*x[j], [i], param)
             qml.CNOT(wires=[j, i])
-    
+
 
 # -
 

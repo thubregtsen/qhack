@@ -46,7 +46,7 @@ np.random.seed(42)
 # # Data
 
 
-data = 'iris'
+data = 'cake'
 if data=='iris':
     # load the data
     X, y = load_iris(return_X_y=True) 
@@ -236,14 +236,12 @@ def optimize_kernel_param(
     last_cost = 1e10
     for i in range(N_epoch):
         x, y = sample_data(X_train, y_train, samples, seed)
-        x = X_train
-        y = y_train
     #     print(x, y)
         cost_fn = lambda param: -kernel.target_alignment(x, y, param)
         grad_fn = lambda param: (-target_alignment_grad(
             x, y, kernel, kernel_args=param, dx=dx, assume_normalized_kernel=True
         ),)
-        param, current_cost = opt.step_and_cost(cost_fn, param, grad_fn=grad_fn)
+        param, current_cost = opt.step_and_cost(cost_fn, param)#, grad_fn=grad_fn)
         if i%verbose==0:
             print(f"At iteration {i} the polarization is {-current_cost} (params={param})")
         if np.abs(last_cost-current_cost)<atol:
@@ -272,6 +270,7 @@ if False:
 
 # +
 def train_svm(kernel, X_train, y_train, param):
+
     def kernel_matrix(A, B):
         """Compute the matrix whose entries are the kernel
            evaluated on pairwise data from sets A and B."""
@@ -294,9 +293,9 @@ num_param = 2
 init_par = np.random.random(num_param) * 2 * np.pi
 ansatz = lambda x, param: product_embedding(x, param, rxrzrx_template)
 
-trainable_kernel = kern.EmbeddingKernel(angle_embedding, dev_kernel) # WHOOP WHOOP 
+trainable_kernel = kern.EmbeddingKernel(ansatz, dev_kernel) # WHOOP WHOOP 
 
-seed = 42
+# seed = 42
 samples = 10
 
 normalize = True
@@ -313,7 +312,7 @@ opt_param, last_cost = optimize_kernel_param(
     seed=seed,
     normalize=normalize,
     verbose=1,
-    N_epoch=10,
+    N_epoch=20,
 )
 end = time.time()
 print("time elapsed:", end-start)
@@ -321,22 +320,20 @@ print("time elapsed:", end-start)
 # +
 # Compare the original ansatz to a random-parameter to a polarization-trained-parameter kernel - It seems to work!
 x, y = sample_data(X_train, y_train, samples=10)
-x = X_train
-y = y_train
 svm = train_svm(trainable_kernel, x, y, np.zeros_like(init_par))
 perf_train = validate(svm, x, y)
 perf_test = validate(svm, X_test, y_test)
-print(f"At zero parameters, the kernel has training set performance {perf_train} and test set performance {' '}.")
+print(f"At zero parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
 
 svm = train_svm(trainable_kernel, x, y, init_par)
 perf_train = validate(svm, x, y)
-# perf_test = validate(svm, X_test, y_test)
-print(f"At init parameters, the kernel has training set performance {perf_train} and test set performance {' '}.")
+perf_test = validate(svm, X_test, y_test)
+print(f"At init parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
 
 svm = train_svm(trainable_kernel, x, y, opt_param)
 perf_train = validate(svm, x, y)
-# perf_test = validate(svm, X_test, y_test)
-print(f"At 'optimal' parameters, the kernel has training set performance {perf_train} and test set performance {' '}.")
+perf_test = validate(svm, X_test, y_test)
+print(f"At 'optimal' parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
 # -
 print("we have run a total of", dev_kernel.num_executions, "circuit executions")
 
@@ -348,7 +345,7 @@ perf_test = validate(svm, X_test, y_test)
 print(f"At init parameters, the kernel has training set performance {perf_train} and test set performance {' '}.")
 
 # +
-n_alpha = 10
+n_alpha = 20
 n_beta = n_alpha
 alphas = np.linspace(-np.pi/2, np.pi/2, n_alpha)
 betas = np.linspace(-np.pi/2, np.pi/2, n_beta)
@@ -356,7 +353,7 @@ target_alignment = np.zeros((n_alpha,n_beta))
 classification = np.zeros((n_alpha,n_beta))
 
 for i, a in enumerate(alphas):
-    print(f"i", end='   ')
+    print(f"{i}", end='   ')
     for j, b in enumerate(betas):
         par = np.array([a,b])
         target_alignment[i, j] = trainable_kernel.target_alignment(X_train, y_train, par)
