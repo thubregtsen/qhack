@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.10.2
+#       jupytext_version: 1.6.0
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -200,6 +200,8 @@ def reembed(x, param, embedding, n_layers=2, n_qubits=2, n_features=2, **kwargs)
 
 
 
+
+
 # -
 
 # # Kernel optimization
@@ -387,7 +389,7 @@ print(y_test.shape)
 
 
 # Config field
-n_blocks = 4
+n_blocks = 3
 n_features = 3
 n_param = 2
 n_layers = 2
@@ -426,6 +428,7 @@ for dataset_index in inds:
         init_param=init_param,
         optimizer_kwargs=opt_kwargs,
         use_manual_grad=use_manual_grad,
+        verbose=1
     )
     
     zero_perf = tk_lib.validate(tk_lib.train_svm(kernel, X, y, np.zeros(n_param)), X, y)
@@ -441,6 +444,7 @@ n_qubits
 
  # %matplotlib notebook
 indices = np.array(list(range(n_datasets)))
+indices = np.array(inds)
 plt.scatter(indices-0.1, np.array(performance)[:, 0], color='r', marker='x', label='Zero')
 plt.scatter(indices, np.array(performance)[:, 1], color='b', marker='o', label='Init')
 plt.scatter(indices+0.1, np.array(performance)[:, 2], color='g', marker='d', label='Opt')
