@@ -387,10 +387,10 @@ print(y_test.shape)
 
 
 # Config field
-n_blocks = 1
+n_blocks = 4
 n_features = 3
 n_param = 2
-n_layers = 1
+n_layers = 2
 learning_rate = 0.2
 use_manual_grad = True
 
@@ -409,9 +409,12 @@ kernel = kern.EmbeddingKernel(ansatz, dev) # WHOOP WHOOP
 opt_kwargs = {'stepsize': learning_rate}
 
 performance = []
-# n_datasets = 9
-n_datasets = 17
-for dataset_index in range(n_datasets):
+
+# inds = range(9)
+# inds = range(17)
+inds = [1,4,6,7,10,11,12,15,16]
+n_datasets = len(inds)
+for dataset_index in inds:
 #     X, y = tk_lib.load_data('../plots_and_data/train.txt', dataset_index) 
     X, y = tk_lib.gen_cubic_data(dataset_index)
     init_param = np.random.random(n_param) * 2 * np.pi 
@@ -437,7 +440,7 @@ for dataset_index in range(n_datasets):
 n_qubits
 
  # %matplotlib notebook
-indices = np.array(list(range(9)))
+indices = np.array(list(range(n_datasets)))
 plt.scatter(indices-0.1, np.array(performance)[:, 0], color='r', marker='x', label='Zero')
 plt.scatter(indices, np.array(performance)[:, 1], color='b', marker='o', label='Init')
 plt.scatter(indices+0.1, np.array(performance)[:, 2], color='g', marker='d', label='Opt')
@@ -460,44 +463,9 @@ plt.ylabel('Training set performance')
 
 
 
-sym_indices = [
-    [4,5,6,7,0,1,2,3],
-    [3,2,1,0,7,6,5,4],
-    [1,0,3,2,5,4,7,6],
-    [1,2,3,0,5,6,7,4],
-    [2,3,0,1,6,7,4,5],
-    [3,0,1,2,7,4,5,6],
-    [1,5,6,2,0,4,7,3],
-    [5,4,7,6,1,0,3,2],
-    [4,0,3,7,5,1,2,6],
-    [3,2,6,7,0,1,5,4],
-    [7,6,5,4,3,2,1,0],
-    [4,5,1,0,7,6,2,3],
-]
 
-import itertools
-unique = set(itertools.permutations('00001111'))
-new = set()
-for el in unique:
-    for ind in sym_indices:
-        _new = tuple(el[i] for i in ind)
-#         print(el)
-#         print(_new)
-#         print()
-        if _new in new:
-            break
-    else:
-        new.add(el)
 
-len(new)
 
-new
-
-list('ab')
-
-X, y = tk_lib.gen_cubic_data(3)
-print(X)
-print(y)
 
 
 
