@@ -481,11 +481,41 @@ plt.show()
 
 import pandas as pd
 
-pd.DataFrame(data=dataset).to_json("dataset.txt")
+pd.DataFrame(data=dataset).to_json("train.txt")
 
 
 
- 
+
+
+
+
+
+
+# +
+# this is the test data
+for i in range(len(dataset)):
+    X, y = dataset[i]
+    for i in range(len(X)):
+        for j in range(len(X[i])):
+            X[i][j] = X[i][j] + np.power((-1),np.random.randint(0,2)) * 0.07
+    dataset[i] = X, y
+                
+fig, axs = plt.subplots(3, 3,figsize=(9,9))
+
+for i in range(len(dataset)):
+    i_0 = int(i/3)
+    i_1 = i%3
+    X = dataset[i][0]
+    y = dataset[i][1]
+    axs[i_0, i_1].scatter(X[np.where(y==0),0], X[np.where(y==0),1], color="r")
+    axs[i_0, i_1].scatter(X[np.where(y==1),0], X[np.where(y==1),1], color="b")
+    axs[i_0, i_1].set_xlim([0, 2*np.pi])
+    axs[i_0, i_1].set_ylim([0, 2*np.pi])
+
+plt.show()
+# -
+
+pd.DataFrame(data=dataset).to_json("test.txt")
 
 # +
 # THIS is what you can use to load the data :) 
@@ -493,7 +523,7 @@ pd.DataFrame(data=dataset).to_json("dataset.txt")
 dataset_index = 0 # range(9)
 X_index = 0
 y_index = 1
-datasets = pd.read_json("dataset.txt").to_numpy()
+datasets = pd.read_json("train.txt").to_numpy()
 X = datasets[dataset_index][0]
 y = datasets[dataset_index][1]
 X = np.asarray(X)
