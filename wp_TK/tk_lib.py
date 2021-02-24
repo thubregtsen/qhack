@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import itertools
 
 from sklearn.svm import SVC
 import pennylane as qml
@@ -95,3 +96,42 @@ def target_alignment_grad(X, y, kernel, kernel_args, dx=1e-6, **kwargs):
         ta_minus = kernel.target_alignment(X, y, kernel_args-shift)
         g[i] = (ta_plus-ta_minus)/dx
     return g
+
+def gen_cubic_data(index):
+    # Generate cube vertices
+    feature_values = [0.1, np.pi-0.1]
+    X = np.array(list(itertools.product(feature_values, repeat=3)))
+
+    # Symmetry transformations of cube
+    sym_indices = [
+        [4,5,6,7,0,1,2,3],
+        [3,2,1,0,7,6,5,4],
+        [1,0,3,2,5,4,7,6],
+        [1,2,3,0,5,6,7,4],
+        [2,3,0,1,6,7,4,5],
+        [3,0,1,2,7,4,5,6],
+        [1,5,6,2,0,4,7,3],
+        [5,4,7,6,1,0,3,2],
+        [4,0,3,7,5,1,2,6],
+        [3,2,6,7,0,1,5,4],
+        [7,6,5,4,3,2,1,0],
+        [4,5,1,0,7,6,2,3],
+    ]
+    # all possible balanced label assignments
+    unique = set(itertools.permutations('00001111'))
+    new = set()
+    # Filter for duplicates under symmetries
+    for el in unique:
+        for ind in sym_indices:
+            _new = tuple(el[i] for i in ind)
+            if _new in new:
+                break
+        else:
+            new.add(''.join(el))
+    y = np.array([-1 if v=='0' else 1 for v in sorted(list(new))[index]])
+    return X, y
+
+
+
+
+

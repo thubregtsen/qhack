@@ -175,7 +175,7 @@ def ryrzry_template(x, wires, param):
 # This can be made into a trainable embedding that inherits from the PL embedding class later on
 @qml.template
 def product_embedding(x, param, wires, rotation_template=rz_template):
-    m = len(x)
+    m = len(wires)
     for i in range(m):
         qml.Hadamard(wires=wires[i])
         rotation_template(x[i], [wires[i]], param)
@@ -187,15 +187,14 @@ def product_embedding(x, param, wires, rotation_template=rz_template):
             qml.CNOT(wires=[wires[j], wires[i]])
     
 @qml.template
-def reembed(x, param, embedding, n_layers=2, num_wires=2, **kwargs):
-    n_qubit_per_block = 2 # Hardcoded here that the embedding circuit acts on 2 qubits -> modify later
-    n_block = num_wires//n_qubit_per_block
+def reembed(x, param, embedding, n_layers=2, n_qubits=2, n_features=2, **kwargs):
+    n_block = n_qubits//n_features
     for j in range(n_layers):
         for i in range(n_block):
-            embedding(x, param, wires=list(range(n_qubit_per_block*i, n_qubit_per_block*(i+1))), **kwargs)
+            embedding(x, param, wires=list(range(n_features*i, n_features*(i+1))), **kwargs)
         if j!=n_layers-1:
             for i in range(1, n_block): # Entangle neighbouring qubits that are not in the same block
-                qml.CNOT(wires=[n_qubit_per_block*i-1, n_qubit_per_block*i])
+                qml.CNOT(wires=[n_features*i-1, n_features*i])
         
 
 
@@ -389,7 +388,7 @@ print(y_test.shape)
 
 # Config field
 n_blocks = 1
-n_features = 2
+n_features = 3
 n_param = 2
 n_layers = 1
 learning_rate = 0.2
@@ -403,19 +402,20 @@ ansatz = lambda x, param: reembed(x,
                                   param,
                                   product_embedding,
                                   n_layers=n_layers,
-                                  num_wires=n_qubits, 
+                                  n_qubits=n_qubits, 
+                                  n_features=n_features,
                                   rotation_template=rxrzrx_template)
 kernel = kern.EmbeddingKernel(ansatz, dev) # WHOOP WHOOP 
 opt_kwargs = {'stepsize': learning_rate}
 
 performance = []
-for dataset_index in range(9):
-    X, y = tk_lib.load_data('../plots_and_data/train.txt', dataset_index) 
-    
-#     X = X[:2]
-#     y = y[:2]
+# n_datasets = 9
+n_datasets = 17
+for dataset_index in range(n_datasets):
+#     X, y = tk_lib.load_data('../plots_and_data/train.txt', dataset_index) 
+    X, y = tk_lib.gen_cubic_data(dataset_index)
     init_param = np.random.random(n_param) * 2 * np.pi 
-    print(init_param)
+#     print(init_param)
     opt_param, opt_cost = tk_lib.optimize_kernel_param(
         kernel,
         X,
@@ -434,7 +434,7 @@ for dataset_index in range(9):
 
 # -
 
-print(performance)
+n_qubits
 
  # %matplotlib notebook
 indices = np.array(list(range(9)))
@@ -460,17 +460,44 @@ plt.ylabel('Training set performance')
 
 
 
+sym_indices = [
+    [4,5,6,7,0,1,2,3],
+    [3,2,1,0,7,6,5,4],
+    [1,0,3,2,5,4,7,6],
+    [1,2,3,0,5,6,7,4],
+    [2,3,0,1,6,7,4,5],
+    [3,0,1,2,7,4,5,6],
+    [1,5,6,2,0,4,7,3],
+    [5,4,7,6,1,0,3,2],
+    [4,0,3,7,5,1,2,6],
+    [3,2,6,7,0,1,5,4],
+    [7,6,5,4,3,2,1,0],
+    [4,5,1,0,7,6,2,3],
+]
 
+import itertools
+unique = set(itertools.permutations('00001111'))
+new = set()
+for el in unique:
+    for ind in sym_indices:
+        _new = tuple(el[i] for i in ind)
+#         print(el)
+#         print(_new)
+#         print()
+        if _new in new:
+            break
+    else:
+        new.add(el)
 
+len(new)
 
+new
 
+list('ab')
 
-
-
-
-
-
-
+X, y = tk_lib.gen_cubic_data(3)
+print(X)
+print(y)
 
 
 
