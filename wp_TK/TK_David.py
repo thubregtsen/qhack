@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.6.0
+#       jupytext_version: 1.10.2
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -208,6 +208,9 @@ def product_embedding(x, param, rotation_template=rz_template):
             rotation_template((np.pi-x[i])*(np.pi-x[j]), [i], param)
 #             rotation_template(x[i]*x[j], [i], param)
             qml.CNOT(wires=[j, i])
+    
+@qml.template
+def reembed(x, param, embedding, layers=2, )
 
 
 # -
@@ -381,14 +384,14 @@ alphas, betas = np.meshgrid(alphas, betas)
 fig = plt.figure()
 ax = fig.gca(projection='3d')
 
-pl = ax.plot_surface(alphas, betas, target_alignment, antialiased=False, cmap=cm.coolwarm)
+pl = ax.plot_surface(alphas, betas, ta, antialiased=False, cmap=cm.coolwarm)
 
 # +
 # %matplotlib notebook
 fig = plt.figure()
 ax = fig.gca(projection='3d')
 
-pl = ax.plot_surface(alphas, betas, classification, antialiased=False, cmap=cm.coolwarm)
+pl = ax.plot_surface(alphas, betas, clsf, antialiased=False, cmap=cm.coolwarm)
 # -
 
 print("we have run a total of", dev_kernel.num_executions, "circuit executions")
