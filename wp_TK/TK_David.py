@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.10.2
+#       jupytext_version: 1.6.0
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -16,8 +16,8 @@
 
 # +
 import numpy as np
-import torch
-from torch.nn.functional import relu
+# import torch
+# from torch.nn.functional import relu
 
 from sklearn.svm import SVC
 from sklearn.datasets import load_iris
@@ -30,12 +30,14 @@ from pennylane.templates import AngleEmbedding, StronglyEntanglingLayers
 from pennylane.operation import Tensor
 import pennylane.kernels as kern
 
+import multiprocessing as mproc
+
 import matplotlib
 from matplotlib import cm
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-import jupytext # this is not really needed :-)
+# import jupytext # this is not really needed :-)
 from cake_dataset import Dataset as Cake
 import time
 
@@ -89,7 +91,7 @@ if data=='iris':
     plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", label=-1)
     plt.legend()
 elif data=='cake':
-    num_sectors = 15
+    num_sectors = 10
     num_samples = 0
     cake = Cake(num_samples, num_sectors)
     X = np.array([[x, y] for x, y in zip(cake.X, cake.Y)])
@@ -206,7 +208,7 @@ def product_embedding(x, param, rotation_template=rz_template):
             rotation_template((np.pi-x[i])*(np.pi-x[j]), [i], param)
 #             rotation_template(x[i]*x[j], [i], param)
             qml.CNOT(wires=[j, i])
-    
+
 
 # -
 
@@ -270,12 +272,14 @@ if False:
 
 # +
 def train_svm(kernel, X_train, y_train, param):
-
     def kernel_matrix(A, B):
         """Compute the matrix whose entries are the kernel
            evaluated on pairwise data from sets A and B."""
-        return np.array([[kernel(a, b, param) for b in B] for a in A])
-#     k_mat = lambda X, Y: kern.kernel_matrix(X, Y, kernel, param)
+        if A.shape==B.shape and np.allclose(A, B):
+            return kernel.square_kernel_matrix(A, param)
+        
+        return kernel.kernel_matrix(A, B, param)
+    
     svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
     return svm
     
@@ -300,8 +304,8 @@ samples = 10
 
 normalize = True
 
-# vanilla_polarization = trainable_kernel.target_alignment(X_train, y_train, np.zeros_like(init_par))
-# print(f"At param=[0....] the polarization is {vanilla_polarization}")
+vanilla_ta = trainable_kernel.target_alignment(X_train, y_train, np.zeros_like(init_par))
+print(f"At param=[0....] the polarization is {vanilla_ta}")
 start = time.time()
 opt_param, last_cost = optimize_kernel_param(
     trainable_kernel,
@@ -309,7 +313,7 @@ opt_param, last_cost = optimize_kernel_param(
     y_train,
     init_kernel_args=init_par,
     samples=samples,
-    seed=seed,
+#     seed=seed,
     normalize=normalize,
     verbose=1,
     N_epoch=20,
@@ -345,21 +349,31 @@ perf_test = validate(svm, X_test, y_test)
 print(f"At init parameters, the kernel has training set performance {perf_train} and test set performance {' '}.")
 
 # +
-n_alpha = 20
+n_alpha = 15
 n_beta = n_alpha
 alphas = np.linspace(-np.pi/2, np.pi/2, n_alpha)
 betas = np.linspace(-np.pi/2, np.pi/2, n_beta)
 target_alignment = np.zeros((n_alpha,n_beta))
 classification = np.zeros((n_alpha,n_beta))
+# n_cpu = 1
 
-for i, a in enumerate(alphas):
-    print(f"{i}", end='   ')
-    for j, b in enumerate(betas):
-        par = np.array([a,b])
-        target_alignment[i, j] = trainable_kernel.target_alignment(X_train, y_train, par)
-        svm = train_svm(trainable_kernel, X_train, y_train, par)
-        classification[i, j] = validate(svm, X_train, y_train)
-
+def get_alignment_and_classification(alphas):
+    ta = np.zeros((len(alphas),len(betas)))
+    clsf = np.zeros((len(alphas),len(betas)))
+    for i, a in enumerate(alphas):
+        print(f"{i}", end='   ')
+        for j, b in enumerate(betas):
+            par = np.array([a,b])
+            ta[i, j] = trainable_kernel.target_alignment(X_train, y_train, par)
+            svm = train_svm(trainable_kernel, X_train, y_train, par)
+            clsf[i, j] = validate(svm, X_train, y_train)
+    return ta, clsf
+            
+# n_sub_alpha = n_alpha//n_cpu
+# sub_alpha = [alphas[i*n_sub_alpha:(i+1)*n_sub_alpha] for i in range(n_cpu-1)] + [alphas[(n_cpu-1)*n_sub_alpha:]]
+# with mproc.Pool(n_cpu) as pool:
+#     TAs, CLSFs = pool.map(get_alignment_and_classification, sub_alpha)
+ta, clsf = get_alignment_and_classification(alphas)
 alphas, betas = np.meshgrid(alphas, betas)        
 
 # +
