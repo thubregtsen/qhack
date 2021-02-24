@@ -381,14 +381,14 @@ alphas, betas = np.meshgrid(alphas, betas)
 fig = plt.figure()
 ax = fig.gca(projection='3d')
 
-pl = ax.plot_surface(alphas, betas, target_alignment, antialiased=False, cmap=cm.coolwarm)
+pl = ax.plot_surface(alphas, betas, ta, antialiased=False, cmap=cm.coolwarm)
 
 # +
 # %matplotlib notebook
 fig = plt.figure()
 ax = fig.gca(projection='3d')
 
-pl = ax.plot_surface(alphas, betas, classification, antialiased=False, cmap=cm.coolwarm)
+pl = ax.plot_surface(alphas, betas, clsf, antialiased=False, cmap=cm.coolwarm)
 # -
 
 print("we have run a total of", dev_kernel.num_executions, "circuit executions")
