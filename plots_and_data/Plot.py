@@ -494,12 +494,16 @@ dataset_index = 0 # range(9)
 X_index = 0
 y_index = 1
 datasets = pd.read_json("dataset.txt").to_numpy()
-X = datasets[dataset_index][0]
-y = datasets[dataset_index][1]
+X, y = datasets[dataset_index]
+# y = datasets[dataset_index][1]
 X = np.asarray(X)
 print("feature 0:", X[:,0])
 print("feature 1:", X[:,1])
 print("y", y)
 # -
+datasets
+
+
+
 
 
