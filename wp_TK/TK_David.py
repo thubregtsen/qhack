@@ -106,9 +106,9 @@ elif data=='cake':
 
 # # Devices
 
-# +
-n_qubits = len(X_train[0]) # -> equals number of features
-
+n_features = len(X_train[0])
+n_blocks = 3
+n_qubits = n_features * n_blocks
 # select backend
 # for floq you'll need to create a file "floq_key" with the key in it in the current dir
 # make sure it is excluded with git ignore
@@ -129,9 +129,6 @@ if have_floq_key:
 else:
     print("Lame backend selected")
     dev_kernel = qml.device("default.qubit.tf", wires=n_qubits)
-
-
-# -
 
 # # Utilities
 
@@ -197,20 +194,29 @@ def ryrzry_template(x, wires, param):
     
 # This can be made into a trainable embedding that inherits from the PL embedding class later on
 @qml.template
-def product_embedding(x, param, rotation_template=rz_template):
+def product_embedding(x, param, wires, rotation_template=rz_template):
     m = len(x)
     for i in range(m):
-        qml.Hadamard(wires=[i])
-        rotation_template(x[i], [i], param)
+        qml.Hadamard(wires=wires[i])
+        rotation_template(x[i], [wires[i]], param)
     for i in range(1, m):
         for j in range(i):
-            qml.CNOT(wires=[j, i])
-            rotation_template((np.pi-x[i])*(np.pi-x[j]), [i], param)
+            qml.CNOT(wires=[wires[j], wires[i]])
+            rotation_template((np.pi-x[i])*(np.pi-x[j]), [wires[i]], param)
 #             rotation_template(x[i]*x[j], [i], param)
-            qml.CNOT(wires=[j, i])
+            qml.CNOT(wires=[wires[j], wires[i]])
     
 @qml.template
-def reembed(x, param, embedding, layers=2, )
+def reembed(x, param, embedding, n_layers=2, num_wires=2, **kwargs):
+    n_qubit_per_block = 2 # Hardcoded here that the embedding circuit acts on 2 qubits -> modify later
+    n_block = num_wires//n_qubit_per_block
+    for j in range(n_layers):
+        for i in range(n_block):
+            embedding(x, param, wires=list(range(n_qubit_per_block*i, n_qubit_per_block*(i+1))), **kwargs)
+        if j!=n_layers-1:
+            for i in range(1, n_block): # Entangle neighbouring qubits that are not in the same block
+                qml.CNOT(wires=[n_qubit_per_block*i-1, n_qubit_per_block*i])
+        
 
 
 # -
@@ -246,14 +252,17 @@ def optimize_kernel_param(
         grad_fn = lambda param: (-target_alignment_grad(
             x, y, kernel, kernel_args=param, dx=dx, assume_normalized_kernel=True
         ),)
-        param, current_cost = opt.step_and_cost(cost_fn, param)#, grad_fn=grad_fn)
+        param, current_cost = opt.step_and_cost(cost_fn, param, grad_fn=grad_fn)
         if i%verbose==0:
             print(f"At iteration {i} the polarization is {-current_cost} (params={param})")
         if np.abs(last_cost-current_cost)<atol:
             break
+        
+        if current_cost<last_cost:
+            opt_param = param.copy()
         last_cost = current_cost
         
-    return param, -current_cost
+    return opt_param, -current_cost
 
 # This cell demonstrates that not too many samples are required to reproduce the polarization kind of okay-ish.
 # This is useful because the computational cost for the polarization scale quadratically in the number of samples
@@ -298,7 +307,12 @@ def validate(model, X, y_true):
 # +
 num_param = 2
 init_par = np.random.random(num_param) * 2 * np.pi
-ansatz = lambda x, param: product_embedding(x, param, rxrzrx_template)
+ansatz = lambda x, param: reembed(x,
+                                  param,
+                                  product_embedding,
+                                  n_layers=2,
+                                  num_wires=n_qubits, 
+                                  rotation_template=rxrzrx_template)
 
 trainable_kernel = kern.EmbeddingKernel(ansatz, dev_kernel) # WHOOP WHOOP 
 
@@ -321,6 +335,7 @@ opt_param, last_cost = optimize_kernel_param(
     verbose=1,
     N_epoch=20,
 )
+print(opt_param)
 end = time.time()
 print("time elapsed:", end-start)
 
@@ -384,14 +399,14 @@ alphas, betas = np.meshgrid(alphas, betas)
 fig = plt.figure()
 ax = fig.gca(projection='3d')
 
-pl = ax.plot_surface(alphas, betas, ta, antialiased=False, cmap=cm.coolwarm)
+pl = ax.plot_surface(alphas, betas, target_alignment, antialiased=False, cmap=cm.coolwarm)
 
 # +
 # %matplotlib notebook
 fig = plt.figure()
 ax = fig.gca(projection='3d')
 
-pl = ax.plot_surface(alphas, betas, clsf, antialiased=False, cmap=cm.coolwarm)
+pl = ax.plot_surface(alphas, betas, classification, antialiased=False, cmap=cm.coolwarm)
 # -
 
 print("we have run a total of", dev_kernel.num_executions, "circuit executions")

@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py
+#     formats: ipynb,py:light
 #     text_representation:
 #       extension: .py
 #       format_name: light
@@ -481,13 +481,13 @@ plt.show()
 
 import pandas as pd
 
-pd.DataFrame(data=dataset).to_json("train.txt")
+pd.DataFrame(data=dataset).to_pickle("train.txt")
+
+df = pd.DataFrame(data=dataset, dtype=object)
 
 
 
-
-
-
+df[0][0]
 
 
 
@@ -515,7 +515,7 @@ for i in range(len(dataset)):
 plt.show()
 # -
 
-pd.DataFrame(data=dataset).to_json("test.txt")
+pd.DataFrame(data=dataset).to_pickle("test.txt")
 
 # +
 # THIS is what you can use to load the data :) 
@@ -523,13 +523,16 @@ pd.DataFrame(data=dataset).to_json("test.txt")
 dataset_index = 0 # range(9)
 X_index = 0
 y_index = 1
-datasets = pd.read_json("train.txt").to_numpy()
-X = datasets[dataset_index][0]
-y = datasets[dataset_index][1]
-X = np.asarray(X)
+datasets = pd.read_pickle("train.txt")
+X, y = datasets.iloc[dataset_index]
+# X = np.asarray(X)
 print("feature 0:", X[:,0])
 print("feature 1:", X[:,1])
 print("y", y)
 # -
+X
+
+
+
 
 
