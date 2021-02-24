@@ -263,13 +263,13 @@ dataset = []
 X = []
 y = []
 X.append([1/5, 1/3])
-y.append(0)
+y.append(-1)
 X.append([2/5, 1/3])
-y.append(0)
+y.append(-1)
 X.append([3/5, 1/3])
-y.append(0)
+y.append(-1)
 X.append([4/5, 1/3])
-y.append(0)
+y.append(-1)
 X.append([1/5, 2/3])
 y.append(1)
 X.append([2/5, 2/3])
@@ -285,21 +285,21 @@ dataset.append([X, y])
 X = []
 y = []
 X.append([1/5, 1/3])
-y.append(0)
+y.append(-1)
 X.append([2/5, 1/3])
 y.append(1)
 X.append([3/5, 1/3])
-y.append(0)
+y.append(-1)
 X.append([4/5, 1/3])
 y.append(1)
 X.append([1/5, 2/3])
 y.append(1)
 X.append([2/5, 2/3])
-y.append(0)
+y.append(-1)
 X.append([3/5, 2/3])
 y.append(1)
 X.append([4/5, 2/3])
-y.append(0)
+y.append(-1)
 X = np.asarray(X)
 y = np.asarray(y)
 dataset.append([X, y])
@@ -307,19 +307,19 @@ dataset.append([X, y])
 X = []
 y = []
 X.append([1/5, 1/3])
-y.append(0)
+y.append(-1)
 X.append([2/5, 1/3])
 y.append(1)
 X.append([3/5, 1/3])
-y.append(0)
+y.append(-1)
 X.append([4/5, 1/3])
 y.append(1)
 X.append([1/5, 2/3])
-y.append(0)
+y.append(-1)
 X.append([2/5, 2/3])
 y.append(1)
 X.append([3/5, 2/3])
-y.append(0)
+y.append(-1)
 X.append([4/5, 2/3])
 y.append(1)
 X = np.asarray(X)
@@ -329,9 +329,9 @@ dataset.append([X, y])
 X = []
 y = []
 X.append([1/5, 1/3])
-y.append(0)
+y.append(-1)
 X.append([2/5, 1/3])
-y.append(0)
+y.append(-1)
 X.append([3/5, 1/3])
 y.append(1)
 X.append([4/5, 1/3])
@@ -341,9 +341,9 @@ y.append(1)
 X.append([2/5, 2/3])
 y.append(1)
 X.append([3/5, 2/3])
-y.append(0)
+y.append(-1)
 X.append([4/5, 2/3])
-y.append(0)
+y.append(-1)
 X = np.asarray(X)
 y = np.asarray(y)
 dataset.append([X, y])
@@ -351,13 +351,13 @@ dataset.append([X, y])
 X = []
 y = []
 X.append([1/5, 1/5])
-y.append(0)
+y.append(-1)
 X.append([4/5, 4/5])
-y.append(0)
+y.append(-1)
 X.append([1/5, 4/5])
-y.append(0)
+y.append(-1)
 X.append([4/5, 1/5])
-y.append(0)
+y.append(-1)
 X.append([2/5, 2/5])
 y.append(1)
 X.append([3/5, 3/5])
@@ -373,13 +373,13 @@ dataset.append([X, y])
 X = []
 y = []
 X.append([2/10, 8/10])
-y.append(0)
+y.append(-1)
 X.append([4/10, 5/10])
-y.append(0)
+y.append(-1)
 X.append([6/10, 5/10])
-y.append(0)
+y.append(-1)
 X.append([8/10, 8/10])
-y.append(0)
+y.append(-1)
 X.append([2/10, 6/10])
 y.append(1)
 X.append([4/10, 3/10])
@@ -396,13 +396,13 @@ dataset.append([X, y])
 X = []
 y = []
 X.append([0.71, 0.71])
-y.append(0)
+y.append(-1)
 X.append([1-0.71, 0.71])
-y.append(0)
+y.append(-1)
 X.append([0.71, 1-0.71])
-y.append(0)
+y.append(-1)
 X.append([1-0.71, 1-0.71])
-y.append(0)
+y.append(-1)
 X.append([2/10, 6/10])
 y.append(1)
 X.append([4/10, 3/10])
@@ -419,13 +419,13 @@ dataset.append([X, y])
 X = []
 y = []
 X.append([0.71, 0.71])
-y.append(0)
+y.append(-1)
 X.append([1-0.71, 0.71])
-y.append(0)
+y.append(-1)
 X.append([0.71, 1-0.71])
-y.append(0)
+y.append(-1)
 X.append([1-0.71, 1-0.71])
-y.append(0)
+y.append(-1)
 X.append([1/5, 1/2])
 y.append(1)
 X.append([4/5, 1/2])
@@ -442,19 +442,19 @@ dataset.append([X, y])
 X = []
 y = []
 X.append([0.71, 0.71])
-y.append(0)
+y.append(-1)
 X.append([1-0.71, 0.71])
 y.append(1)
 X.append([0.71, 1-0.71])
-y.append(0)
+y.append(-1)
 X.append([1-0.71, 1-0.71])
 y.append(1)
 X.append([1/5, 1/2])
-y.append(0)
+y.append(-1)
 X.append([4/5, 1/2])
 y.append(1)
 X.append([1/2, 1/5])
-y.append(0)
+y.append(-1)
 X.append([1/2, 4/5])
 y.append(1)
 X = np.asarray(X)
@@ -471,7 +471,7 @@ for i in range(len(dataset)):
     i_1 = i%3
     X = dataset[i][0]
     y = dataset[i][1]
-    axs[i_0, i_1].scatter(X[np.where(y==0),0], X[np.where(y==0),1], color="r")
+    axs[i_0, i_1].scatter(X[np.where(y==-1),0], X[np.where(y==-1),1], color="r")
     axs[i_0, i_1].scatter(X[np.where(y==1),0], X[np.where(y==1),1], color="b")
     axs[i_0, i_1].set_xlim([0, 2*np.pi])
     axs[i_0, i_1].set_ylim([0, 2*np.pi])
@@ -507,7 +507,7 @@ for i in range(len(dataset)):
     i_1 = i%3
     X = dataset[i][0]
     y = dataset[i][1]
-    axs[i_0, i_1].scatter(X[np.where(y==0),0], X[np.where(y==0),1], color="r")
+    axs[i_0, i_1].scatter(X[np.where(y==-1),0], X[np.where(y==-1),1], color="r")
     axs[i_0, i_1].scatter(X[np.where(y==1),0], X[np.where(y==1),1], color="b")
     axs[i_0, i_1].set_xlim([0, 2*np.pi])
     axs[i_0, i_1].set_ylim([0, 2*np.pi])
@@ -530,212 +530,9 @@ print("feature 0:", X[:,0])
 print("feature 1:", X[:,1])
 print("y", y)
 # -
+X
 
 
 
 
-# +
-# dataset generation
 
-dataset = []
-
-X = []
-y = []
-X.append([1/4, 1/3])
-y.append(0)
-X.append([2/4, 1/3])
-y.append(0)
-X.append([3/4, 1/3])
-y.append(0)
-X.append([1/4, 2/3])
-y.append(1)
-X.append([2/4, 2/3])
-y.append(1)
-X.append([3/4, 2/3])
-y.append(1)
-X = np.asarray(X)
-y = np.asarray(y)
-dataset.append([X, y])
-
-X = []
-y = []
-X.append([1/4, 1/3])
-y.append(0)
-X.append([2/4, 1/3])
-y.append(1)
-X.append([3/4, 1/3])
-y.append(0)
-X.append([1/4, 2/3])
-y.append(1)
-X.append([2/4, 2/3])
-y.append(0)
-X.append([3/4, 2/3])
-y.append(1)
-X = np.asarray(X)
-y = np.asarray(y)
-dataset.append([X, y])
-
-X = []
-y = []
-X.append([1/4, 1/3])
-y.append(0)
-X.append([2/4, 1/3])
-y.append(1)
-X.append([3/4, 1/3])
-y.append(0)
-X.append([1/4, 2/3])
-y.append(0)
-X.append([2/4, 2/3])
-y.append(1)
-X.append([3/4, 2/3])
-y.append(0)
-X = np.asarray(X)
-y = np.asarray(y)
-dataset.append([X, y])
-
-X = []
-y = []
-X.append([1/4, 1/3])
-y.append(0)
-X.append([2/4, 1/3])
-y.append(0)
-X.append([3/4, 1/3])
-y.append(1)
-X.append([1/4, 2/3])
-y.append(1)
-X.append([2/4, 2/3])
-y.append(1)
-X.append([3/4, 2/3])
-y.append(0)
-X = np.asarray(X)
-y = np.asarray(y)
-dataset.append([X, y])
-
-# encapsulated
-X = []
-y = []
-X.append([1/5, 1/5])
-y.append(0)
-X.append([1/5, 4/5])
-y.append(0)
-X.append([4/5, 1/2])
-y.append(0)
-X.append([2/5, 2/5])
-y.append(1)
-X.append([2/5, 3/5])
-y.append(1)
-X.append([3/5, 1/2])
-y.append(1)
-X = np.asarray(X)
-y = np.asarray(y)
-dataset.append([X, y])
-
-# half moons inside one another
-X = []
-y = []
-X.append([2/10, 8/10])
-y.append(0)
-X.append([5/10, 5/10])
-y.append(0)
-#X.append([6/10, 5/10])
-#y.append(0)
-X.append([8/10, 8/10])
-y.append(0)
-X.append([2/10, 6/10])
-y.append(1)
-X.append([5/10, 3/10])
-y.append(1)
-#X.append([6/10, 3/10])
-#y.append(1)
-X.append([8/10, 6/10])
-y.append(1)
-X = np.asarray(X)
-y = np.asarray(y)
-dataset.append([X, y])
-
-# weird structure
-X = []
-y = []
-X.append([0.71, 0.71])
-y.append(0)
-X.append([1-0.71, 0.71])
-y.append(0)
-X.append([1/2, 1-0.71+0.15])
-y.append(0)
-#X.append([1-0.71, 1-0.71])
-#y.append(0)
-X.append([2/10, 6/10])
-y.append(1)
-#X.append([4/10, 3/10])
-#y.append(1)
-X.append([1/2, 3/10]) #
-y.append(1) #
-X.append([8/10, 6/10])
-y.append(1)
-X = np.asarray(X)
-y = np.asarray(y)
-dataset.append([X, y])
-
-# even circle
-X = []
-y = []
-X.append([0.66, 0.62])
-y.append(0)
-X.append([1-0.66, 0.62])
-y.append(0)
-X.append([0.5, 1-0.71])
-y.append(0)
-X.append([0.66, 0.40])
-y.append(1)
-X.append([1-0.66, 0.40])
-y.append(1)
-X.append([0.5, 0.71])
-y.append(1)
-X = np.asarray(X)
-y = np.asarray(y)
-dataset.append([X, y])
-
-# uneven circle
-X = []
-y = []
-X.append([0.66, 0.62])
-y.append(0)
-X.append([1-0.66, 0.62])
-y.append(1)
-X.append([0.5, 1-0.71])
-y.append(0)
-X.append([0.66, 0.40])
-y.append(1)
-X.append([1-0.66, 0.40])
-y.append(0)
-X.append([0.5, 0.71])
-y.append(1)
-X = np.asarray(X)
-y = np.asarray(y)
-dataset.append([X, y])
-
-for i in range(len(dataset)):
-    dataset[i][0] = dataset[i][0]*np.pi*1.4 + 0.3*np.pi
-
-fig, axs = plt.subplots(3, 3,figsize=(9,9))
-
-for i in range(len(dataset)):
-    i_0 = int(i/3)
-    i_1 = i%3
-    X = dataset[i][0]
-    y = dataset[i][1]
-    axs[i_0, i_1].scatter(X[np.where(y==0),0], X[np.where(y==0),1], color="r")
-    axs[i_0, i_1].scatter(X[np.where(y==1),0], X[np.where(y==1),1], color="b")
-    axs[i_0, i_1].set_xlim([0, 2*np.pi])
-    axs[i_0, i_1].set_ylim([0, 2*np.pi])
-
-plt.show()
-# -
-
-
-for i in range(len(dataset[7])):
-    print(dataset[7][i])
-
-for i in range(len(dataset[8][0])):
-    for j in range(2):
-        print(type(dataset[8][0][i][j]))

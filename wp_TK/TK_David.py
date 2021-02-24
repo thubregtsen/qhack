@@ -388,10 +388,10 @@ print(y_test.shape)
 
 
 # Config field
-n_blocks = 2
+n_blocks = 1
 n_features = 2
 n_param = 2
-n_layers = 2
+n_layers = 1
 learning_rate = 0.2
 use_manual_grad = True
 
@@ -436,11 +436,17 @@ for dataset_index in range(9):
 
 print(performance)
 
-# %matplotlib notebook
-plt.scatter(range(9), np.array(performance)[:, 0], color='r', marker='x', label='Zero')
-plt.scatter(range(9), np.array(performance)[:, 1], color='b', marker='o', label='Init')
-plt.scatter(range(9), np.array(performance)[:, 1], color='g', marker='d', label='Opt')
-
+ # %matplotlib notebook
+indices = np.array(list(range(9)))
+plt.scatter(indices-0.1, np.array(performance)[:, 0], color='r', marker='x', label='Zero')
+plt.scatter(indices, np.array(performance)[:, 1], color='b', marker='o', label='Init')
+plt.scatter(indices+0.1, np.array(performance)[:, 2], color='g', marker='d', label='Opt')
+for ind in indices[:-1]:
+    plt.plot([ind+0.5]*2, [np.min(performance), np.max(performance)], color='0.7', ls=':')
+plt.legend()
+plt.xticks(indices)
+plt.xlabel('Dataset')
+plt.ylabel('Training set performance')
 
 
 
