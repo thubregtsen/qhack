@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py
+#     formats: ipynb,py:light
 #     text_representation:
 #       extension: .py
 #       format_name: light
@@ -201,9 +201,9 @@ print("y_train is purely fed to have it ready for pred(), but not used during tr
 
 def validate(model, X, y_true):
     y_pred = model.predict(X)
-    errors = np.sum(np.abs([(y_train[i] - y_pred[i])/2 for i in range(len(y_train))]))
+    errors = np.sum(np.abs([(y_true[i] - y_pred[i])/2 for i in range(len(y_true))]))
     return (len(y_true)-errors)/len(y_true)
-validate(svm, X_train, y_train)
+validate(svm, X_test, y_test)
 
 # # Comparison to classical
 

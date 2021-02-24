@@ -48,9 +48,9 @@ np.random.seed(42)
 # load the data
 X, y = load_iris(return_X_y=True) 
 
-print("The dataset contains X and y, each of length", len(X))
-print("X contains", len(X[0]), "features")
-print("y contains the following classes", np.unique(y))
+#print("The dataset contains X and y, each of length", len(X))
+#print("X contains", len(X[0]), "features")
+#print("y contains the following classes", np.unique(y))
 
 # pick inputs and labels from the first two classes only,
 # corresponding to the first 100 samples
@@ -58,30 +58,38 @@ print("y contains the following classes", np.unique(y))
 X = X[:100,:2]
 y = y[:100]
 
-print("The dataset is trimmed so that the total number of samples are ", len(X))
-print("The original tutorial sticked with 4 features, I (Tom) reduced it to ", len(X[0]))
+#print("The dataset is trimmed so that the total number of samples are ", len(X))
+#print("The original tutorial sticked with 4 features, I (Tom) reduced it to ", len(X[0]))
 
 # scaling the inputs is important since the embedding we use is periodic
 # -> data is scaled to np.min(X)=-2.307; np.max(X)= 2.731
 scaler = StandardScaler().fit(X)
 X_scaled = scaler.transform(X)
 
-print("X is normalized to the range", np.min(X_scaled), np.max(X_scaled))
+#print("X is normalized to the range", np.min(X_scaled), np.max(X_scaled))
 
 # scaling the labels to -1, 1 is important for the SVM and the
 # definition of a hinge loss
 # -> now making the 2 classes: -1, 1
 y_scaled = 2 * (y - 0.5)
-print("y is normalized to drop a class, and now contains", np.sum([1 if x==-1 else 0 for x in y_scaled]), "\"-1\" classes and ", np.sum([1 if x==1 else 0 for x in y_scaled]), "\"1\" classes")
+#print("y is normalized to drop a class, and now contains", np.sum([1 if x==-1 else 0 for x in y_scaled]), "\"-1\" classes and ", np.sum([1 if x==1 else 0 for x in y_scaled]), "\"1\" classes")
 
 # -> result of train_test_split:
 # len(X_train)=75, 39 labelled 1, 36 labelled -1
 # len(X_test)=25
 # data is shuffled prior to split (shuffled variable in train_test_split is default True)
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y_scaled)
-print("Lastly, the data is shuffled and split into", len(X_train), "training samples and", len(X_test), "samples")
 
-print("The training data is as follows:")
+import sys
+size = int(sys.argv[1])
+X_train = X_train[0:size]
+y_train = y_train[0:size]
+X_test = X_test[0:size]
+y_test = y_test[0:size]
+
+#print("Lastly, the data is shuffled and split into", len(X_train), "training samples and", len(X_test), "samples")
+
+#print("The training data is as follows:")
 plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", label=1)
 plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", label=-1)
 plt.legend()
@@ -90,7 +98,9 @@ plt.legend()
 # # Devices
 
 # +
-n_qubits = len(X_train[0]) # -> equals number of features
+#n_qubits = 13 * len(X_train[0])
+n_qubits = int(sys.argv[2])
+#n_qubits = len(X_train[0]) # -> equals number of features
 
 # select backend
 # for floq you'll need to create a file "floq_key" with the key in it in the current dir
@@ -112,13 +122,9 @@ if have_floq_key:
 else:
     print("Lame backed selected")
     dev_kernel = qml.device("default.qubit", wires=n_qubits)
-    
+
 
 # -
-
-# David, do you use this? Please either remove the comment or the code
-projector = np.zeros((2**n_qubits, 2**n_qubits))
-projector[0, 0] = 1
 
 
 
@@ -202,7 +208,7 @@ def optimize_kernel_param(
     normalize=False,
     optimizer=qml.AdamOptimizer,
     optimizer_kwargs={'stepsize':0.2},
-    N_epoch=20,
+    N_epoch=1,
     verbose=5,
     dx=1e-6,
     atol=1e-3,
@@ -222,8 +228,8 @@ def optimize_kernel_param(
     last_cost = 1e10
     for i in range(N_epoch):
         param, current_cost = opt.step_and_cost(cost_fn, param, grad_fn=grad_fn)
-        if i%verbose==0:
-            print(f"At iteration {i} the polarization is {-current_cost} (params={param})")
+        #if i%verbose==0:
+            #print(f"At iteration {i} the polarization is {-current_cost} (params={param})")
         if np.abs(last_cost-current_cost)<atol:
             break
         last_cost = current_cost
@@ -248,8 +254,16 @@ if False:
 # # Train and validate
 
 # +
-def train_svm(kernel, X_train, y_train, param):
-    kernel_matrix = lambda A, B: np.array([[kernel(a, b, param) for b in B] for a in A])
+def train_svm(kernel, X_train, y_train, param, assume_normalized_kernel=True):
+    def kernel_matrix(A, B):
+        M = np.eye(len(A))
+        for i, a in enumerate(A):
+            for j, b in enumerate(B[i+1:]):
+                M[i, j] = kernel(a, b, param)
+                M[j, i] = M[i, j]
+        return M
+
+#     kernel_matrix = lambda A, B: np.array([[kernel(a, b, param) for b in B] for a in A])
     svm = SVC(kernel=kernel_matrix).fit(X_train, y_train)
     return svm
     
@@ -267,16 +281,36 @@ def ansatz(x, params):
     qml.CRX(params[1],wires=[0,1])
     AngleEmbedding(x, wires=range(n_qubits))
 
+# from ansatz to circuit
 trainable_kernel = kern.EmbeddingKernel(ansatz, dev_kernel) # WHOOP WHOOP 
 
+# 
+#trainable_kernel(x1, x2, params)
+
+# optimization loop to kernel target aligment, which is the cost function
+# 
+
+# svm optimization
 init_par = np.random.random(3)
+# this is the Gram matrix
+print("to check", trainable_kernel.kernel_matrix(X_train, np.zeros_like(init_par)))
+
+# goes into svm.SVC
+
 seed = 42
-samples = 30
+samples = 100
 normalize = True
-vanilla_polarization = polarization(trainable_kernel, X_train, y_train, kernel_args=np.zeros_like(init_par),
-                                    samples=samples, seed=seed, normalize=normalize,)
-print(f"At param=[0....] the polarization is {vanilla_polarization}")
-start = time.time()
+start_k = dev_kernel.num_executions
+start_t = time.time()
+#trainable_kernel.polarization(X_train, y_train, np.zeros_like(init_par))
+trainable_kernel.target_alignment(X_train, y_train, np.zeros_like(init_par))
+end_k = dev_kernel.num_executions
+end_t = time.time()
+print("polarization [len(X_train), executions, time]):", len(X_train), ",", end_k - start_k, ",", end_t - start_t) 
+#print(f"At param=[0....] the polarization is {vanilla_polarization}")
+
+start_k = dev_kernel.num_executions
+start_t = time.time()
 opt_param, last_cost = optimize_kernel_param(
     trainable_kernel,
     X_train, 
@@ -287,92 +321,29 @@ opt_param, last_cost = optimize_kernel_param(
     normalize=normalize,
     verbose=1,
 )
-end = time.time()
-print("time elapsed:", end-start)
+end_k = dev_kernel.num_executions
+end_t = time.time()
+print("polarization [len(X_train), executions, time]):", len(X_train), ",", end_k - start_k, ",", end_t - start_t) 
 
 # +
 # Compare the original ansatz to a random-parameter to a polarization-trained-parameter kernel - It seems to work!
-svm = train_svm(trainable_kernel, X_train, y_train, np.zeros_like(init_par))
-perf_train = validate(svm, X_train, y_train)
-perf_test = validate(svm, X_test, y_test)
-print(f"At zero parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
-
-svm = train_svm(trainable_kernel, X_train, y_train, init_par)
-perf_train = validate(svm, X_train, y_train)
-perf_test = validate(svm, X_test, y_test)
-print(f"At init parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
-
-svm = train_svm(trainable_kernel, X_train, y_train, opt_param)
-perf_train = validate(svm, X_train, y_train)
-perf_test = validate(svm, X_test, y_test)
-print(f"At 'optimal' parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
-# -
-
-
-print("we have run a total of", dev_kernel.num_executions, "circuit executions")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#svm = train_svm(trainable_kernel, X_train, y_train, np.zeros_like(init_par))
+#perf_train = validate(svm, X_train, y_train)
+#print("kernel executions:", dev_kernel.num_executions)
+#perf_test = validate(svm, X_test, y_test)
+#print(f"At zero parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
+
+#svm = train_svm(trainable_kernel, X_train, y_train, init_par)
+#perf_train = validate(svm, X_train, y_train)
+#perf_test = validate(svm, X_test, y_test)
+#print(f"At init parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
+#
+#svm = train_svm(trainable_kernel, X_train, y_train, opt_param)
+#perf_train = validate(svm, X_train, y_train)
+#perf_test = validate(svm, X_test, y_test)
+#print(f"At 'optimal' parameters, the kernel has training set performance {perf_train} and test set performance {perf_test}.")
+## -
+#print("we have run a total of", dev_kernel.num_executions, "circuit executions")
 
 
 
