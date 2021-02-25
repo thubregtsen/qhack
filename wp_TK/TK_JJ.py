@@ -160,4 +160,6 @@ dataset.plot(plt.gca())
 
 k.target_alignment(X, Y, np.zeros_like(params))
 
+k.probs_qnode.qtape
+
 
