@@ -13,47 +13,16 @@ Please note:
 # Trainable Quantum Kernels with Pennylane
 ## Or how finding good music title puns got out of hand
 
-_By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
+_By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer and David Wierichs)_
 
 ### Quantum Machine Learning
-Throughout the 1990's and 2000's the field of Machine Learning (ML) experienced a series of breakthroughs which propelled it forward.
-These breakthroughs did come at a high price, though: the research landscape was divided into opposing movements who had to fight countless peaceful battles against one another.
-The survivors still today bear a troubled look when they explain how the shameless kernel methodists used to flex their nice math and performance promises, while the hardened feedfoward networkers couldn't help the prosperity backpropagation had brought being taken away from them under the unspeakable terror of vanishing gradients.
-
-The advantage of the kernel folk, with their ubiquitous and shiny Support Vector Machine (SVM), was their trust in kernels that were powerful enough.
-They didn't have to worry about concave optimization or other NP-hard problems.
-In exchange, they had to pass through the hoop of model selection.
-
-In the fray of the battle, a number of gray rebellious methodists thought they could take a shot of their enemies medicine.
-They explored the concept of training their kernels in a networky fashion.
-
-This is the story of what came out of that reckless attempt, and how the legacy of these ancient kernel _tamers_  has carried on through the generations and eventually turned quantum.
+% This shouldn't be very long, couple paragraphs
 
 ### Kernel methods
-Kernel methods are one of the cornerstones of classical machine learning. Kernel boundaries allow us to use linear classifiers to establish non-linear decision boundaries:
-
-<p align="center">
-<img src="./wp_TK/embedding_nonlinear_classification.png" alt="Linear classification with embedding" width="550"/>
-</p>
-
-The underlying "trick" is that any kernel will introduce a similarity measure, comparable to a scalar product, that allows us to unlock more complicated features of the underlying data. The beauty lies in the fact that the kernel implicitly contains an embedding of the data into a -- possibly infinite -- vector space -- and that we can use this to perform a linear classification in this space where the data is linearly separable.
+% also couple paragraphs, some formulas. No trainable stuff
 
 ### Quantum Kernels
 % can go a bit deeper: talk about first proposals and recent theoretical work
-
-
-In this demonstration, we will explore a particular kind of kernel that can be realized on near-term quantum computers, namely _Quantum Embedding Kernels (QEKs)_, i.e. kernels that arise from embedding data into the space of quantum states. We formalize this by considering a parametrized quantum circuit $U(\boldsymbol{x})$ that embeds the datapoint $\boldsymbol{x}$ into the state
-
-$$
-|\psi(\boldsymbol{x})\rangle = U(\boldsymbol{x}) |0 \rangle.
-$$
-
-The kernel value is given by the _overlap_ of the associated embedded quantum states
-
-$$
-k(\boldsymbol{x}, \boldsymbol{y}) = | \langle\psi(\boldsymbol{x})|\psi(\boldsymbol{y})\rangle|^2.
-$$
-
 
 ### Trainable Kernels
 % one paragraph classic includes formula for polarisation
@@ -138,39 +107,20 @@ This demonstrates increased classification capabilities of a polarisation-traine
 % issue + stabilisation
 
 ### Integration
+% JJM: one paragraph how this goes into Pennylane
+
 Coming up with some examples and writing single-use Pennylane-intensive scripts would have been enough in answering our fundamental question of whether trainable quantum kernels can provide some advantage.
 This is nevertheless far from the spirit of a hackathon, where traditionally the idea was to develop a deliverable product.
 Since we were already hacking the kernels using Pennylane's quantum circuit modules, we thought we might as well make this available for everyone!
 This comprises the more tangible side of our project: the qml.kernels module!
 
-Fully integrated into Pennylane, qml.kernels provides utilities ranging from building kernel functions just from arbitrary data embedding Ansätze, to the calculation of quality measures for kernels useful for training and up to stabilizing the kernel matrix, making sure it stays positive semidefinite even in the presence of sampling error or hardware noise.
+Fully integrated into Pennylane, qml.kernels provides utilities ranging from just building kernel functions from arbitrary data embedding Ansätze and up to stabilizing the kernel matrix, making sure it stays positive semidefinite even in the presence of sampling error or hardware noise.
 Our team embraces the open-source approach of Pennylane, making sure our participation in QHack could have some lasting positive effect was especially important to us.
 
 ### Resources
 % TH: resource estimates
-![](./blogpost_img/resources_1.png)
-In an ideal world, once we become aware of the situation and convinced this is worth studying, we lay down a systematic plan to find all the bottlenecks and interesting corners, then probe where our efforts can be most efficiently spent, document everything perfectly, and run weeklong simulations.
-Since we're in the middle of a hackathon, though, that is not a viable option.
-Instead, we need to perform some serious minimax optimization between showing powerful results and being able to obtain those results.
+In order to assess the feasibility of the various workloads and problems we could solve on the available hardware, we benchmarked the cost in terms of required time and dollars spend. We did this by first plotting the total function calls per dataset size, as shown in [plot]. This can then be used in combination with the time per circuit call in [plot] to find the expected runtime and by combining it with the cost per shot to find the financial budget to run on AWS. Between the hardware platforms, we found that Floq, compared to our classical server (16 CPU, 128G mem), was able to extend our capabilities by 7 additional qubits. This can also be viewed as a 2^7 speedup, which is what we confirmed experimentally: in 26-28 qubits regime we saw a 70 to 110x speedup. At 29 qubits, our classical machine choose Harakiri, whereas Floq caved at 33 qubits with a gracious "qubit size not in acceptable range". [Killed image] The AWS cloud simulation took significantly longer than local simulation, so we opted out of using these. The Rigetti machine through the AWS cloud servers did provide valuable insights in the performance of the kernel when subjected to noise, and was, apart from a factor 10 mistake, well within budget. 
 
-On the one hand, we needed to clearly define our task pipeline, noting how many circuit executions we needed at every step.
-On the other hand, we needed to size the resource consumption of every circuit execution, both in terms of time and eventually aws credits.
-Understandably the resource consumption per circuit execution is not always the same, as different number of qubits and gates implemented have a great impact.
-
-I need some info for this.
-
-Resource estimation played a central role in our strategy, that's why we allocated a decent amount of time to pushing the walls to see when they would not go further.
-This did result on some collateral damage.
-
-### Floq
-%TH: explain Floq
-
-Luckily our new friends over at Floq really had our back during the hackathon.
-Thanks to having access to the amazing TPU and its 70x faster runtimes (up to 210x if you're poweruser Tom) we were able to test a myriad of different embedding templates and data sets.
-This was critical in our finding the optimal trade-off between flashiness and realizability.
-
-### AWS
-%PJ: performance, digression, calculation and observation
 
 ### References
 
