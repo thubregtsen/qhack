@@ -45,7 +45,8 @@ import matplotlib.pyplot as plt
 
 
 class DoubleCake:
-    def _make_circular_data(self):    
+    def _make_circular_data(self): 
+        """Generate datapoints arranged in an even circle."""
         center_indices = np.array(range(0, self.num_sectors))
         sector_angle = 2*np.pi / self.num_sectors
         angles = (center_indices + 0.5) * sector_angle
@@ -96,10 +97,81 @@ class DoubleCake:
 dataset = DoubleCake(6)
 
 dataset.plot(plt.gca(), show_sectors=True)
+
+
 # -
 
 # ## Defining a Quantum Embedding Kernel
 #
-# PennyLane's `kernels` module allows for a particularly simple implementation of Quantum Embedding Kernels. To be able to use it we first import some useful packages:
+# PennyLane's `kernels` module allows for a particularly simple implementation of Quantum Embedding Kernels. The first ingredient we need for this is an _ansatz_ that represents the unitary $U(\boldsymbol{x})$ we use for embedding the data into a quantum state. 
 
-import pennylane as qml
+# +
+def layer(x, params, wires, i0=0, inc=1):
+    i = i0
+    for j, wire in enumerate(wires):
+        qml.Hadamard(wires=[wire])
+        qml.RZ(x[i % len(x)], wires=[wire])
+        i += inc
+        qml.RY(params[0, j], wires=[wire])
+        
+    qml.broadcast(unitary=qml.CRZ, pattern="ring", wires=wires, parameters=params[1])
+
+@qml.template
+def ansatz(x, params, wires):
+    for j, layer_params in enumerate(params):
+        layer(x, layer_params, wires, i0=j * len(wires))
+        
+def random_params(num_wires, num_layers):
+    return np.random.uniform(0, 2*np.pi, (num_layers, 2, num_wires))
+
+
+# -
+
+# We are now in a place where we can create the embedding. Together with the ansatz we only need a device to run the quantum circuit on. For the purposes of this tutorial we will use PennyLane's `lightning.qubit` device with 5 wires.
+#
+# To add another interesting twist, we will not repeatedly input the different datapoints but extract random linear combinations. This is realized by choosing a matrix $W$ whose entries are randomly sampled from the normal distribution. We have $2$ data dimensions but want to expand them to $30$ different embedding features. We therefore construct a matrix with shape $(2, 30)$ so that the matrix-vector product $\boldsymbol{x}W$ is a vector with $30$ entries.
+
+dev = qml.device("lightning.qubit", wires=5)
+wires = list(range(5))
+W = np.random.normal(0, .7, (2, 30))
+k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x @ W, params, wires), dev)
+
+# And this was all of the magic! The `EmbeddingKernel` class took care of providing us with a circuit that calculates the overlap. Before we can take a look at the kernel values we have to provide values for the variational parameters.
+
+init_params = random_params(5, 6)
+
+# Now we can have a look at the kernel value between the first and the second datapoint:
+
+k(dataset.X[0], dataset.X[1], init_params)
+
+# The mutual kernel values between all elements of the dataset form the _kernel matrix_. We can inspect it via the `square_kernel_matrix` method:
+
+# +
+K_init = k.square_kernel_matrix(dataset.X, init_params)
+
+with np.printoptions(precision=3, suppress=True):
+    print(K_init)
+# -
+
+# ## Using the Quantum Embedding Kernel for predictions
+#
+# The quantum kernel alone can not be used to make predictions on a dataset, becaues it essentially just a tool to measure the similarity between two datapoints. To perform an actual prediction we will make use of scikit-learns support vector classifier (SVC). 
+
+from sklearn.svm import SVC
+
+# The `SVC` class expects a function that maps two sets of datapoints to the corresponding kernel matrix. This is provided by the `kernel_matrix` property of the `EmbeddingKernel` class, we only have to use a lambda construction to include our parameters.
+
+svm = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, init_params)).fit(dataset.X, dataset.Y)
+
+
+# To see how well our classifier performs we will measure what percentage it classifies correctly.
+
+def accuracy(classifier, X, Y_target):
+    return np.count_nonzero(classifier.predict(X) - Y_target) / len(Y_target)
+
+
+print("The accuracy of a kernel with random parameters is {:.3f}".format(accuracy(svm, dataset.X, dataset.Y)))
+
+# We also want to see what kinds of decision boundaries the classifier realizes. To this end we will introduce a second helper method.
+
+
