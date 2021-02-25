@@ -16,7 +16,6 @@ Please note:
 _By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
 
 ### Quantum Machine Learning
-% This shouldn't be very long, couple paragraphs
 Throughout the 1990's and 2000's the field of Machine Learning (ML) experienced a series of breakthroughs which propelled it forward.
 These breakthroughs did come at a high price, though: the research landscape was divided into opposing movements who had to fight countless peaceful battles against one another.
 The survivors still today bear a troubled look when they explain how the shameless kernel methodists used to flex their nice math and performance promises, while the hardened feedfoward networkers couldn't help the prosperity backpropagation had brought being taken away from them under the unspeakable terror of vanishing gradients.
