@@ -10,12 +10,23 @@ Please note:
  - The first few sections are susceptible of being deleted altogether
  - The parts I'm less ashamed of begin with "Quantum Kernels"
 
-# Trainable Quantum Kernels on Pennylane
-## Or how finding good Music title puns got out of hand
+# Trainable Quantum Kernels with Pennylane
+## Or how finding good music title puns got out of hand
 
 _By: Notorious FUB_
 
-### Classical Machine Learning in times of Quantum Machine Learning
+### Quantum Machine Learning
+% This shouldn't be very long, couple paragraphs
+
+### Kernel methods
+% also couple paragraphs, some formulas. No trainable stuff
+
+### Quantum Kernels
+% can go a bit deeper: talk about first proposals and recent theoretical work
+
+### Trainable Kernels
+% one paragraph classic includes formula for polarisation
+% one paragraph quantum trainable kernels
 
 Tackling Machine Learning tasks like regression or classification has become a common use case for Parameterised Quantum Circuits.
 And so, a new field is born: Quantum Machine Learning.
@@ -84,8 +95,29 @@ Think about it, write the simplest sum that does it, notice it looks like someth
 
 Now our goal is clear: take a parameterised embedding, use it to build a quantum kernel, find the parameters which maximize the kernel polarisation, and then feed the kernel with the optimal choice of parameters to an SVM!
 
-### Resources
+### Implementation
+% JJM: one paragraph about implementation + demo
 
+### Advantage of training
+% David: one paragraph training actually works
+
+### Noise issues
+% issue + stabilisation
+
+### Integration
+% JJM: one paragraph how this goes into Pennylane
+
+Coming up with some examples and writing single-use Pennylane-intensive scripts would have been enough in answering our fundamental question of whether trainable quantum kernels can provide some advantage.
+This is nevertheless far from the spirit of a hackathon, where traditionally the idea was to develop a deliverable product.
+Since we were already hacking the kernels using Pennylane's quantum circuit modules, we thought we might as well make this available for everyone!
+This comprises the more tangible side of our project: the qml.kernels module!
+
+Fully integrated into Pennylane, qml.kernels provides utilities ranging from just building kernel functions from arbitrary data embedding Ansätze and up to stabilizing the kernel matrix, making sure it stays positive semidefinite even in the presence of sampling error or hardware noise.
+Our team embraces the open-source approach of Pennylane, making sure our participation in QHack could have some lasting positive effect was especially important to us.
+
+### Resources
+% TH: resource estimates
+![](./blogpost_img/resources_1.png)
 In an ideal world, once we become aware of the situation and convinced this is worth studying, we lay down a systematic plan to find all the bottlenecks and interesting corners, then probe where our efforts can be most efficiently spent, document everything perfectly, and run weeklong simulations.
 Since we're in the middle of a hackathon, though, that is not a viable option.
 Instead, we need to perform some serious minimax optimization between showing powerful results and being able to obtain those results.
@@ -99,23 +131,19 @@ I need some info for this.
 Resource estimation played a central role in our strategy, that's why we allocated a decent amount of time to pushing the walls to see when they would not go further.
 This did result on some collateral damage.
 
+### Floq
+%TH: explain Floq
+
 Luckily our new friends over at Floq really had our back during the hackathon.
-Thanks to having access to the amazing TPU and its 70x faster runtimes we were able to test a myriad of different embedding templates and data sets.
+Thanks to having access to the amazing TPU and its 70x faster runtimes (up to 210x if you're poweruser Tom) we were able to test a myriad of different embedding templates and data sets.
 This was critical in our finding the optimal trade-off between flashiness and realizability.
 
-### Pennylane integration
+### AWS
+%PJ: performance, digression, calculation and observation
 
-Coming up with some examples and writing single-use Pennylane-intensive scripts would have been enough in answering our fundamental question of whether trainable quantum kernels can provide some advantage.
-This is nevertheless far from the spirit of a hackathon, where traditionally the idea was to develop a deliverable product.
-Since we were already hacking the kernels using Pennylane's quantum circuit modules, we thought we might as well make this available for everyone!
-This comprises the more tangible side of our project: the qml.kernels module!
+### References
 
-Fully integrated into Pennylane, qml.kernels provides utilities ranging from just building kernel functions from arbitrary data embedding Ansätze and up to stabilizing the kernel matrix, making sure it stays positive semidefinite even in the presence of sampling error or hardware noise.
-Our team embraces the open-source approach of Pennylane, making sure our participation in QHack could have some lasting positive effect was especially important to us.
-
-### Resources
-
-These are not sorted, they will be
+These are not sorted, they will be.
 
 [1] M. Schuld: _Quantum Machine Learning Models are Kernel Methods_ https://arxiv.org/abs/2101.11020
 
