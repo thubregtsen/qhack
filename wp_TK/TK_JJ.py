@@ -114,11 +114,50 @@ plot_data_trained = {'XX' : XX, 'YY' : YY, 'ZZ' : ZZ}
     
 plt.contourf(XX, YY, ZZ, cmap=mpl.colors.ListedColormap(['#FF0000', '#0000FF']), alpha=.2, levels=[-1, 0,  1])
 dataset.plot(plt.gca())
+
+# +
+gs = mpl.gridspec.GridSpec(1, 3) 
+fig = plt.figure(figsize=(10,3))
+
+#Using the 1st row and 1st column for plotting heatmap
+
+ax=plt.subplot(gs[0,0])
+ax.contourf(plot_data_zero['XX'], plot_data_zero['YY'], plot_data_zero['ZZ'], cmap=mpl.colors.ListedColormap(['#FF0000', '#0000FF']), alpha=.2, levels=[-1, 0,  1])
+ax.set_title("Zero, Target-Alignment = {:.3f}".format(k.target_alignment(X, Y, np.zeros_like(params))))
+dataset.plot(ax)
+
+ax=plt.subplot(gs[0,1])
+ax.contourf(plot_data_init['XX'], plot_data_init['YY'], plot_data_init['ZZ'], cmap=mpl.colors.ListedColormap(['#FF0000', '#0000FF']), alpha=.2, levels=[-1, 0,  1])
+dataset.plot(ax)
+ax.set_title("Random, Target-Alignment = {:.3f}".format(k.target_alignment(X, Y, init_params)))
+
+ax=plt.subplot(gs[0,2])
+ax.contourf(plot_data_trained['XX'], plot_data_trained['YY'], plot_data_trained['ZZ'], cmap=mpl.colors.ListedColormap(['#FF0000', '#0000FF']), alpha=.2, levels=[-1, 0,  1])
+ax.set_title("Trained, Target-Alignment = {:.3f}".format(k.target_alignment(X, Y, params)))
+dataset.plot(ax)
+plt.tight_layout()
 # -
 
+ZZ
+
+# +
+svm3 = tk.train_svm(k, X, Y, np.zeros_like(params))
+
+xx = np.linspace(-1, 1, 14)
+yy = np.linspace(-1, 1, 14)
+
+XX, YY = np.meshgrid(xx,yy)
+
+ZZ = np.zeros_like(XX)
+for idx in tqdm.notebook.tqdm(np.ndindex(*XX.shape)):
+    ZZ[idx] = svm3.predict(np.array([XX[idx], YY[idx]])[np.newaxis,:])
+    
+plot_data_zero = {'XX' : XX, 'YY' : YY, 'ZZ' : ZZ}
+    
 plt.contourf(XX, YY, ZZ, cmap=mpl.colors.ListedColormap(['#FF0000', '#0000FF']), alpha=.2, levels=[-1, 0,  1])
 dataset.plot(plt.gca())
+# -
 
-ZZ
+k.target_alignment(X, Y, np.zeros_like(params))
 
 
