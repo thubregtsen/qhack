@@ -202,6 +202,10 @@ def reembed(x, param, embedding, n_layers=2, n_qubits=2, n_features=2, **kwargs)
 
 
 
+
+
+
+
 # -
 
 # # Kernel optimization
@@ -262,7 +266,6 @@ if False:
     sns.lineplot(x=samples_, y=P);
 
 # # Train and validate
-
 
 
 
@@ -419,7 +422,8 @@ inds = [1,4,6,7,10,11,12,15,16]
 n_datasets = len(inds)
 for dataset_index in inds:
 #     X, y = tk_lib.load_data('../plots_and_data/train.txt', dataset_index) 
-    X, y = tk_lib.gen_cubic_data(dataset_index) # [0,16]
+#     X, y = tk_lib.gen_cubic_data(dataset_index) # [0,16]
+    X, y = tk_lib.gen_hypercubic_data(n_dim=3, n_samples=8)
     init_param = np.random.random(n_param) * 2 * np.pi 
 #     print(init_param)
     opt_param, opt_cost = tk_lib.optimize_kernel_param(
