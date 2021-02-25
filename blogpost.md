@@ -18,6 +18,19 @@ _By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubre
 ### Quantum Machine Learning
 % This shouldn't be very long, couple paragraphs
 
+Throughout the 1990's and 2000's the field of Machine Learning (ML) experienced a series of breakthroughs which propelled it forward.
+These breakthroughs did come at a high price, though: the research landscape was divided into opposing movements who had to fight countless peaceful battles against one another.
+The survivors still today bear a troubled look when they explain how the shameless kernel methodists used to flex their nice math and performance promises, while the hardened feedfoward networkers couldn't help the prosperity backpropagation had brought being taken away from them under the unspeakable terror of vanishing gradients.
+
+The advantage of the kernel folk, with their ubiquitous and shiny Support Vector Machine (SVM), was their trust in kernels that were powerful enough.
+They didn't have to worry about concave optimization or other NP-hard problems.
+In exchange, they had to pass through the hoop of model selection.
+
+In the fray of the battle, a number of gray rebellious methodists thought they could take a shot of their enemies medicine.
+They explored the concept of training their kernels in a networky fashion.
+
+This is the story of what came out of that reckless attempt, and how the legacy of these ancient kernel _tamers_  has carried on through the generations and eventually turned quantum.
+
 ### Kernel methods
 Kernel methods are one of the cornerstones of classical machine learning. To understand what a kernel method does we first look at one of the possibly simplest methods to assign class labels to datapoints: linear classification. Imagine that we want to discern two different classes of points that lie in different corners of the plane. A linear classifier corresponds to just drawing a line between the two classes and assigning labels to the classes depending on which side of the line they are on:
 
