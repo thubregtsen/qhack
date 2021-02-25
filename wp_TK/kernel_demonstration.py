@@ -38,11 +38,16 @@
 #
 # In this demonstration, we will treat a toy problem that showcases the inner workings of our approach. We will create the `DoubleCake` dataset. To do so, we first have to do some imports:
 
+# +
 import pennylane as qml
 from pennylane import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+np.random.seed(4711)
+
+
+# -
 
 class DoubleCake:
     def _make_circular_data(self): 
@@ -75,7 +80,7 @@ class DoubleCake:
         self.Y = self.labels.astype(int)
 
     def plot(self, ax, show_sectors=False):
-        ax.scatter(self.x, self.y, c=self.labels, cmap=mpl.colors.ListedColormap(['#FF0000', '#0000FF']), s=10)
+        ax.scatter(self.x, self.y, c=self.labels, cmap=mpl.colors.ListedColormap(['#FF0000', '#0000FF']), s=25, marker='s')
         sector_angle = 360/self.num_sectors
         
         if show_sectors:
@@ -131,9 +136,10 @@ def random_params(num_wires, num_layers):
 #
 # To add another interesting twist, we will not repeatedly input the different datapoints but extract random linear combinations. This is realized by choosing a matrix $W$ whose entries are randomly sampled from the normal distribution. We have $2$ data dimensions but want to expand them to $30$ different embedding features. We therefore construct a matrix with shape $(2, 30)$ so that the matrix-vector product $\boldsymbol{x}W$ is a vector with $30$ entries.
 
+W = np.random.normal(0, 0.7, (2, 30))
+
 dev = qml.device("lightning.qubit", wires=5)
 wires = list(range(5))
-W = np.random.normal(0, .7, (2, 30))
 k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x @ W, params, wires), dev)
 
 # And this was all of the magic! The `EmbeddingKernel` class took care of providing us with a circuit that calculates the overlap. Before we can take a look at the kernel values we have to provide values for the variational parameters.
@@ -142,7 +148,7 @@ init_params = random_params(5, 6)
 
 # Now we can have a look at the kernel value between the first and the second datapoint:
 
-k(dataset.X[0], dataset.X[1], init_params)
+print("The kernel value between the first and second datapoint is {:.3f}".format(k(dataset.X[0], dataset.X[1], init_params)))
 
 # The mutual kernel values between all elements of the dataset form the _kernel matrix_. We can inspect it via the `square_kernel_matrix` method:
 
@@ -167,11 +173,70 @@ svm = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, init_params)).fit(datase
 # To see how well our classifier performs we will measure what percentage it classifies correctly.
 
 def accuracy(classifier, X, Y_target):
-    return np.count_nonzero(classifier.predict(X) - Y_target) / len(Y_target)
+    return 1 - np.count_nonzero(classifier.predict(X) - Y_target) / len(Y_target)
 
 
 print("The accuracy of a kernel with random parameters is {:.3f}".format(accuracy(svm, dataset.X, dataset.Y)))
 
+
 # We also want to see what kinds of decision boundaries the classifier realizes. To this end we will introduce a second helper method.
+
+def plot_decision_boundaries(classifier, ax, N_gridpoints=14):
+    _xx, _yy = np.meshgrid(np.linspace(-1, 1, N_gridpoints), np.linspace(-1, 1, N_gridpoints))
+
+    _zz = np.zeros_like(_xx)
+    for idx in np.ndindex(*_xx.shape):
+        _zz[idx] = classifier.predict(np.array([_xx[idx], _yy[idx]])[np.newaxis,:])
+
+    plot_data = {'_xx' : _xx, '_yy' : _yy, '_zz' : _zz}
+    ax.contourf(_xx, _yy, _zz, cmap=mpl.colors.ListedColormap(['#FF0000', '#0000FF']), alpha=.2, levels=[-1, 0,  1])            
+    dataset.plot(ax)
+    
+    return plot_data
+
+
+# With that done, let's have a look at the decision boundaries for our initial classifier:
+
+init_plot_data = plot_decision_boundaries(svm, plt.gca())
+
+# We see that we can correctly classify the outer structure of the dataset, but our classifier still struggles with the inner points. But we have a circuit with many variational parameters, so it is reasonable to believe that we can improve the accuracy of our kernel based classification.
+
+# ## Training the Quantum Embedding Kernel
+#
+# To be able to train the Quantum Embedding Kernel we need some measure of how well it fits the dataset in question. Re-training the SVM for every small change in the variational parameters and comparing the accuracy is no solution because it is very resource intensive and as the accuracy is a discrete quantity you would not be able to detect small improvements. 
+#
+# The `EmbeddingKernel` class allows you to easily evaluate the kernel target alignment:
+
+print("The kernel-target-alignment for our dataset with random parameters is {:.3f}".format(
+    k.target_alignment(dataset.X, dataset.Y, init_params))
+)
+
+# Now let's code up an optimization loop and improve this. To this end, we will make use of regular gradient descent optimization. To speed up the optimization we will sample smaller subsets of the data at each step. Remember that the optimizer works to _minimize_ the cost, which is why we have to multiply the kernel target alignment by $-1$ to maximize it in the process. 
+
+# +
+params = init_params
+opt = qml.GradientDescentOptimizer(2.5)
+
+for i in range(500):
+    subset = np.random.choice(list(range(len(dataset.X))), 4)
+    params = opt.step(lambda _params: -k.target_alignment(dataset.X[subset], dataset.Y[subset], _params), params)
+    
+    if (i+1) % 50 == 0:
+        print("Step {} - Alignment = {:.3f}".format(i+1, k.target_alignment(dataset.X, dataset.Y, params)))
+# -
+
+# Now let's build a second support vector classifier with the trained kernel:
+
+svm_trained = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(dataset.X, dataset.Y)
+
+# Now we expect to see that the accuracy has improved:
+
+print("The accuracy of a kernel with trained parameters is {:.3f}".format(accuracy(svm_trained, dataset.X, dataset.Y)))
+
+# Very well, we also expect that the decision boundaries of our classifier capture the nature of the dataset better:
+
+init_plot_data = plot_decision_boundaries(svm_trained, plt.gca())
+
+# We have seen that training our Quantum Embedding Kernel indeed yields to improved accuracy and way more reasonable decision boundaries.
 
 
