@@ -13,7 +13,7 @@ Please note:
 # Trainable Quantum Kernels with Pennylane
 ## Or how finding good music title puns got out of hand
 
-_By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer and David Wierichs)_
+_By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
 
 ### Quantum Machine Learning
 % This shouldn't be very long, couple paragraphs
@@ -32,10 +32,19 @@ They explored the concept of training their kernels in a networky fashion.
 This is the story of what came out of that reckless attempt, and how the legacy of these ancient kernel _tamers_  has carried on through the generations and eventually turned quantum.
 
 ### Kernel methods
-% also couple paragraphs, some formulas. No trainable stuff
+
+Kernel methods are one of the cornerstones of classical machine learning. Kernel boundaries allow us to use linear classifiers to establish non-linear decision boundaries:
+
+<p align="center">
+<img src="./wp_TK/embedding_nonlinear_classification.png" alt="Linear classification with embedding" width="550"/>
+</p>
+
+The underlying "trick" is that any kernel will introduce a similarity measure, comparable to a scalar product, that allows us to unlock more complicated features of the underlying data. The beauty lies in the fact that the kernel implicitly contains an embedding of the data into a -- possibly infinite -- vector space -- and that we can use this to perform a linear classification in this space where the data is linearly separable.
 
 ### Quantum Kernels
 % can go a bit deeper: talk about first proposals and recent theoretical work
+
+
 
 ### Trainable Kernels
 % one paragraph classic includes formula for polarisation
@@ -127,7 +136,7 @@ This is nevertheless far from the spirit of a hackathon, where traditionally the
 Since we were already hacking the kernels using Pennylane's quantum circuit modules, we thought we might as well make this available for everyone!
 This comprises the more tangible side of our project: the qml.kernels module!
 
-Fully integrated into Pennylane, qml.kernels provides utilities ranging from just building kernel functions from arbitrary data embedding Ansätze and up to stabilizing the kernel matrix, making sure it stays positive semidefinite even in the presence of sampling error or hardware noise.
+Fully integrated into Pennylane, qml.kernels provides utilities ranging from building kernel functions just from arbitrary data embedding Ansätze, to the calculation of quality measures for kernels useful for training and up to stabilizing the kernel matrix, making sure it stays positive semidefinite even in the presence of sampling error or hardware noise.
 Our team embraces the open-source approach of Pennylane, making sure our participation in QHack could have some lasting positive effect was especially important to us.
 
 ### Resources
