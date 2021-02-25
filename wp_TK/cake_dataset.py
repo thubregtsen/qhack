@@ -1,4 +1,5 @@
 import numpy as np
+from matplotlib.colors import ListedColormap
 
 class Dataset:
     def _make_data(self):    
