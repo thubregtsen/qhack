@@ -21,7 +21,9 @@ _By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubre
 ### Kernel methods
 Kernel methods are one of the cornerstones of classical machine learning. To understand what a kernel method does we first look at one of the possibly simplest methods to assign class labels to datapoints: linear classification. Imagine that we want to discern two different classes of points that lie in different corners of the plane. A linear classifier corresponds to just drawing a line between the two classes and assigning labels to the classes depending on which side of the line they are on:
 
-<img src="./wp_TK/linear_classification.png" alt="Linear classification." width="200"/>
+<p align="center">
+<img src="./wp_TK/linear_classification.png" alt="Linear classification." width="250"/>
+</p>
 
 We can mathematically formalize this by assigning the label $y$ via
 
@@ -33,7 +35,9 @@ The vector $\boldsymbol{w}$ points perpendicular to the line and thus determine 
 
 But we can actually sneak around this limitation by performing a neat trick: if we define some map $\phi(\boldsymbol{x})$ that _embeds_ our datapoints into a larger space and perform a linear classification there, we can actually create non-linear decision boundaries!
 
-<img src="./wp_TK/embedding_nonlinear_classification.png" alt="Linear classification with embedding" width="440"/>
+<p align="center">
+<img src="./wp_TK/embedding_nonlinear_classification.png" alt="Linear classification with embedding" width="550"/>
+</p>
 
 If we go back to the expression for our prediction and include the embedding, we get
 
