@@ -21,6 +21,7 @@ from cake_dataset import DoubleCake
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import tqdm
+from sklearn.svm import SVC
 
 # +
 dataset = DoubleCake(0, 6)
@@ -65,8 +66,8 @@ else:
     print("MONEY IS BEING USED")
     #dev_arn = "arn:aws:braket:::device/qpu/rigetti/Aspen-9"
 
-#dev = qml.device("braket.aws.qubit", device_arn=dev_arn, s3_destination_folder=s3_folder, wires=5, shots=1000, parallel=True)
-dev = qml.device("default.qubit",wires=5, shots=100)
+#dev = qml.device("braket.aws.qubit", device_arn=dev_arn, s3_destination_folder=s3_folder, wires=5, shots=10, parallel=True)
+dev = qml.device("default.qubit",wires=5, shots=5)
 
 #dev = qml.device("default.qubit", wires=5)
 wires = list(range(5))
@@ -92,7 +93,17 @@ params = np.random.uniform(0, 2*np.pi, (6, 2, 5))
 
 svm1 = tk.train_svm(k, X, Y, params)
 
-tk_lib.validate(svm1, X, Y)
+n_test = len(Y)
+y_pred = svm1.predict(X)
+errors = np.sum(np.abs((Y - y_pred)/2))
+prec1 = (n_test-errors)/n_test
+print(prec1)
+
+
+
+
+
+
 
 
 
@@ -113,7 +124,11 @@ svm2 = tk.train_svm(k, X, Y, params)
 
 
 
-tk_lib.validate(svm2, X, Y)
+n_test = len(Y)
+y_pred = svm2.predict(X)
+errors = np.sum(np.abs((Y - y_pred)/2))
+prec2 = (n_test-errors)/n_test
+print(prec2)
 
 end = time.time()
 
