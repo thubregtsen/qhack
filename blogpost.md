@@ -121,12 +121,19 @@ Now our goal is clear: take a parameterised embedding, use it to build a quantum
 % JJM: one paragraph about implementation + demo
 
 ### Advantage of training
-In order to assess the benefits of optimising the trainable kernel via its polarisation, we compare it to the kernel when deactivating the variational gates by setting them to zero (the neutral kernel) and to the kernel at random parameters. For each of the three parameter settings, we then train an SVM on the respective kernel and obtain a classification performance for our chosen dataset.
-We find that the optimized kernel yields perfect classification of the data after training the SVM whereas both, the randomized and the neutral kernel fail to classify the entire dataset correctly obtaining only 66% accuracy each.
-This demonstrates increased classification capabilities of a polarisation-trained kernel for a small an simple dataset.
+The dataset we consider for the training evaluation is the `DoubleCake` dataset specifically created in this project. It has two features per sample and labels in two classes, the instance we consider contains 12 samples in total.
+In order to assess the benefits of optimising the trainable kernel via its alignment, we compare it to the kernel when deactivating the variational gates by setting them to zero and to the kernel at random parameters. For each of the three parameter settings, we then train an SVM on the respective kernel and obtain a classification performance for our chosen dataset.
+We find that the optimized kernel yields perfect classification of the data after training the SVM whereas both, the randomized and the zeroed parameter kernel fail to classify the entire dataset correctly obtaining only 66% accuracy each.
+This demonstrates increased classification capabilities of an alignment-trained kernel for a small and simple dataset as trained kernel adapts to the particular structure of the training data.
 
 ### Noise issues
-% issue + stabilisation
+When looking forward to boosting classification tasks with trainable circuits, the influence of measurement or sampling noise certainly is an important aspect. The question then arises whether the imperfect noisy kernel matrix that is obtained on a quantum computer can actually be of any use for the classification.
+We asked this question for the zeroed, randomized and optimized parameter kernel and observed that shot noise does harm the kernel matrix sufficiently to disrupt the classification performance.
+This issue can be directly traced back to the indefiniteness of the kernel matrix due to the noise.
+Hope would be lost for our quantum kernel if it wasn't for a small addition to the PennyLane.kernels module that allows for postprocessing of the noisy kernel matrix to stabilise it against noise. We implemented thresholding, which sets negative eigenvalues to zero and is equivalent to minimizing the distance between a positive semidefinite approximation and the noisy kernel itself, and displacing by subtracting the identity scaled with the smallest eigenvalue, which keeps the eigenvectors intact and yields a positive semidefinite matrix as well.
+When applying either of these stabilisation techniques, we observe considerable restoration of the classification performance and in particular the simple matrix displacing yields close to perfect classification performance across many instances of sampled noise.
+For our concrete application on the `DoubleCake` dataset, this stabilisation works for noise levels up to order of one, i.e. noise with relative standard deviation at and above 100%, as the kernel computes probabilities, which naturally are smaller or equal to one.
+We thus implemented and tested two new methods to improve the applicability of (trainable) QEKs to classification tasks.
 
 ### Integration
 % JJM: one paragraph how this goes into Pennylane
