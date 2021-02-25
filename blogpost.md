@@ -13,7 +13,7 @@ Please note:
 # Trainable Quantum Kernels with Pennylane
 ## Or how finding good music title puns got out of hand
 
-_By: Notorious FUB_
+_By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer and David Wierichs)_
 
 ### Quantum Machine Learning
 % This shouldn't be very long, couple paragraphs
