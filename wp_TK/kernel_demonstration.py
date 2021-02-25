@@ -149,7 +149,7 @@ dataset.plot(plt.gca(), show_sectors=True)
 
 # ## Defining a Quantum Embedding Kernel
 #
-# PennyLane's `kernels` module allows for a particularly simple implementation of Quantum Embedding Kernels. The first ingredient we need for this is an _ansatz_ that represents the unitary $U(\boldsymbol{x})$ we use for embedding the data into a quantum state. 
+# PennyLane's `kernels` module allows for a particularly simple implementation of Quantum Embedding Kernels. The first ingredient we need for this is an _ansatz_ that represents the unitary $U(\boldsymbol{x})$ we use for embedding the data into a quantum state. We will use a structure where a single layer is repeated multiple times:
 
 # +
 def layer(x, params, wires, i0=0, inc=1):
@@ -183,7 +183,7 @@ dev = qml.device("lightning.qubit", wires=5)
 wires = list(range(5))
 k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x @ W, params, wires), dev)
 
-# And this was all of the magic! The `EmbeddingKernel` class took care of providing us with a circuit that calculates the overlap. Before we can take a look at the kernel values we have to provide values for the variational parameters.
+# And this was all of the magic! The `EmbeddingKernel` class took care of providing us with a circuit that calculates the overlap. Before we can take a look at the kernel values we have to provide values for the variational parameters. We will initialize them such that the ansatz circuit has $6$ layers.
 
 init_params = random_params(5, 6)
 
@@ -284,7 +284,7 @@ print("The kernel-target-alignment for our dataset with random parameters is {:.
 params = init_params
 opt = qml.GradientDescentOptimizer(2.5)
 
-for i in range(500):
+for i in range(250):
     subset = np.random.choice(list(range(len(dataset.X))), 4)
     params = opt.step(lambda _params: -k.target_alignment(dataset.X[subset], dataset.Y[subset], _params), params)
     
@@ -309,5 +309,3 @@ init_plot_data = plot_decision_boundaries(svm_trained, plt.gca())
 # ### References
 #
 # [1] Wang, Tinghua, Dongyan Zhao, and Shengfeng Tian. "An overview of kernel alignment and its applications." _Artificial Intelligence Review_ 43.2 (2015): 179-192.
-
-
