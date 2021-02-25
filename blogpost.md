@@ -19,10 +19,65 @@ _By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubre
 % This shouldn't be very long, couple paragraphs
 
 ### Kernel methods
-% also couple paragraphs, some formulas. No trainable stuff
+Kernel methods are one of the cornerstones of classical machine learning. To understand what a kernel method does we first look at one of the possibly simplest methods to assign class labels to datapoints: linear classification. Imagine that we want to discern two different classes of points that lie in different corners of the plane. A linear classifier corresponds to just drawing a line between the two classes and assigning labels to the classes depending on which side of the line they are on:
+
+<img src="./wp_TK/linear_classification.png" alt="Linear classification." width="200"/>
+
+We can mathematically formalize this by assigning the label $y$ via
+
+$$
+y(\boldsymbol{x}) = \operatorname{sgn}(\langle \boldsymbol{w}, \boldsymbol{x}\rangle + b).
+$$
+
+The vector $\boldsymbol{w}$ points perpendicular to the line and thus determine its tilt. The parameter $b$ determines where the line actually lies. In this form, the linear classification can also be extended to higher dimensional vectors $\boldsymbol{x}$, in this case the classes are not separated by a line, but by a _hyperplane_. It is immediately clear that this method is not very powerful, as datasets that are not separable by a hyperplane can't be treated. 
+
+But we can actually sneak around this limitation by performing a neat trick: if we define some map $\phi(\boldsymbol{x})$ that _embeds_ our datapoints into a larger space and perform a linear classification there, we can actually create non-linear decision boundaries!
+
+<img src="./wp_TK/embedding_nonlinear_classification.png" alt="Linear classification with embedding" width="440"/>
+
+If we go back to the expression for our prediction and include the embedding, we get
+
+$$
+y(\boldsymbol{x}) = \operatorname{sgn}(\langle \boldsymbol{w}, \phi(\boldsymbol{x})\rangle + b).
+$$
+
+We will forgo one tiny step, but it can be shown that for the purposes of optimal classification, we can choose the vector defining the decision boundary as a linear combination of the embedded datapoints $\boldsymbol{w} = \sum_i \alpha_i \phi(\boldsymbol{x}_i)$. Putting this into the formula yields
+
+$$
+y(\boldsymbol{x}) = \operatorname{sgn}\left(\sum_i \alpha_i \langle \phi(\boldsymbol{x}_i), \phi(\boldsymbol{x})\rangle + b\right).
+$$
+
+This rewriting might not seem useful at first, but the above formula only contains inner products between vectors in the embedding space:
+
+$$
+k(\boldsymbol{x}, \boldsymbol{y}) = \langle \phi(\boldsymbol{x}), \phi(\boldsymbol{y})\rangle.
+$$
+
+We call this function the _kernel_. The clou now is that we can often find an explicit formula for the kernel $k$ that makes it superfluous to actually perform the embedding $\phi$. Consider for example the following embedding and the associated kernel:
+
+$$
+\phi((x_1, x_2)) = (x_1^2, \sqrt{2} x_1 x_2, x_2^2) \qquad
+k(\boldsymbol{x}, \boldsymbol{y}) = x_1^2 y_1^2 + 2 x_1 x_2 y_1 y_2 + x_2^2 y_2^2 = \langle \boldsymbol{x}, \boldsymbol{y} \rangle^2
+$$
+
+This means by just replacing the regular scalar product in our linear classification with the map $k$, we can actually express much more intricate decision boundaries!
 
 ### Quantum Kernels
 % can go a bit deeper: talk about first proposals and recent theoretical work
+
+
+In this demonstration, we will explore a particular kind of kernel that can be realized on near-term quantum computers, namely _Quantum Embedding Kernels (QEKs)_, i.e. kernels that arise from embedding data into the space of quantum states. We formalize this by considering a parametrized quantum circuit $U(\boldsymbol{x})$ that embeds the datapoint $\boldsymbol{x}$ into the state
+
+$$
+|\psi(\boldsymbol{x})\rangle = U(\boldsymbol{x}) |0 \rangle.
+$$
+
+The kernel value is given by the _overlap_ of the associated embedded quantum states
+
+$$
+k(\boldsymbol{x}, \boldsymbol{y}) = | \langle\psi(\boldsymbol{x})|\psi(\boldsymbol{y})\rangle|^2.
+$$
+
 
 ### Trainable Kernels
 % one paragraph classic includes formula for polarisation
