@@ -13,7 +13,7 @@ Please note:
 # Trainable Quantum Kernels with Pennylane
 ## Or how finding good music title puns got out of hand
 
-_By: Notorious FUB_
+_By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer and David Wierichs)_
 
 ### Quantum Machine Learning
 % This shouldn't be very long, couple paragraphs
@@ -99,7 +99,9 @@ Now our goal is clear: take a parameterised embedding, use it to build a quantum
 % JJM: one paragraph about implementation + demo
 
 ### Advantage of training
-% David: one paragraph training actually works
+In order to assess the benefits of optimising the trainable kernel via its polarisation, we compare it to the kernel when deactivating the variational gates by setting them to zero (the neutral kernel) and to the kernel at random parameters. For each of the three parameter settings, we then train an SVM on the respective kernel and obtain a classification performance for our chosen dataset.
+We find that the optimized kernel yields perfect classification of the data after training the SVM whereas both, the randomized and the neutral kernel fail to classify the entire dataset correctly obtaining only 66% accuracy each.
+This demonstrates increased classification capabilities of a polarisation-trained kernel for a small an simple dataset.
 
 ### Noise issues
 % issue + stabilisation
@@ -117,29 +119,9 @@ Our team embraces the open-source approach of Pennylane, making sure our partici
 
 ### Resources
 % TH: resource estimates
-![](./blogpost_img/resources_1.png)
-In an ideal world, once we become aware of the situation and convinced this is worth studying, we lay down a systematic plan to find all the bottlenecks and interesting corners, then probe where our efforts can be most efficiently spent, document everything perfectly, and run weeklong simulations.
-Since we're in the middle of a hackathon, though, that is not a viable option.
-Instead, we need to perform some serious minimax optimization between showing powerful results and being able to obtain those results.
 
-On the one hand, we needed to clearly define our task pipeline, noting how many circuit executions we needed at every step.
-On the other hand, we needed to size the resource consumption of every circuit execution, both in terms of time and eventually aws credits.
-Understandably the resource consumption per circuit execution is not always the same, as different number of qubits and gates implemented have a great impact.
+In order to assess the feasibility of the various workloads and problems we could solve on the available hardware, we benchmarked the cost in terms of required time and dollars spend. We did this by first plotting the total function calls per dataset size, as shown in [plot]. This can then be used in combination with the time per circuit call in [plot] to find the expected runtime and by combining it with the cost per shot to find the financial budget to run on AWS. Between the hardware platforms, we found that Floq, compared to our classical server (16 CPU, 128G mem), was able to extend our capabilities by 7 additional qubits. This can also be viewed as a 2^7 speedup, which is what we confirmed experimentally: in 26-28 qubits regime we saw a 70 to 110x speedup. At 29 qubits, our classical machine choose Harakiri, whereas Floq caved at 33 qubits with a gracious "qubit size not in acceptable range". [Killed image] The AWS cloud simulation took significantly longer than local simulation, so we opted out of using these. The Rigetti machine through the AWS cloud servers did provide valuable insights in the performance of the kernel when subjected to noise, and was, apart from a factor 10 mistake, well within budget. 
 
-I need some info for this.
-
-Resource estimation played a central role in our strategy, that's why we allocated a decent amount of time to pushing the walls to see when they would not go further.
-This did result on some collateral damage.
-
-### Floq
-%TH: explain Floq
-
-Luckily our new friends over at Floq really had our back during the hackathon.
-Thanks to having access to the amazing TPU and its 70x faster runtimes (up to 210x if you're poweruser Tom) we were able to test a myriad of different embedding templates and data sets.
-This was critical in our finding the optimal trade-off between flashiness and realizability.
-
-### AWS
-%PJ: performance, digression, calculation and observation
 
 ### References
 
