@@ -393,10 +393,11 @@ print(y_test.shape)
 
 
 # Config field
-n_blocks = 3
-n_features = 3
+n_blocks = 2
+n_features = 5
 n_param = 2
 n_layers = 2
+n_samples = 18
 learning_rate = 0.2
 use_manual_grad = True
 
@@ -416,14 +417,16 @@ opt_kwargs = {'stepsize': learning_rate}
 
 performance = []
 
-# inds = range(9)
+inds = range(5)
 # inds = range(17)
-inds = [1,4,6,7,10,11,12,15,16]
+# inds = [1,4,6,7,10,11,12,15,16]
 n_datasets = len(inds)
+sampled_datasets = []
 for dataset_index in inds:
+    start = time.process_time()
 #     X, y = tk_lib.load_data('../plots_and_data/train.txt', dataset_index) 
 #     X, y = tk_lib.gen_cubic_data(dataset_index) # [0,16]
-    X, y = tk_lib.gen_hypercubic_data(n_dim=3, n_samples=8)
+    X, y = tk_lib.gen_hypercubic_data(n_dim=n_features, n_samples=n_samples)
     init_param = np.random.random(n_param) * 2 * np.pi 
 #     print(init_param)
     opt_param, opt_cost = tk_lib.optimize_kernel_param(
@@ -441,13 +444,14 @@ for dataset_index in inds:
     opt_perf = tk_lib.validate(tk_lib.train_svm(kernel, X, y, opt_param), X, y)
     new_perf = [zero_perf, init_perf, opt_perf]
     performance.append(new_perf)
+    sampled_datasets.append((X, y))
     print(new_perf)
+    print(f"The {dataset_index}-th data set took {time.process_time()-start} seconds")
 
-# -
-
+# +
 n_qubits
 
- # %matplotlib notebook
+# %matplotlib notebook
 indices = np.array(list(range(n_datasets)))
 indices = np.array(inds)
 plt.scatter(indices-0.1, np.array(performance)[:, 0], color='r', marker='x', label='Zero')
@@ -459,6 +463,7 @@ plt.legend()
 plt.xticks(indices)
 plt.xlabel('Dataset')
 plt.ylabel('Training set performance')
+# -
 
 
 
