@@ -119,7 +119,7 @@ Our team embraces the open-source approach of Pennylane, making sure our partici
 
 ### Resources
 % TH: resource estimates
-![](./blogpost_img/resources_1.png)
+![](https://github.com/thubregtsen/qhack/blogpost_img/resources_1.png)
 In an ideal world, once we become aware of the situation and convinced this is worth studying, we lay down a systematic plan to find all the bottlenecks and interesting corners, then probe where our efforts can be most efficiently spent, document everything perfectly, and run weeklong simulations.
 Since we're in the middle of a hackathon, though, that is not a viable option.
 Instead, we need to perform some serious minimax optimization between showing powerful results and being able to obtain those results.
