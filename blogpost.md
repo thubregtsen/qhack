@@ -161,7 +161,7 @@ Between the hardware platforms, we found that Floq, compared to our classical se
 <p align="center">
 <img src="./blogpost_img/killed.png" alt="Killed" width="100"/>
 </p>
-The AWS cloud simulation took significantly longer than local simulation, so we opted out of using this service. The Rigetti machine through the AWS cloud servers did provide valuable insights in the performance of the kernel when subjected to noise, and was, apart from a factor 10 mistake, well within budget. 
+The Rigetti machine through the AWS cloud servers provided valuable insights in the performance of the kernel when subjected to noise, and was, apart from a factor 10 mistake, well within budget. 
 
 
 ### References
