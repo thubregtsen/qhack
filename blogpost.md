@@ -1,9 +1,21 @@
+2DO:
+ - Cite stuff
+ - Correct typos
+ - Collect resource estimation data
+ - Collect cool images
+ - Let it sit and come back to it later
+
+Please note:
+ - I just wrote whatever for a title, it should not stay like this
+ - The first few sections are susceptible of being deleted altogether
+ - The parts I'm less ashamed of begin with "Quantum Kernels"
+
 # Trainable Quantum Kernels on Pennylane
 ## Or how finding good Music title puns got out of hand
 
 _By: Notorious FUB_
 
-### Classical Machine Learning in Quantum Machine Learning
+### Classical Machine Learning in times of Quantum Machine Learning
 
 Tackling Machine Learning tasks like regression or classification has become a common use case for Parameterised Quantum Circuits.
 And so, a new field is born: Quantum Machine Learning.
@@ -51,7 +63,7 @@ As one finds out among the results, kernel methods enjoy a privileged status amo
 For instance the representer Theorem features a twofold advantage: on the one hand it reduces the dimension of the optimization task, and on the other ensures the optimality of the solution found.
 
 In exchange, it is no secret that the runtime scaling of kernel-based strategies in the size of the training set is far from ideal.
-Still, it is very valuable to perform studies in quantum hardware because an advantage could come from fault-tolerant computers being able to perform otherwise costly quantum operations rather efficiently.
+Still, it is very valuable to perform studies in quantum hardware because an advantage could come from fault-tolerant computers being able to perform otherwise costly matrix operations rather efficiently.
 
 ### Trainable Kernels
 
@@ -59,7 +71,7 @@ One important detail in Maria Schuld's approach is that the data embedding circu
 This sets the footing for exploring whether lifting this restriction could bring a performance advantage.
 Parameterised kernels are not exotic objects, as the most common classical kernel, the Gaussian one, contains a free parameter, the variance.
 That being said, the Gaussian kernel flashes only one parameter, whereas trainable embedding circuits can go easily to linearly many parameters in the depth of the circuit.
-This is an important different!
+This is an important difference!
 Having one vs. many parameters amounts to performing exhaustive hyperparameter search being feasible vs. crazy.
 
 Luckily, we are not alone in this fight.
@@ -100,3 +112,25 @@ This comprises the more tangible side of our project: the qml.kernels module!
 
 Fully integrated into Pennylane, qml.kernels provides utilities ranging from just building kernel functions from arbitrary data embedding Ansätze and up to stabilizing the kernel matrix, making sure it stays positive semidefinite even in the presence of sampling error or hardware noise.
 Our team embraces the open-source approach of Pennylane, making sure our participation in QHack could have some lasting positive effect was especially important to us.
+
+### Resources
+
+These are not sorted, they will be
+
+[1] M. Schuld: _Quantum Machine Learning Models are Kernel Methods_ https://arxiv.org/abs/2101.11020
+
+[2] M. Schuld, R. Sweke, and J. J. Meyer: _The effect of data encoding on the expressive power of variational quantum machine learning models_ https://arxiv.org/abs/2008.08605
+
+[3] A. Pérez-Salinas, A. Cervera-Lierta, E. Gil-Fuster, J. I. Latorre: _Data re-uploading for a universal quantum classifier_ https://quantum-journal.org/papers/q-2020-02-06-226/
+
+[4] P. Wittek: _Quantum Machine Learning: what quantum computing means to data mining_ (Academic Press, 2014)
+
+[5] J. Biamonte, P. Wittek, N. Pancotti, P. Rebentrost, N. Wiebe, and S. Lloyd: _Quantum Machine Learning_ Nature *549*, 195 (2017)
+
+[6] V. Havlicek, A. D. Córcoles, K. Temme, A. W. Harrow, A. Kandala, J. M. Chow, J. M. Gambetta: _Supervised learning with quantum enhanced feature spaces_ Nature *567*, 209 (2019)
+
+[7] T. Wang, D, Zhao, S. Tian: _An overview of kernel alignment and its applications_ (Springer Science+Business Media Dordrecht, 2012)
+
+[8] M. Schuld, I. Sinayskiy, F. Petruccione: _An introduction to quantum machine learning_ https://arxiv.org/abs/1409.3097
+
+[9] M. Schuld, N. Killoran: _Quantum machine learning in feature Hilbert spaces_ https://arxiv.org/abs/1803.07128
