@@ -99,7 +99,9 @@ Now our goal is clear: take a parameterised embedding, use it to build a quantum
 % JJM: one paragraph about implementation + demo
 
 ### Advantage of training
-% David: one paragraph training actually works
+In order to assess the benefits of optimising the trainable kernel via its polarisation, we compare it to the kernel when deactivating the variational gates by setting them to zero (the neutral kernel) and to the kernel at random parameters. For each of the three parameter settings, we then train an SVM on the respective kernel and obtain a classification performance for our chosen dataset.
+We find that the optimized kernel yields perfect classification of the data after training the SVM whereas both, the randomized and the neutral kernel fail to classify the entire dataset correctly obtaining only 66% accuracy each.
+This demonstrates increased classification capabilities of a polarisation-trained kernel for a small an simple dataset.
 
 ### Noise issues
 % issue + stabilisation
