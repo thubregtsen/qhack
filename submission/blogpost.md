@@ -3,7 +3,11 @@
 
 _By: Notorious F.U.B. (Peter-Jan Derks, Paul K. Faehrmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
 
-We, the Notorious F.U.B., have been researching trainable quantum embedding kernels (QEK). This blogpost starts with an introduction of the history that lead to QEKs and an explaination of what motivated us to research QEKs. Following this we describe how we have shown that trained QEKs outperform untrained QEKs and that the training process is noise resilient. We explain our contributions to the PennyLane library, which we hope will benefit future research. We also show results of runs on quantum hardware, showcasing our full stack implementation and proving noise resilience. 
+We, the Notorious F.U.B., have been researching trainable quantum embedding kernels (QEKs).
+This blogpost starts with an introduction to the history that lead to classical trainable kernels, followed by an ordered presentation of the important notions from kernel methods to trainable QEKs.
+Following this we describe how we have shown that trained QEKs outperform untrained QEKs and that QEKs can succeed in classification tasks using our kernel stabilisation techniques against noise.
+We explain our contributions to the PennyLane library, which we hope will benefit future research.
+We also show results of runs on quantum hardware, showcasing our full stack implementation and proving noise resilience. 
 
 ## Classical Machine Learning 
 
@@ -11,8 +15,7 @@ Throughout the 1990's and 2000's the field of Machine Learning (ML) was propelle
 These breakthroughs did come at a high price, though: the research landscape was divided into opposing movements who had to fight countless peaceful battles against one another.
 The survivors still today bear a troubled look when they explain how the shameless kernel methodists used to flex their nice math and performance promises, while the hardened feedfoward networkers couldn't help the prosperity backpropagation had brought being taken away from them under the unspeakable terror of vanishing gradients.
 
-The advantage of the kernel folk, with their ubiquitous and shiny Support Vector Machine (SVM), 
-was their trust in kernels that were powerful enough.
+The advantage of the kernel folk, with their ubiquitous and shiny Support Vector Machine (SVM), was their trust in kernels that were powerful enough.
 They didn't have to worry about concave optimization or other NP-hard problems.
 In exchange, they had to pass through the hoop of model selection.
 
@@ -34,19 +37,16 @@ The beauty lies in the fact that the kernel implicitly contains an embedding of 
 
 ## Quantum Embedding Kernels
 
-Surprise! Quantum Machine Learning [1,4] is a thing!
+By this time you all probably know by know that qml is a thing [1,4]...
 
 Around the time John Preskill coined the acronym NISQ [3], there was one predominant trend in QML: 
-to pick one Variational Quantum Circuit, one cost function, 
-and one gradient-based optimization algorithm; 
-and then perform classification or regression tasks à la Feedforward Neural Networks.
+to pick one Variational Quantum Circuit, one cost function, and one gradient-based optimization algorithm; and then perform classification or regression tasks à la Feedforward Neural Networks.
 Not long afterwards, one first paper deviated from the mean.
 Xanadu researchers proposed to exploit our access to the Hilbert space of quantum computers 
 as a smart way of efficiently computing kernel matrices [5].
 In their initial article, they even made use of an infinite-dimensional Hilbert space.
 
-A few months later, Nature's frontpage featured IBM's effort in implementing the entire pipeline 
-of two supervised learning tasks on superconducting qubits [2].
+A few months later, Nature's frontpage featured IBM's effort in implementing the entire end-to-end pipeline of two supervised learning tasks on superconducting qubits [2].
 The authors opened with a demonstration using an Ansatz along the predominant network-style trend.
 But, unlike other similar proposals, they went on to use the embedding part of their Ansatz as the fundamental building block for a quantum kernel.
 
@@ -56,11 +56,8 @@ But, unlike other similar proposals, they went on to use the embedding part of t
 
 Both Xanadu's and IBM's approached differed in some fundamental details, but one thing was clear: 
 the door to quantum kernel methods was open!
-Building upon this belief Maria Schuld recently published 
-_Quantum Machine Learning Models are Kernel Methods_ [7]. This paper elaborates the technical details of 
-quantum kernels, so they stand on firm grounds for everyone else to build novel models.
+Building upon this belief Maria Schuld recently published _Quantum Machine Learning Models are Kernel Methods_ [7]. This paper elaborates the technical details of quantum kernels, so they stand on firm grounds for everyone else to build novel models.
 
-In particular, a very natural procedure to build the QEK from an embedding Ansatz was provided. **(JJM: not really, that was all known before. I would just remove that sentence)**
 
 
 ## Trainable Kernels
