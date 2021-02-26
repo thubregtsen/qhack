@@ -3,7 +3,7 @@
 
 _By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
 
-We, the Notorious FUB, have been researching trainable quantum embedding kernels (QEK). This blogpost starts with an introduction of the history that lead to QEK and an explaination of what motivated us to research QEK's. Following this we describe how we have shown that trained QEK outperform untrained QEK and that the trianing process is noise resilient. We explain our contributions to the Penny Lane library, with which we hope to inspire future research. In the last section we show the results of runs on quantum hardware, showcasing our full stack implementation and proving noise resilience.
+We, the Notorious FUB, have been researching trainable quantum embedding kernels (QEK). This blogpost starts with an introduction of the history that lead to QEK and an explaination of what motivated us to research QEK's. Following this we describe how we have shown that trained QEK outperform untrained QEK and that the trianing process is noise resilient. We explain our contributions to the Penny Lane library, which we hope will benefit future research. In the last section we show the results of runs on quantum hardware, showcasing our full stack implementation and proving noise resilience. 
 
 ## Classical Machine Learning 
 
