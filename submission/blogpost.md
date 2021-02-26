@@ -171,7 +171,7 @@ We then benchmarked the performance of Floq compared to the 16 CPU 128G memory s
 Here, one can see the crazy advantage: Floq performed 70 to 110x faster (no, not 70 to 110%!) for 26-28 qubits. 
 At 29 qubits our classical machine caved in, killing itself due to memory overload. 
 <p align="center">
-<img src="./blogpost_img/overfloqed.png" alt="Killed" width="200"/>
+<img src="./blogpost_img/overfloqed.png" alt="Killed" width="300"/>
 </p>
 Floq continued till 33 qubits, graciously caving in with a "qubit size not in acceptable range".
 When looking at the overall plot, one can see that the execution times are equal with a 7-qubit shift. 
@@ -239,9 +239,16 @@ Wrapping up, for our QHack2021 project submission we have:
  - Implemented prediction of samples on full-scale MNIST images using the Google Floq service, and provided a demo to encourage scientists to think bigger. 
  - Ran circuits on IonQ and Rigetti devices to calculate a kernel matrix. We use two novel noise mitagition techniques to use the calculated matrices to classify a dataset, which we achieve with 100% accuracy.
 
-And so, before us the dawn of a new day.
+And so, before us, the dawn of a new day.
 The _kernel tamers_ legacy is PAC guaranteed to be passed on for at least one more generation.
-As rightful heirs of the kernel methodists, we will stay true to our traditions and strive to provide beautiful math and strong theory to back up our initial findings from this week.
+Of course none of this would have been possible without the legendary support we received along the way.
+Minstrels of every land have come to learn the incredible doings of Xanadu and the Xanaduers who so perfectly have guided us throughout QHack2021.
+Without their many attentions, pieces of advice, and quick and helpful responses, we would have been at a loss.
+Equally lost would we have been without the aid we received from our faithful allies.
+We raise our mugs in cheering to Sandbox@Alphabet and AWS, and through them also Rigetti and IonQ.
+Being able to run our errands on state-of-the-art devices was an unbeatable experience.
+
+Thus, as the rightful heirs of the kernel methodists, we will stay true to our traditions and strive to provide beautiful math and strong theory to back up our initial findings from this week.
 You can expect to hear from us soon, before the next war startles the dust that will settle past the current one.
 
 ### References
