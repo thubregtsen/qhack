@@ -203,18 +203,24 @@ Between the hardware platforms, we found that Floq, compared to our classical se
 <img src="./blogpost_img/killed.png" alt="Killed" width="100"/>
 </p>
 
-These extra qubits, for our project, can be used for extra data-embedding, increasing expressivity. One does need to be aware of the extra communication overhead, when accessing the service from Europe. For this, we deployed a virtual machine in Los Angelos, which increased our communication times with 20x. 
+These extra qubits, for our project, can be used for extra data-embedding, increasing expressivity. One does need to be aware of the extra communication overhead, when accessing the service from Europe. For this, we deployed a virtual machine in Los Angeles, which increased our communication times with 20x. 
 
 The Rigetti machine through the AWS cloud servers provided valuable insights in the performance of the kernel when subjected to noise, and was, apart from a factor 10 mistake, well within budget. 
 
 ## Conclusion
 
-[dw:] This should go now, no?
+Wrapping up, in our QHack2021 project we have:
+ - Learnt how one can train Quantum Embedding Kernels to adjust to training data via the kernel-target alignment.
+ - Explored specific classification tasks confirming the theoretical knowledge.
+ - Provided mechanisms for stable performance against finite sampling and hardware noise.
+ - Developed a PennyLane module that implements all of this out of the shelf.
+ - Tested the scaling of our methods for bigger problems and bigger circuits on high-performance TPUs.
+ - Studied what dataset sizes and what Ansätze can be used for our pipeline on a budget on real hardware devices.
 
-Summary of what we have done.
-A short part about the battlefield and stuff.
-We believe there is once again hope in the hearts of the kernel methodists.
-
+And so, before us the dawn of a new day.
+The _kernel tamers_ legacy is PAC guaranteed to be passed on for at least one more generation.
+As rightful heirs of the kernel methodists, we will stay true to our traditions and strive to provide beautiful math and strong theory to back up our initial findings from this week.
+You can expect to hear from us soon, before the next war startles the dust that will settle past the current one.
 
 ### References
 
