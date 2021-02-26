@@ -1,9 +1,9 @@
 # Trainable Quantum Kernels with PennyLane [10]
 ### _Or how finding good music title puns got out of hand_
 
-_By: Notorious FUB (Peter-Jan Derks, Paul K. Faehrmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
+_By: Notorious F.U.B. (Peter-Jan Derks, Paul K. Faehrmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
 
-We, the Notorious FUB, have been researching trainable quantum embedding kernels (QEK). This blogpost starts with an introduction of the history that lead to QEKs and an explaination of what motivated us to research QEKs. Following this we describe how we have shown that trained QEKs outperform untrained QEKs and that the training process is noise resilient. We explain our contributions to the PennyLane library, which we hope will benefit future research. We also show results of runs on quantum hardware, showcasing our full stack implementation and proving noise resilience. 
+We, the Notorious F.U.B., have been researching trainable quantum embedding kernels (QEK). This blogpost starts with an introduction of the history that lead to QEKs and an explaination of what motivated us to research QEKs. Following this we describe how we have shown that trained QEKs outperform untrained QEKs and that the training process is noise resilient. We explain our contributions to the PennyLane library, which we hope will benefit future research. We also show results of runs on quantum hardware, showcasing our full stack implementation and proving noise resilience. 
 
 ## Classical Machine Learning 
 
