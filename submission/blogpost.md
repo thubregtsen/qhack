@@ -1,9 +1,9 @@
-# Trainable Quantum Kernels with Pennylane [10]
+# Trainable Quantum Kernels with PennyLane [10]
 ### _Or how finding good music title puns got out of hand_
 
 _By: Notorious FUB (Peter-Jan Derks, Paul K. Faehrmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
 
-We, the Notorious FUB, have been researching trainable quantum embedding kernels (QEK). This blogpost starts with an introduction of the history that lead to QEK and an explaination of what motivated us to research QEK's. Following this we describe how we have shown that trained QEK outperform untrained QEK and that the trianing process is noise resilient. We explain our contributions to the Penny Lane library, which we hope will benefit future research. In the last section we show the results of runs on quantum hardware, showcasing our full stack implementation and proving noise resilience. 
+We, the Notorious FUB, have been researching trainable quantum embedding kernels (QEK). This blogpost starts with an introduction of the history that lead to QEKs and an explaination of what motivated us to research QEKs. Following this we describe how we have shown that trained QEKs outperform untrained QEKs and that the training process is noise resilient. We explain our contributions to the PennyLane library, which we hope will benefit future research. We also show results of runs on quantum hardware, showcasing our full stack implementation and proving noise resilience. 
 
 ## Classical Machine Learning 
 
@@ -28,7 +28,7 @@ Kernel methods are one of the cornerstones of classical ML. Kernel boundaries al
 <img src="./wp_TK/embedding_nonlinear_classification.png" alt="Linear classification with embedding" width="550"/>
 </p>
 
-The underlying "trick" is that any kernel will introduce a similarity measure, comparable to a scalar product, that allows us to unlock more complicated features of the underlying data.
+The underlying "trick" (no really - that's the official name!) is that any kernel will introduce a similarity measure, comparable to a scalar product, that allows us to unlock more complicated features of the underlying data.
 The beauty lies in the fact that the kernel implicitly contains an embedding of the data into a -possibly infinite- vector space and that we can use this to perform a linear classification in this space where the data is linearly separable.
 
 ## Quantum Embedding Kernels
@@ -98,21 +98,21 @@ Having one vs. many parameters amounts to performing exhaustive hyperparameter s
 Now our goal is clear: take a parameterised embedding (e.g. one inspired by insights from [6], or a parameterised verision of the one from [2]), use it to build the trainable QEK, find the parameters which maximize the kernel alignment, and then feed the kernel with the optimal choice of parameters to an SVM!
 
 ## Integration
-Coming up with some examples and writing single-use Pennylane-intensive scripts 
+Coming up with some examples and writing single-use PennyLane-intensive scripts 
 would have been enough in answering our fundamental question of whether trainable 
 quantum kernels can provide some advantage.
 This is nevertheless far from the spirit of a hackathon, 
 where traditionally the idea was to develop a deliverable product.
-Since we were already hacking the kernels using Pennylane's quantum circuit modules, 
+Since we were already hacking the kernels using PennyLane's quantum circuit modules, 
 we thought we might as well make this available for everyone.
 This comprises the more tangible side of our project: the `qml.kernels` module!
 
-Fully integrated into Pennylane, `qml.kernels` provides utilities ranging from 
+Fully integrated into PennyLane, `qml.kernels` provides utilities ranging from 
 building kernel functions just from arbitrary data embedding Ansätze, 
 to the calculation of quality measures for kernels useful for training and up to 
 stabilizing the kernel matrix, making sure it stays positive semidefinite even in 
 the presence of sampling error or hardware noise.
-Our team embraces the open-source approach of Pennylane, making sure our participation 
+Our team embraces the open-source approach of PennyLane, making sure our participation 
 in QHack could have some lasting positive effect was especially important to us.
 
 ## Implementation
@@ -178,6 +178,8 @@ Between the hardware platforms, we found that Floq, compared to our classical se
 The Rigetti machine through the AWS cloud servers provided valuable insights in the performance of the kernel when subjected to noise, and was, apart from a factor 10 mistake, well within budget. 
 
 ## Conclusion
+
+[dw:] This should go now, no?
 
 Summary of what we have done.
 A short part about the battlefield and stuff.
