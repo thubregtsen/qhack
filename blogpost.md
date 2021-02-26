@@ -60,7 +60,10 @@ And indeed, they readily came up with a couple of good "kernel quality estimator
 
 We said a kernel is a measure of similarity in feature space between a pair of data instances.
 It is not unreasonable to believe that a good kernel should find two points x1, x2 with the same label y1 = y2 more similar to one another than two points x3, x4 with opposite labels y3 = -y4.
-__We agree, right?__ (TODO)
+
+Agreed? Agreed!
+
+
 If we face the choice between two kernels, we will want to ask ourselves two questions:
 Which one of them gives a higher similarity value to pairs within the same class?
 Which is the one that gives a lower similarity to pairs of points from opposite classes?
