@@ -54,7 +54,7 @@
 # k(\boldsymbol{x}, \boldsymbol{y}) = \langle \phi(\boldsymbol{x}), \phi(\boldsymbol{y})\rangle.
 # $$
 #
-# We call this function the _kernel_. The clou now is that we can often find an explicit formula for the kernel $k$ that makes it superfluous to actually perform the embedding $\phi$. Consider for example the following embedding and the associated kernel:
+# We call this function the _kernel_. The clue now is that we can often find an explicit formula for the kernel $k$ that makes it superfluous to actually perform the embedding $\phi$. Consider for example the following embedding and the associated kernel:
 #
 # $$
 # \phi((x_1, x_2)) = (x_1^2, \sqrt{2} x_1 x_2, x_2^2) \qquad
@@ -173,9 +173,9 @@ def random_params(num_wires, num_layers):
 
 # -
 
-# We are now in a place where we can create the embedding. Together with the ansatz we only need a device to run the quantum circuit on. For the purposes of this tutorial we will use PennyLane's `lightning.qubit` device with 5 wires.
+# We are now in a place where we can create the embedding. Together with the ansatz we only need a device to run the quantum circuit on. For the purposes of this tutorial we will use PennyLane's `default.qubit` device with 5 wires.
 
-dev = qml.device("lightning.qubit", wires=5)
+dev = qml.device("default.qubit", wires=5)
 wires = list(range(5))
 k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
 
@@ -202,7 +202,7 @@ with np.printoptions(precision=3, suppress=True):
 
 from sklearn.svm import SVC
 
-# The `SVC` class expects a function that maps two sets of datapoints to the corresponding kernel matrix. This is provided by the `kernel_matrix` property of the `EmbeddingKernel` class, we only have to use a lambda construction to include our parameters.
+# The `SVC` class expects a function that maps two sets of datapoints to the corresponding kernel matrix. This is provided by the `kernel_matrix` property of the `EmbeddingKernel` class, we only have to use a lambda construction to include our parameters. Once we provide this, we can fit the SVM on our Quantum Embedding Kernel circuit. Note that this does not train the parameters in our circuit. 
 
 svm = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, init_params)).fit(dataset.X, dataset.Y)
 
@@ -296,7 +296,7 @@ svm_trained = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(dat
 
 print("The accuracy of a kernel with trained parameters is {:.3f}".format(accuracy(svm_trained, dataset.X, dataset.Y)))
 
-# Very well, we also expect that the decision boundaries of our classifier capture the nature of the dataset better:
+# Very well, we also expect that the decision boundaries of our classifier captures the nature of the dataset better:
 
 init_plot_data = plot_decision_boundaries(svm_trained, plt.gca())
 
