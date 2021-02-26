@@ -1,9 +1,11 @@
-# Trainable Quantum Kernels with Pennylane
+# Trainable Quantum Kernels with Pennylane [10]
 ### _Or how finding good music title puns got out of hand_
 
 _By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
 
-## Classical Machine Learning [10]
+We, the Notorious FUB, have been researching trainable quantum embedding kernels (QEK). This blogpost starts with an introduction of the history that lead to QEK and an explaination of what motivated us to research QEK's. Following this we describe how we have shown that trained QEK outperform untrained QEK and that the trianing process is noise resilient. We explain our contributions to the Penny Lane library, which we hope will benefit future research. In the last section we show the results of runs on quantum hardware, showcasing our full stack implementation and proving noise resilience. 
+
+## Classical Machine Learning 
 
 Throughout the 1990's and 2000's the field of Machine Learning (ML) experienced a series of breakthroughs which propelled it forward.
 These breakthroughs did come at a high price, though: the research landscape was divided into opposing movements who had to fight countless peaceful battles against one another.
@@ -16,13 +18,7 @@ In exchange, they had to pass through the hoop of model selection.
 In the fray of the battle, a number of gray rebellious methodists thought they could take a shot of their enemies medicine.
 They explored the concept of training their kernels in a networky fashion.
 
-In this blogpost, we tell the story of how the reckless attempts of ancienct _kernel tamers_ and the recent developments in Quantum Machine Learning have lead to us, the Notorious FUB, exploring trainable quantum embedding kernels. 
-We first introduce kernel methods, followed by their QML equivalent. 
-Then we describe the tools of the ancient _kernel tamers_ and how similair tools can be used to construct trainable quantum embedding kernels. 
-Using state of the art classical and quantum hardware we show that training these kernels is promising due to two reasons; it improves the accuracy of SVM's using the trained kernel and it is possible to train kernels on noisy quantum hardware,
-By integrating our code into the Penny Lane library we hope to inspire future research.
-
-
+This is the story of what came out of that reckless attempt, and how the legacy of these ancient _kernel tamers_  has carried on through the generations and eventually turned quantum.
 
 ## Kernel methods
 
@@ -50,7 +46,7 @@ But, unlike other similar proposals, they went on to use the embedding part of t
 
 Both Xanadu's and IBM's approached differed in some fundamental details, but one thing was clear: the door to quantum kernel methods was open!
 Building upon this belief Maria Schuld recently published _Quantum Machine Learning Models are Kernel Methods_ [7]. In this paper technical details of quantum kernels are set on firm grounds for everyone else to build novel models.
-In particular, a very natural procedure to build the Quantum Embedding Kernel (QEK) from an embedding Ansatz was provided.
+In particular, a very natural procedure to build the QEK from an embedding Ansatz was provided.
 
 
 ## Trainable Kernels
@@ -64,7 +60,10 @@ And indeed, they readily came up with a couple of good "kernel quality estimator
 
 We said a kernel is a measure of similarity in feature space between a pair of data instances.
 It is not unreasonable to believe that a good kernel should find two points x1, x2 with the same label y1 = y2 more similar to one another than two points x3, x4 with opposite labels y3 = -y4.
-__We agree, right?__ (TODO)
+
+Agreed? Agreed!
+
+
 If we face the choice between two kernels, we will want to ask ourselves two questions:
 Which one of them gives a higher similarity value to pairs within the same class?
 Which is the one that gives a lower similarity to pairs of points from opposite classes?
@@ -93,8 +92,32 @@ Having one vs. many parameters amounts to performing exhaustive hyperparameter s
 
 Now our goal is clear: take a parameterised embedding (e.g. one inspired by insights from [6], or a parameterised verision of the one from [2]), use it to build the trainable QEK, find the parameters which maximize the kernel alignment, and then feed the kernel with the optimal choice of parameters to an SVM!
 
+## Integration
+Coming up with some examples and writing single-use Pennylane-intensive scripts 
+would have been enough in answering our fundamental question of whether trainable 
+quantum kernels can provide some advantage.
+This is nevertheless far from the spirit of a hackathon, 
+where traditionally the idea was to develop a deliverable product.
+Since we were already hacking the kernels using Pennylane's quantum circuit modules, 
+we thought we might as well make this available for everyone.
+This comprises the more tangible side of our project: the `qml.kernels` module!
+
+Fully integrated into Pennylane, `qml.kernels` provides utilities ranging from 
+building kernel functions just from arbitrary data embedding Ansätze, 
+to the calculation of quality measures for kernels useful for training and up to 
+stabilizing the kernel matrix, making sure it stays positive semidefinite even in 
+the presence of sampling error or hardware noise.
+Our team embraces the open-source approach of Pennylane, making sure our participation 
+in QHack could have some lasting positive effect was especially important to us.
+
 ## Implementation
-% JJM: one paragraph about implementation + demo
+
+We wrote a PennyLane demonstration to showcase how to use the `qml.kernels` module to perform
+an actual classification and to show that training the quantum kernel to increase the target alignment
+actually improves the classification performance.
+
+
+
 
 ## Advantage of training
 The dataset we consider for the training evaluation is the `DoubleCake` dataset specifically created in this project.
@@ -114,17 +137,6 @@ We implemented thresholding, which sets negative eigenvalues to zero and is equi
 When applying either of these stabilisation techniques, we observe considerable restoration of the classification performance and in particular the simple matrix displacing yields close to perfect classification performance across many instances of sampled noise.
 For our concrete application on the `DoubleCake` dataset, this stabilisation works for noise levels up to order of one, i.e. noise with relative standard deviation at and above 100%, as the kernel computes probabilities, which naturally are smaller or equal to one.
 We thus implemented and tested two new methods to improve the applicability of (trainable) QEKs to classification tasks.
-
-## Integration
-% JJM: one paragraph how this goes into Pennylane
-
-Coming up with some examples and writing single-use Pennylane-intensive scripts would have been enough in answering our fundamental question of whether trainable quantum kernels can provide some advantage.
-This is nevertheless far from the spirit of a hackathon, where traditionally the idea was to develop a deliverable product.
-Since we were already hacking the kernels using Pennylane's quantum circuit modules, we thought we might as well make this available for everyone!
-This comprises the more tangible side of our project: the qml.kernels module!
-
-Fully integrated into Pennylane, qml.kernels provides utilities ranging from building kernel functions just from arbitrary data embedding Ansätze, to the calculation of quality measures for kernels useful for training and up to stabilizing the kernel matrix, making sure it stays positive semidefinite even in the presence of sampling error or hardware noise.
-Our team embraces the open-source approach of Pennylane, making sure our participation in QHack could have some lasting positive effect was especially important to us.
 
 ## Resources
 
