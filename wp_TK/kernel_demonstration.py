@@ -85,7 +85,7 @@ from pennylane import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-np.random.seed(4711)
+np.random.seed(2658)
 
 
 # -
