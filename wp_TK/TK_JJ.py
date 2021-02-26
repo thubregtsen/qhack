@@ -80,23 +80,51 @@ plot_data_init = {'XX' : XX, 'YY' : YY, 'ZZ' : ZZ}
 plt.contourf(XX, YY, ZZ, cmap=mpl.colors.ListedColormap(['#FF0000', '#0000FF']), alpha=.2, levels=[-1, 0,  1])
 dataset.plot(plt.gca())
 # -
+rnd_param = np.tensor([[[3.83185811, 2.43217597, 6.04150259, 6.10219181, 2.24859771],
+         [2.10229161, 3.01695202, 0.65963585, 3.01146847, 3.09878739]],
+
+        [[2.98450446, 4.67620615, 2.65282874, 0.27375408, 3.51592262],
+         [4.42306178, 2.10907678, 1.9859467 , 3.15253185, 5.1835622 ]],
+
+        [[3.15053375, 1.15141625, 6.26411875, 1.4094818 , 2.89303727],
+         [0.88448723, 1.37280759, 1.42852862, 2.79908337, 4.82479853]],
+
+        [[2.96944762, 2.92050829, 5.08902411, 4.38583442, 4.57381108],
+         [2.87380533, 2.79339977, 5.40042108, 1.22715656, 3.55334794]],
+
+        [[4.85217317, 2.32865449, 3.36674732, 5.37284552, 4.41718962],
+         [5.46919267, 4.1238232 , 5.63482497, 1.35359693, 1.55163904]],
+
+        [[4.7955417 , 1.71132909, 3.45214701, 1.30618948, 2.43551656],
+         [5.99802411, 0.86416771, 1.52129757, 4.48878166, 5.1649024 ]]], requires_grad=True)
 
 
-
-params = init_params
+params = rnd_param
 
 # +
-opt = qml.GradientDescentOptimizer(1.5)
+opt = qml.GradientDescentOptimizer(2.)
 #params = hist[-1]
 hist = []
 
-for i in tqdm.notebook.tqdm(range(100)):
+max_TA = -1e10
+_optimal = None
+for i in tqdm.notebook.tqdm(range(300)):
     hist.append(params)
     subset = np.random.choice(list(range(len(X))), 4)
-    params = opt.step(lambda _params: -k.target_alignment(X[subset], Y[subset], _params), params)
+    cost_fn = lambda _params: -k.target_alignment(X[subset], Y[subset], _params)
+#     grad_fn = lambda _params: (-tk.target_alignment_grad(X[subset], Y[subset], k, _params), )
+    params = opt.step(cost_fn, params)#, grad_fn =grad_fn)
+    TA = k.target_alignment(X, Y, params)
+    if TA>max_TA:
+        max_TA = np.copy(TA)
+        _optimal = np.copy(params)
     if i % 10 == 0:
-        print(i, " - Alignment = ", k.target_alignment(X, Y, params))
+        print(i, " - Alignment = ", TA)
 # -
+
+W
+
+_optimal
 
 svm2 = tk.train_svm(k, X, Y, params)
 
