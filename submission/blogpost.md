@@ -175,6 +175,8 @@ Between the hardware platforms, we found that Floq, compared to our classical se
 <img src="./blogpost_img/killed.png" alt="Killed" width="100"/>
 </p>
 
+These extra qubits, for our project, can be used for extra data-embedding, increasing expressivity. One does need to be aware of the extra communication overhead, when accessing the service from Europe. For this, we deployed a virtual machine in Los Angelos, which increased our communication times with 20x. 
+
 The Rigetti machine through the AWS cloud servers provided valuable insights in the performance of the kernel when subjected to noise, and was, apart from a factor 10 mistake, well within budget. 
 
 ## Conclusion
