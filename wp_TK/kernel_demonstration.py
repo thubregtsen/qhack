@@ -298,9 +298,9 @@ print("The accuracy of a kernel with trained parameters is {:.3f}".format(accura
 
 # Very well we now get perfect classification! We also expect that the decision boundaries of our classifier captures the nature of the dataset better, so let's check that:
 
-init_plot_data = plot_decision_boundaries(svm_trained, plt.gca())
+trained_plot_data = plot_decision_boundaries(svm_trained, plt.gca())
 
-# The decision boundaries look much more reasonable for the trained kernel. With this, we have seen that training our Quantum Embedding Kernel indeed yields not only improved accuracy but also way more reasonable decision boundaries. In that sense, kernel training allows us to adjust the kernel to the dataset, and
+# With this, we have seen that training our Quantum Embedding Kernel indeed yields not only improved accuracy but also more reasonable decision boundaries. In that sense, kernel training allows us to adjust the kernel to the dataset.
 
 # ### References
 #
