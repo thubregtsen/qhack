@@ -223,7 +223,7 @@ To gain insight on the applicability of using kernels on currently available qua
 <img src="blogpost_img/hardware_results.png" alt="Linear classification with embedding" width="400" height="300"/>
 </p>
 
-The kernel matrix calculated using the Rigetti device can be used to classify the 12 datapoints of the `DoubleCake` dataset with 100 % accuracy. In the future we will design more hardware efficient circuits and research how we can apply noise resilient techniques for training a kernel on quantum hardware.
+Although due to noise the values in the kernel matrix calculated using the Rigetti device are small, it can still be used to classify the 12 datapoints of the `DoubleCake` dataset with 100 % accuracy. In the future we will design more hardware efficient circuits and research how we can apply noise resilient techniques for training a kernel on quantum hardware.
 
 
 ## Conclusion
