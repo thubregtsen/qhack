@@ -217,6 +217,14 @@ For our concrete application on the `DoubleCake` dataset, this stabilisation wor
 
 We thus implemented and tested two new methods to improve the applicability of (trainable) QEKs to classification tasks.
 
+To gain insight on the applicability of using kernels on currently available quantum hardware we have ran circuits on IonQ's ion trap and Riggeti's superconducting chip. We have played with a couple of circuits and ultimetly wrote a program to calculate the kernel matrix of the `DoubleCake` training dataset. This dataset consits of 12 datapoints and to calculate the matrix we needed a total of 66 circuit evaluations, where each circuit evaluation used 100 shots. In the figure below, a representation of the kernel matrices calculated is shown. The matrix in the left figure is from a noiseless simulation and the figure next to it is constructed from measurement data from the Rigetti device.
+
+<p align="center">
+<img src="blogpost_img/hardware_results.png" alt="Linear classification with embedding" width="400" height="300"/>
+</p>
+
+The kernel matrix calculated using the Rigetti device can be used to classify the 12 datapoints of the `DoubleCake` dataset with 100 % accuracy. In the future we will design more hardware efficient circuits and research how we can apply noise resilient techniques for training a kernel on quantum hardware.
+
 
 ## Conclusion
 
