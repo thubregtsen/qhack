@@ -1,9 +1,11 @@
-# Trainable Quantum Kernels with Pennylane
+# Trainable Quantum Kernels with Pennylane [10]
 ### _Or how finding good music title puns got out of hand_
 
 _By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
 
-## Classical Machine Learning [10]
+We, the Notorious FUB, have been researching trainable quantum embedding kernels (QEK). This blogpost starts with an introduction of the history that lead to QEK and an explaination of what motivated us to research QEK's. Following this we describe how we have shown that trained QEK outperform untrained QEK and that the trianing process is noise resilient. We explain our contributions to the Penny Lane library, with which we hope to inspire future research. In the last section we show the results of runs on quantum hardware, showcasing our full stack implementation and proving noise resilience.
+
+## Classical Machine Learning 
 
 Throughout the 1990's and 2000's the field of Machine Learning (ML) experienced a series of breakthroughs which propelled it forward.
 These breakthroughs did come at a high price, though: the research landscape was divided into opposing movements who had to fight countless peaceful battles against one another.
@@ -16,13 +18,7 @@ In exchange, they had to pass through the hoop of model selection.
 In the fray of the battle, a number of gray rebellious methodists thought they could take a shot of their enemies medicine.
 They explored the concept of training their kernels in a networky fashion.
 
-In this blogpost, we tell the story of how the reckless attempts of ancienct _kernel tamers_ and the recent developments in Quantum Machine Learning have lead to us, the Notorious FUB, exploring trainable quantum embedding kernels. 
-We first introduce kernel methods, followed by their QML equivalent. 
-Then we describe the tools of the ancient _kernel tamers_ and how similair tools can be used to construct trainable quantum embedding kernels. 
-Using state of the art classical and quantum hardware we show that training these kernels is promising due to two reasons; it improves the accuracy of SVM's using the trained kernel and it is possible to train kernels on noisy quantum hardware,
-By integrating our code into the Penny Lane library we hope to inspire future research.
-
-
+This is the story of what came out of that reckless attempt, and how the legacy of these ancient _kernel tamers_  has carried on through the generations and eventually turned quantum.
 
 ## Kernel methods
 
