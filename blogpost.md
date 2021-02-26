@@ -113,9 +113,12 @@ in QHack could have some lasting positive effect was especially important to us.
 ## Implementation
 
 We wrote a PennyLane demonstration to showcase how to use the `qml.kernels` module to perform
-an actual classification and to show that training the quantum kernel to increase the target alignment
-actually improves the classification performance.
+an actual classification and to show that stochastic training the quantum kernel to increase 
+the target alignment actually improves the classification performance. 
 
+To allow others to easily understand and reproduce our results, we also included the 
+theoretical background of kernel methods, Quantum Embedding Kernels and the
+kernel-target alignment as a measure of kernel quality for a specific dataset in a pedagogical way.
 
 
 
@@ -126,6 +129,10 @@ In order to assess the benefits of optimising the trainable QEK via its alignmen
 For each of the three parameter settings, we then train an SVM on the respective QEK and obtain a classification performance for our chosen dataset.
 We find that the optimized QEK yields perfect classification of the data after training the SVM whereas both, the randomized and the zeroed parameter QEK fail to classify the entire dataset correctly obtaining only 66% accuracy each.
 This demonstrates increased classification capabilities of an alignment-trained QEK for a small and simple dataset as trained QEK adapts to the particular structure of the training data.
+
+<p align="center">
+<img src="./blogpost_img/before_after_comparison_dualcake.png" alt="Comparison of decision boundaries before and after kernel training." width="550"/>
+</p>
 
 ## Noise issues
 When looking forward to boosting classification tasks with trainable circuits, the influence of measurement or sampling noise certainly is an important aspect.
@@ -149,9 +156,11 @@ This can then be used in combination with the time per circuit call in [plot] to
 <img src="./blogpost_img/floq.png" alt="Floq" width="550"/>
 </p>
 Between the hardware platforms, we found that Floq, compared to our classical server (16 CPU, 128G mem), was able to extend our capabilities by 7 additional qubits. This can also be viewed as a 2^7 speedup, which is what we confirmed experimentally: in 26-28 qubits regime we saw a 70 to 110x speedup. At 29 qubits, our classical machine choose Harakiri, whereas Floq caved at 33 qubits with a gracious "qubit size not in acceptable range". 
+
 <p align="center">
 <img src="./blogpost_img/killed.png" alt="Killed" width="100"/>
 </p>
+
 The Rigetti machine through the AWS cloud servers provided valuable insights in the performance of the kernel when subjected to noise, and was, apart from a factor 10 mistake, well within budget. 
 
 ## Conclusion
