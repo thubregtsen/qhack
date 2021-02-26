@@ -220,14 +220,15 @@ We thus implemented and tested two new methods to improve the applicability of (
 
 ## Conclusion
 
-Wrapping up, in our QHack2021 project we have:
+Wrapping up, for our QHack2021 project submission we have:
  - Learnt how one can train Quantum Embedding Kernels to adjust to training data via the kernel-target alignment.
  - Explored specific classification tasks confirming the theoretical knowledge.
- - Provided mechanisms for stable performance against finite sampling and hardware noise.
- - Developed a PennyLane module that implements all of this out of the shelf.
- - Created a demo for future scientist to learn about trainable kernels.
- - Studied what dataset sizes and what Ansätze can be used for our pipeline on a budget on real hardware devices and powerfull simulators.
- - Implemented prediction of samples on full-scale MNIST images using the Google Floq service, and provided a demo. 
+ - Investigated kernel methods, trainable kernel methods, and evaluated their performance.
+ - Investigated mechanisms for stable performance against finite sampling and hardware noise, and evaluated their performance.
+ - Integrated all this in a PennyLane module that implements all of this off the shelf.
+ - Created a tutorial for future scientist to self-educate on the subject, and the use of module.
+ - Benchmarked the run-time requirements of our module for various hyperparameters and Ansätze in order to make use of the generously provided access to real hardware devices and powerfull simulators.
+ - Implemented prediction of samples on full-scale MNIST images using the Google Floq service, and provided a demo to encourage scientists to thing bigger. 
  - [Note on real hardware experiment]
 
 And so, before us the dawn of a new day.
