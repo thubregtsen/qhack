@@ -163,15 +163,22 @@ This can then be used in combination with the time per circuit call to find the 
 As well as combine it with the cost per shot to find the financial budget to run on AWS.
 
 ## Floq
- Between the hardware platforms, we found that Floq, compared to our classical server (16 CPU, 128G mem), was able to extend our capabilities by 7 additional qubits. This can also be viewed as a 2^7 speedup, which is what we confirmed experimentally: in 26-28 qubits regime we saw a 70 to 110x speedup. At 29 qubits, our classical machine choose Harakiri, whereas Floq caved at 33 qubits with a gracious "qubit size not in acceptable range". 
-
+Floq allows access through a cloud service to TPU computation. 
+We initially were impeded by large latency issues in the order of 200ms that add up when running larger experiments. 
+To overcome this, we deployed a virtual machine in LA with a tmux session to orchastrate our experiments. 
+This reduced the latence to 10 ms. 
+We then benchmarked the performance of Floq compared to the 16 CPU 128G memory server we rented in the Google Cloud and plotted the perfomance:
+Here, one can see the crazy advantage: Floq performed 70 to 110x faster (no, not 70 to 110%!) for 26-28 qubits. 
+At 29 qubits our classical machine cave in, killing itself due to memory overload. 
 <p align="center">
 <img src="./blogpost_img/overfloqed.png" alt="Killed" width="100"/>
 </p>
-
-These extra qubits, for our project, can be used for extra data-embedding, increasing expressivity. One does need to be aware of the extra communication overhead, when accessing the service from Europe. For this, we deployed a virtual machine in Los Angeles, which increased our communication times with 20x. 
-
-The Rigetti machine through the AWS cloud servers provided valuable insights in the performance of the kernel when subjected to noise, and was, apart from a factor 10 mistake, well within budget. 
+Floq continued till 33 qubits, graciously caving in with a "qubit size not in acceptable range".
+When looking at the overall plot, one can see that the execution times are equal with a 7-qubit shift. 
+This allows one to either re-embed data for more expressivity, or tackle larger problems. 
+The latter is exactly what we did. 
+Attached with our submission, you will find the file "floq MNIST demonstration" which, when in posession of a valuable API key, allows one to predict on samples from the FULL-SIZE FULL-PRECISION MNIST dataset without down-sizing, containing images of 28x28 pixels and with gray-scale. 
+Now on the real hardware. 
 
 
 
