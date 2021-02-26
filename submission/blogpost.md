@@ -156,9 +156,16 @@ This demonstrates increased classification capabilities of an alignment-trained 
 and simple dataset as the trained QEK adapts to the particular structure of the training data.
 
 ## Noise Issues
-When looking forward to boosting classification tasks with trainable circuits, the influence of measurement or sampling noise certainly is an important aspect.
-The question then arises whether the imperfect noisy kernel matrix that is obtained on a quantum computer can actually be of any use for the classification.
-We asked this question for the zeroed, randomized and optimized parameter kernel and observed that shot noise does harm the kernel matrix sufficiently to disrupt the classification performance.
+
+When looking forward to boosting classification tasks with trainable circuits, 
+the influence of measurement or sampling noise certainly is an important aspect.
+The question then arises whether the imperfect noisy kernel matrix that is 
+obtained on a quantum computer can actually be of any use for the classification.
+We asked this question for variants of the kernel used in our demonstration with 
+zeroed, randomized and optimized parameters kernel and observed 
+that shot noise does indeed harm the kernel matrix sufficiently 
+to disrupt the classification performance.
+
 This issue can be directly traced back to the indefiniteness of the kernel matrix due to the noise.
 Hope would be lost for our quantum kernel if it wasn't for a small addition to the PennyLane.kernels module that allows for postprocessing of the noisy kernel matrix to stabilise it against noise.
 We implemented thresholding, which sets negative eigenvalues to zero and is equivalent to minimizing the distance between a positive semidefinite approximation and the noisy kernel itself, and displacing by subtracting the identity scaled with the smallest eigenvalue, which keeps the eigenvectors intact and yields a positive semidefinite matrix as well.
