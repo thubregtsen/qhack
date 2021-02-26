@@ -46,7 +46,7 @@ But, unlike other similar proposals, they went on to use the embedding part of t
 
 Both Xanadu's and IBM's approached differed in some fundamental details, but one thing was clear: the door to quantum kernel methods was open!
 Building upon this belief Maria Schuld recently published _Quantum Machine Learning Models are Kernel Methods_ [7]. In this paper technical details of quantum kernels are set on firm grounds for everyone else to build novel models.
-In particular, a very natural procedure to build the Quantum Embedding Kernel (QEK) from an embedding Ansatz was provided.
+In particular, a very natural procedure to build the QEK from an embedding Ansatz was provided.
 
 
 ## Trainable Kernels
