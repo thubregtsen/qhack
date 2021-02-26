@@ -131,8 +131,6 @@ included the theoretical background of kernel methods, quantum embedding kernels
 kernel-target alignment as a measure of kernel quality for a specific dataset in such a way that 
 every quantum-curious user can delve into the mathematical foundations.
 
-**TODO: Mention floq integration for large scale datasets if the notebook makes it to the end**
-
 
 ## Advantage of Training
 
@@ -152,7 +150,32 @@ the randomized parameter QEK fails to classify the entire dataset correctly, obt
 This demonstrates increased classification capabilities of an alignment-trained QEK for a small 
 and simple dataset as the trained QEK adapts to the particular structure of the training data.
 
-## Noise Issues
+## Beyond local simulations
+
+Now that we had everything up and running, we could start thinking about experiments. We are very gratefull with the support we have received, in the form of alpha access to Floq and AWS credits to run on Rigetti and IonQ. In order to assess the feasibility of the various workloads and problems we could solve, we benchmarked the cost in terms of required time and dollars spend. We did this by first plotting the total function calls per dataset size:
+<p align="center">
+<img src="./blogpost_img/execution_cycles.png" alt="Floq" width="550"/>
+</p>
+This can then be used in combination with the time per circuit call to find the expected runtime for Floq: 
+<p align="center">
+<img src="./blogpost_img/floq.png" alt="Floq" width="550"/>
+</p>
+As well as combine it with the cost per shot to find the financial budget to run on AWS.
+
+## Floq
+ Between the hardware platforms, we found that Floq, compared to our classical server (16 CPU, 128G mem), was able to extend our capabilities by 7 additional qubits. This can also be viewed as a 2^7 speedup, which is what we confirmed experimentally: in 26-28 qubits regime we saw a 70 to 110x speedup. At 29 qubits, our classical machine choose Harakiri, whereas Floq caved at 33 qubits with a gracious "qubit size not in acceptable range". 
+
+<p align="center">
+<img src="./blogpost_img/overfloqed.png" alt="Killed" width="100"/>
+</p>
+
+These extra qubits, for our project, can be used for extra data-embedding, increasing expressivity. One does need to be aware of the extra communication overhead, when accessing the service from Europe. For this, we deployed a virtual machine in Los Angeles, which increased our communication times with 20x. 
+
+The Rigetti machine through the AWS cloud servers provided valuable insights in the performance of the kernel when subjected to noise, and was, apart from a factor 10 mistake, well within budget. 
+
+
+
+## Noise Issues and real hardware
 
 When looking forward to boosting classification tasks with trainable circuits, 
 the influence of measurement or sampling noise certainly is an important aspect.
@@ -187,25 +210,6 @@ For our concrete application on the `DoubleCake` dataset, this stabilisation wor
 
 We thus implemented and tested two new methods to improve the applicability of (trainable) QEKs to classification tasks.
 
-## Resources
-
-In order to assess the feasibility of the various workloads and problems we could solve on the available hardware, we benchmarked the cost in terms of required time and dollars spend. We did this by first plotting the total function calls per dataset size, as shown in [plot]. 
-<p align="center">
-<img src="./blogpost_img/execution_cycles.png" alt="Floq" width="550"/>
-</p>
-This can then be used in combination with the time per circuit call in [plot] to find the expected runtime and by combining it with the cost per shot to find the financial budget to run on AWS. 
-<p align="center">
-<img src="./blogpost_img/floq.png" alt="Floq" width="550"/>
-</p>
-Between the hardware platforms, we found that Floq, compared to our classical server (16 CPU, 128G mem), was able to extend our capabilities by 7 additional qubits. This can also be viewed as a 2^7 speedup, which is what we confirmed experimentally: in 26-28 qubits regime we saw a 70 to 110x speedup. At 29 qubits, our classical machine choose Harakiri, whereas Floq caved at 33 qubits with a gracious "qubit size not in acceptable range". 
-
-<p align="center">
-<img src="./blogpost_img/killed.png" alt="Killed" width="100"/>
-</p>
-
-These extra qubits, for our project, can be used for extra data-embedding, increasing expressivity. One does need to be aware of the extra communication overhead, when accessing the service from Europe. For this, we deployed a virtual machine in Los Angeles, which increased our communication times with 20x. 
-
-The Rigetti machine through the AWS cloud servers provided valuable insights in the performance of the kernel when subjected to noise, and was, apart from a factor 10 mistake, well within budget. 
 
 ## Conclusion
 
