@@ -65,10 +65,26 @@ def ansatz(x, params, wires):
 
 # # Kernel
 
-dev = qml.device("default.qubit", wires=5)
+# +
+local = True
+shots = 10
+total_executions = 0
+if local:
+    print("You're safe")
+    dev = qml.device("default.qubit", wires=5, shots=shots)
+else:
+    print("MONEY IS BEING USED")
+    bucket = "amazon-braket-5268bd361bba" # the name of the bucket
+    prefix = "example_running_quantum_circuits_on_qpu_devices" # the name of the folder in the bucket
+    s3_folder = (bucket, prefix)
+    dev_arn = "arn:aws:braket:::device/qpu/rigetti/Aspen-9"
+    # final safeguard: remove the comment
+    #dev = qml.device("braket.aws.qubit", device_arn=dev_arn, s3_destination_folder=s3_folder, wires=5, shots=shots, parallel=True)
+
 wires = list(range(5))
 W = np.random.normal(0, .7, (2, 30))
 k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x @ W, params, wires), dev)
+# -
 
 # # Random, zero and optimal parameters
 
@@ -181,7 +197,21 @@ recompute_K_for_testing = False
 
 for shots in shots_list:
     # use the following two lines when running on a QC and add the shots parameter to the device initialization!
-    dev = qml.device("default.qubit", wires=5, shots=shots)
+    total_executions += dev.num_executions
+    if local:
+        print("You're safe")
+        dev = qml.device("default.qubit", wires=5, shots=shots)
+    else:
+        print("MONEY IS BEING USED")
+        bucket = "amazon-braket-5268bd361bba" # the name of the bucket
+        prefix = "example_running_quantum_circuits_on_qpu_devices" # the name of the folder in the bucket
+        s3_folder = (bucket, prefix)
+        dev_arn = "arn:aws:braket:::device/qpu/rigetti/Aspen-9"
+        # final safeguard: remove the comment
+        #dev = qml.device("braket.aws.qubit", device_arn=dev_arn, s3_destination_folder=s3_folder, wires=5, shots=shots, parallel=True)
+
+    
+    
     k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x @ W, params, wires), dev)
     for name_params, init_params in zip(param_names, [zero_param, rnd_param, opt_param]):
         K_raw1 = k.square_kernel_matrix(X, init_params) # Use quantum computer
@@ -235,7 +265,7 @@ g.set_axis_labels("", "Classification performance on training set")
 # g.legend.set_title("")
 # plt.tight_layout()
 # -
-
+print("Total executions (check if correct by hand):", total_executions)
 
 
 # +
