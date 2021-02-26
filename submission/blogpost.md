@@ -20,7 +20,7 @@ They explored the concept of training their kernels in a networky fashion.
 
 This is the story of what came out of that reckless attempt, and how the legacy of these ancient _kernel tamers_  has carried on through the generations and eventually turned quantum.
 
-## Kernel methods
+## Kernel Methods
 
 Kernel methods are one of the cornerstones of classical ML. Kernel boundaries allow us to use linear classifiers to establish non-linear decision boundaries:
 
@@ -127,7 +127,7 @@ kernel-target alignment as a measure of kernel quality for a specific dataset in
 
 
 
-## Advantage of training
+## Advantage of Training
 The dataset we consider for the training evaluation is the `DoubleCake` dataset specifically created in this project.
 It has two features per sample and labels in two classes, the instance we consider contains 12 samples in total.
 In order to assess the benefits of optimising the trainable QEK via its alignment, 
@@ -141,7 +141,7 @@ For each of the two parameter settings, we then train an SVM on the respective Q
 We find that the optimized QEK yields perfect classification of the data after training the SVM whereas the randomized parameter QEK fail to classify the entire dataset correctly obtaining only 58% accuracy.
 This demonstrates increased classification capabilities of an alignment-trained QEK for a small and simple dataset as trained QEK adapts to the particular structure of the training data.
 
-## Noise issues
+## Noise Issues
 When looking forward to boosting classification tasks with trainable circuits, the influence of measurement or sampling noise certainly is an important aspect.
 The question then arises whether the imperfect noisy kernel matrix that is obtained on a quantum computer can actually be of any use for the classification.
 We asked this question for the zeroed, randomized and optimized parameter kernel and observed that shot noise does harm the kernel matrix sufficiently to disrupt the classification performance.
