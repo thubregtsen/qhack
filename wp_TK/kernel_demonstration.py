@@ -174,14 +174,10 @@ def random_params(num_wires, num_layers):
 # -
 
 # We are now in a place where we can create the embedding. Together with the ansatz we only need a device to run the quantum circuit on. For the purposes of this tutorial we will use PennyLane's `lightning.qubit` device with 5 wires.
-#
-# To add another interesting twist, we will not repeatedly input the different datapoints but extract random linear combinations. This is realized by choosing a matrix $W$ whose entries are randomly sampled from the normal distribution. We have $2$ data dimensions but want to expand them to $30$ different embedding features. We therefore construct a matrix with shape $(2, 30)$ so that the matrix-vector product $\boldsymbol{x}W$ is a vector with $30$ entries.
-
-W = np.random.normal(0, 0.7, (2, 30))
 
 dev = qml.device("lightning.qubit", wires=5)
 wires = list(range(5))
-k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x @ W, params, wires), dev)
+k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
 
 # And this was all of the magic! The `EmbeddingKernel` class took care of providing us with a circuit that calculates the overlap. Before we can take a look at the kernel values we have to provide values for the variational parameters. We will initialize them such that the ansatz circuit has $6$ layers.
 
@@ -284,7 +280,7 @@ print("The kernel-target-alignment for our dataset with random parameters is {:.
 params = init_params
 opt = qml.GradientDescentOptimizer(2.5)
 
-for i in range(250):
+for i in range(500):
     subset = np.random.choice(list(range(len(dataset.X))), 4)
     params = opt.step(lambda _params: -k.target_alignment(dataset.X[subset], dataset.Y[subset], _params), params)
     
