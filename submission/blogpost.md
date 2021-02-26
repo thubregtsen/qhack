@@ -70,7 +70,7 @@ What these brave heroes want is a supervised learning approach for choosing the 
 And indeed, they readily came up with a couple of good "kernel quality estimators".
 
 We said a kernel is a measure of similarity in feature space between a pair of data instances.
-It is not unreasonable to believe that a good kernel should find two points x1, x2 with the same label y1 = y2 more similar to one another than two points x3, x4 with opposite labels y3 = -y4.
+It is not unreasonable to believe that a good kernel should find two points x<sub>1</sub>, x<sub>2</sub> with the same label y<sub>1</sub> = y<sub>2</sub> more similar to one another than two points x<sub>3</sub>, x<sub>4</sub> with opposite labels y<sub>3</sub> = -y<sub>4</sub>.
 
 Agreed? Agreed!
 
