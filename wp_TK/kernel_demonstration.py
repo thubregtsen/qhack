@@ -274,7 +274,7 @@ print("The kernel-target-alignment for our dataset with random parameters is {:.
     k.target_alignment(dataset.X, dataset.Y, init_params))
 )
 
-# Now let's code up an optimization loop and improve this. To this end, we will make use of regular gradient descent optimization. To speed up the optimization we will sample smaller subsets of the data at each step. Remember that the optimizer works to _minimize_ the cost, which is why we have to multiply the kernel target alignment by $-1$ to maximize it in the process. 
+# Now let's code up an optimization loop and improve this. To this end, we will make use of regular gradient descent optimization. To speed up the optimization we will sample smaller subsets of the data at each step, we choose $4$ datapoints at random. Remember that PennyLane's inbuilt optimizer works to _minimize_ the cost function that is given to it, which is why we have to multiply the kernel target alignment by $-1$ to actually _maximize_ it in the process. 
 
 # +
 params = init_params
@@ -296,11 +296,11 @@ svm_trained = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(dat
 
 print("The accuracy of a kernel with trained parameters is {:.3f}".format(accuracy(svm_trained, dataset.X, dataset.Y)))
 
-# Very well, we also expect that the decision boundaries of our classifier captures the nature of the dataset better:
+# Very well we now get perfect classification! We also expect that the decision boundaries of our classifier captures the nature of the dataset better, so let's check that:
 
 init_plot_data = plot_decision_boundaries(svm_trained, plt.gca())
 
-# We have seen that training our Quantum Embedding Kernel indeed yields to improved accuracy and way more reasonable decision boundaries.
+# The decision boundaries look much more reasonable for the trained kernel. With this, we have seen that training our Quantum Embedding Kernel indeed yields not only improved accuracy but also way more reasonable decision boundaries. In that sense, kernel training allows us to adjust the kernel to the dataset, and
 
 # ### References
 #
