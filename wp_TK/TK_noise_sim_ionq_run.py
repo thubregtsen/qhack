@@ -150,7 +150,7 @@ shots = 2
 local = True
 if local:
     print("You're safe")
-    dev = qml.device("default.qubit", wires=5, shots=shots)
+    dev = qml.device("default.qubit", wires=5, shots=shots, analytic=False)
 else:
     print("MONEY IS BEING USED")
     bucket = "amazon-braket-5268bd361bba" # the name of the bucket
