@@ -195,7 +195,7 @@ to disrupt the classification performance.
 This issue can be directly traced back to the indefiniteness of the kernel matrix due to the noise.
 Hope would be lost for our quantum kernel if it wasn't for a small addition to the `qml.kernels` 
 module that allows for postprocessing of the noisy kernel matrix to stabilise it against noise.
-We implemented two different strategies to stbilize the kernel matrix:
+We implemented two different strategies to stabilize the kernel matrix:
 First thresholding, which sets negative eigenvalues to zero and is equivalent to 
 finding the positive semidefinite matrix that is closest to our noisy kernel matrix. 
 Second, we implemented displacing by subtracting the identity scaled with the smallest eigenvalue.
