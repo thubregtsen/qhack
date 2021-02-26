@@ -29,6 +29,7 @@ import pennylane as qml
 from pennylane import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import remote_cirq
 
 np.random.seed(2658)
 # -
@@ -46,20 +47,22 @@ from keras.datasets import mnist
 # +
 print(train_X.shape)
 
-train_idx0 = np.argwhere(train_y == 0)[:10]
+sample_size = 5
+
+train_idx0 = np.argwhere(train_y == 0)[:sample_size]
 train_X0 = train_X[train_idx0].squeeze() * np.pi/255
 
-train_idx1 = np.argwhere(train_y == 1)[:10]
+train_idx1 = np.argwhere(train_y == 1)[:sample_size]
 train_X1 = train_X[train_idx1].squeeze() * np.pi/255
 # -
 
 # Now let us have a look at our training data:
 
 # +
-gs = mpl.gridspec.GridSpec(2, 10) 
+gs = mpl.gridspec.GridSpec(2, sample_size) 
 fig = plt.figure(figsize=(16,4))
 
-for j in range(10):
+for j in range(sample_size):
     ax=plt.subplot(gs[0, j])
     plt.imshow(train_X0[j], cmap=plt.get_cmap('gray'))
     ax.axis("off")
@@ -72,7 +75,7 @@ for j in range(10):
 # With the zeros and ones extracted, we can now create the actual variables we use for the training of our model:
 
 X = np.vstack([train_X0, train_X1])
-y = np.hstack([[-1]*10, [1]*10])
+y = np.hstack([[-1]*sample_size, [1]*sample_size])
 
 
 # ## Defining a Quantum Embedding Kernel
@@ -104,10 +107,16 @@ def random_params(num_wires, num_layers):
 # We are now in a place where we can create the embedding. Together with the ansatz we only need a device to run the quantum circuit on. For the purposes of this tutorial we will use the `floq` device with $28$ wires. Note that we need to flatten the input data to our ansatz, as the ansatz expects a flat array but the datapoints are two dimensional images.
 
 # +
-N_WIRES = 28
-N_LAYERS = 28
+N_WIRES = 26 # can also be 28 x 28
+N_LAYERS = 31
 
-dev = qml.device("lightning.qubit", wires=N_WIRES)
+API_KEY = "YOUR KEY"
+sim = remote_cirq.RemoteSimulator(API_KEY)
+dev = qml.device("cirq.simulator",
+                 wires=N_WIRES,
+                 simulator=sim,
+                 analytic=False)
+
 wires = list(range(N_WIRES))
 k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x.flatten(), params, wires), dev)
 # -
@@ -145,14 +154,14 @@ print("The accuracy of a kernel with random parameters on the training set is {:
 # Now we will compare this to the performance on unseen data. To this end, we extract the next ten zeros and ones from the MNIST dataset:
 
 # +
-test_idx0 = np.argwhere(train_y == 0)[10:20]
+test_idx0 = np.argwhere(train_y == 0)[10:10+sample_size]
 test_X0 = train_X[train_idx0].squeeze() * np.pi/255
 
-test_idx1 = np.argwhere(train_y == 1)[10:20]
+test_idx1 = np.argwhere(train_y == 1)[10:10+sample_size]
 test_X1 = train_X[train_idx1].squeeze() * np.pi/255
 
 X_test = np.vstack([test_X0, test_X1])
-y_test = np.hstack([[-1]*10, [1]*10])
+y_test = np.hstack([[-1]*sample_size, [1]*sample_size])
 # -
 
 # To make a prediction, we have to compute the kernels between the test datapoints and the training datapoints. The `EmbeddingKernel` class offers a convenience method for this in the form of the `kernel_matrix` method.
