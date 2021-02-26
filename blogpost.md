@@ -1,4 +1,4 @@
-# Trainable Quantum Kernels with Pennylane [10]
+# Trainable Quantum Kernels with Pennylane
 ### _Or how finding good music title puns got out of hand_
 
 _By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
@@ -16,7 +16,13 @@ In exchange, they had to pass through the hoop of model selection.
 In the fray of the battle, a number of gray rebellious methodists thought they could take a shot of their enemies medicine.
 They explored the concept of training their kernels in a networky fashion.
 
-This is the story of what came out of that reckless attempt, and how the legacy of these ancient _kernel tamers_  has carried on through the generations and eventually turned quantum.
+In this blogpost, we tell the story of how the reckless attempts of ancienct _kernel tamers_ and the recent developments in Quantum Machine Learning have lead to us, the Notorious FUB, exploring trainable quantum embedding kernels. 
+We first introduce kernel methods, followed by their QML equivalent. 
+Then we describe the tools of the ancient _kernel tamers_ and how similair tools can be used to construct trainable quantum embedding kernels. 
+Using state of the art classical and quantum hardware we show that training these kernels is promising due to two reasons; it improves the accuracy of SVM's using the trained kernel and it is possible to train kernels on noisy quantum hardware,
+By integrating our code into the Penny Lane library we hope to inspire future research.
+
+
 
 ## Kernel methods
 
@@ -43,32 +49,32 @@ The authors opened with a demonstration using an Ansatz along the predominant ne
 But, unlike other similar proposals, they went on to use the embedding part of their Ansatz as the fundamental building block for a quantum kernel.
 
 Both Xanadu's and IBM's approached differed in some fundamental details, but one thing was clear: the door to quantum kernel methods was open!
-Building upon this believe [7] recently came out, setting the technical details on firm grounds for everyone else to build novel models.
+Building upon this belief Maria Schuld recently published _Quantum Machine Learning Models are Kernel Methods_ [7]. In this paper technical details of quantum kernels are set on firm grounds for everyone else to build novel models.
 In particular, a very natural procedure to build the Quantum Embedding Kernel (QEK) from an embedding Ansatz was provided.
 
 
 ## Trainable Kernels
 
-Where we left off, the scene was that of a steamy battlefield: a small fraction of kernel methodists are decided to step into their opponents shoes.
+Where we left off, the scene was that of a steamy battlefield: a small fraction of kernel methodists decided to step into their opponents shoes.
 They have been brought up to repeat the same creed: _the first difficulty in using a kernel method is choosing the kernel_, but those times are gone.
-Their experience in battle has taught them to trust the Gaussian Radial Basis Function as a one-size-fits-all solution, but still they struggle specifying the value of the variance parameter.
-What these brave heroes want is a supervised learning way of choosing the value, they are all tired of exhaustively searching the hyperparameter space.
+Their experience in battle has taught them to trust the Gaussian Radial Basis Function as a one-size-fits-all solution, but still they struggle to specify the value of the variance parameter.
+What these brave heroes want is a supervised learning approach for choosing the value, as they are all tired of exhaustively searching the hyperparameter space.
 
 And indeed, they readily came up with a couple of good "kernel quality estimators".
 
 We said a kernel is a measure of similarity in feature space between a pair of data instances.
 It is not unreasonable to believe that a good kernel should find two points x1, x2 with the same label y1 = y2 more similar to one another than two points x3, x4 with opposite labels y3 = -y4.
-We agree, right?
+__We agree, right?__ (TODO)
 If we face the choice between two kernels, we will want to ask ourselves two questions:
 Which one of them gives a higher similarity value to pairs within the same class?
-Which is the one that gives a lower similarity to pairs of points, one from each opposite class?
-If the answer to both questions is the same, we will probably pick that kernel for our task.
+Which is the one that gives a lower similarity to pairs of points from opposite classes?
+If the answer to both questions is the same kernel, we will pick that kernel for our task.
 
 One question still remains: could one write up a quantity computed from the kernel matrix entries that quantifies the within- and without-class similarity?
 Think about it for a moment, write down the simplest sum that seems to do it, notice this looks very similar to something from back in your undergrad Electromagnetism course, call it polarisation (or alignment, if you thought of normalisation), and you are good to go!
 
-Since we are still talking about kernel methods, though, we can and should not forget our modus operandi.
-A kernel with a high polarisation (or alignment) will display both high accuracy on train and good generalisation behavior on unseen data.
+Since we are still talking about kernel methods though, we can and should not forget our modus operandi.
+A kernel with a high polarisation (or alignment) will display both high accuracy on its training dataset and good generalisation behavior on unseen data.
 _"But we want beautiful math that decorates our tools and ensures their good behavior in general!"_.
 Fret not! For [8] and its references have everyone's needs covered.
 
@@ -136,6 +142,12 @@ Between the hardware platforms, we found that Floq, compared to our classical se
 </p>
 The Rigetti machine through the AWS cloud servers provided valuable insights in the performance of the kernel when subjected to noise, and was, apart from a factor 10 mistake, well within budget. 
 
+## Conclusion
+
+Summary of what we have done.
+A short part about the battlefield and stuff.
+We believe there is once again hope in the hearts of the kernel methodists.
+
 
 ### References
 
@@ -156,5 +168,3 @@ The Rigetti machine through the AWS cloud servers provided valuable insights in 
 [8] T. Wang, D, Zhao, S. Tian: _An overview of kernel alignment and its applications_ (Springer Science+Business Media Dordrecht, 2012)
 
 [9] P. Wittek: _Quantum Machine Learning: what quantum computing means to data mining_ (Academic Press, 2014)
-
-[10] Proper academic document coming up
