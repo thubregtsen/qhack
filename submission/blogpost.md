@@ -171,7 +171,7 @@ We then benchmarked the performance of Floq compared to the 16 CPU 128G memory s
 Here, one can see the crazy advantage: Floq performed 70 to 110x faster (no, not 70 to 110%!) for 26-28 qubits. 
 At 29 qubits our classical machine cave in, killing itself due to memory overload. 
 <p align="center">
-<img src="./blogpost_img/overfloqed.png" alt="Killed" width="100"/>
+<img src="./blogpost_img/overfloqed.png" alt="Killed" width="200"/>
 </p>
 Floq continued till 33 qubits, graciously caving in with a "qubit size not in acceptable range".
 When looking at the overall plot, one can see that the execution times are equal with a 7-qubit shift. 
