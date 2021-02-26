@@ -63,28 +63,23 @@ def ansatz(x, params, wires):
 
 # -
 
-# # Kernel
+# # Tiny stuff
 
-# +
-local = True
-shots = 10
 total_executions = 0
-if local:
-    print("You're safe")
-    dev = qml.device("default.qubit", wires=5, shots=shots)
-else:
-    print("MONEY IS BEING USED")
-    bucket = "amazon-braket-5268bd361bba" # the name of the bucket
-    prefix = "example_running_quantum_circuits_on_qpu_devices" # the name of the folder in the bucket
-    s3_folder = (bucket, prefix)
-    dev_arn = "arn:aws:braket:::device/qpu/rigetti/Aspen-9"
-    # final safeguard: remove the comment
-    #dev = qml.device("braket.aws.qubit", device_arn=dev_arn, s3_destination_folder=s3_folder, wires=5, shots=shots, parallel=True)
-
 wires = list(range(5))
-W = np.random.normal(0, .7, (2, 30))
-k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x @ W, params, wires), dev)
-# -
+
+W = np.tensor([[-0.48928263,  1.22455895,  0.24524283, -0.90407688, -0.45746766,
+          0.36301938, -0.46825804,  1.11975107,  0.32406789, -0.25900904,
+          0.52357202,  1.01409992,  0.39667541,  0.03402402,  0.56406879,
+         -0.04953572, -1.02760894,  0.74835533,  0.77358223,  0.07167918,
+         -0.39601274, -1.20093125, -0.62393424,  0.05618878, -0.79196356,
+          0.96112044,  0.01387542,  1.57957725,  0.16040838,  0.51613016],
+        [ 0.3960217 ,  0.62389183, -0.61651894, -0.22409924,  0.5818978 ,
+          0.6581104 , -0.1050928 , -0.13931877, -0.07393247, -0.57084468,
+          0.41364557,  0.21091894, -0.57086992, -0.53807368, -0.87942271,
+          0.14083521,  0.57690753,  0.57662288,  1.11345077, -0.86806174,
+          0.5386058 , -0.3054007 , -0.20143108,  1.0278662 , -0.041591  ,
+         -1.94328892,  1.02577419,  1.06179425,  0.94690698, -0.81254189]], requires_grad=True)
 
 # # Random, zero and optimal parameters
 
@@ -108,35 +103,24 @@ rnd_param = np.tensor([[[3.83185811, 2.43217597, 6.04150259, 6.10219181, 2.24859
 
 zero_param = np.zeros_like(rnd_param)
 
-opt_param = np.tensor([[[ 3.10041694,  6.28648541,  0.17216709,  3.41982814,
-           5.43972889],
-         [ 8.61896368,  2.96729878,  1.3804001 ,  3.63942291,
-           5.53767498]],
+opt_param = np.tensor([[[3.16112692, 2.96383445, 6.42069708, 6.71137123, 2.55598801],
+         [2.72606667, 2.99057035, 0.930822  , 2.27364172, 1.55443215]],
 
-        [[ 1.45857959,  3.50437136,  4.68830514,  5.94224399,
-           1.46699806],
-         [ 7.25085301,  0.34349336,  3.60122049,  3.76097482,
-           1.43088235]],
+        [[3.60626686, 5.6386098 , 2.61898825, 0.0511038 , 2.0884846 ],
+         [5.12823881, 2.22767521, 2.38026797, 2.82783246, 3.99380242]],
 
-        [[ 1.4319011 ,  1.09293963,  2.44024258,  4.63729544,
-          -0.47946884],
-         [ 0.39648489, -0.0749347 ,  3.13934162,  1.18520239,
-          -0.68025965]],
+        [[3.89070753, 1.71989212, 6.32027752, 0.73552391, 2.36183652],
+         [1.54754968, 1.07048025, 0.42267783, 4.24899979, 5.05318246]],
 
-        [[ 1.86128989,  1.08249672,  0.5714569 ,  4.16301649,
-           2.80128062],
-         [ 6.51381847,  5.65047927,  0.36280346,  5.26370351,
-           6.03065534]],
+        [[2.48488179, 3.26446537, 5.57403376, 2.2393725 , 4.7397544 ],
+         [3.51567039, 2.81698389, 6.86245787, 0.5135373 , 3.37328717]],
 
-        [[ 1.64724801,  2.49202953,  4.14132734,  2.40267736,
-           7.01295776],
-         [-0.53129869, -0.32494442,  4.69311076,  6.36346591,
-           2.91400076]],
+        [[4.69143899, 1.51311219, 2.04891693, 2.45526122, 5.03910988],
+         [4.61716515, 3.81501437, 6.08694709, 2.40819571, 2.90937169]],
 
-        [[ 5.41552666,  3.80159486,  1.96329725,  1.70261348,
-           3.13386862],
-         [ 0.45227504,  4.11186956,  5.91495654,  3.46714211,
-           3.92814319]]], requires_grad=True)
+        [[4.7955417 , 1.71132909, 3.45214701, 1.30618948, 2.43551656],
+         [5.99802411, 0.86416771, 1.52129757, 4.48878166, 5.1649024 ]]], requires_grad=True)
+
 
 # Create a new data frame. WARNING, if you already computed something on the quantum computer, 
 # this might reset your data if it is only stored in df! 
@@ -148,38 +132,43 @@ df = pd.DataFrame()
 # # Run and validate classifications - SIMULATION
 
 # +
-# # This is how often the entire task is going to be repeated, for statistics!
-# n_noises = 300
-# noise_levels = [1., 1e-1,1e-2, 0.]
-# # These are the keywords for which kernel parameters to run the entire thing:
-# param_names = ['Zero', 'Random', 'Optimal']
+# This is how often the entire task is going to be repeated, for statistics!
+n_noises = 300
+noise_levels = [1., 0.]
+# These are the keywords for which kernel parameters to run the entire thing:
+param_names = ['Zero', 'Random', 'Optimal']
 
-# for noise_level in noise_levels:
-#     for name_params, init_params in zip(param_names, [zero_param, rnd_param, opt_param]):
-#         K_raw = k.square_kernel_matrix(X, init_params) # Use quantum computer
-#         for i in range(n_noises if noise_level>0. else 1):
-#             N_train = np.random.normal(scale=noise_level, size=(len(X), len(X)))
-#             N_train = np.triu(N_train, 1) + np.triu(N_train, 1).T
-#             N_test = np.random.normal(scale=noise_level, size=(len(X), len(X)))
-#             N_test = np.triu(N_test, 1) + np.triu(N_test, 1).T
-#             for name_stabilize, stabilize in zip(['None', 'Thresholding', 'Displacing'], [None, qml.kernels.threshold_matrix, qml.kernels.displace_matrix]):
-# #                 print(init_params)
-#                 kernel_mat1 = lambda A, B: stabilize(K_raw+N_train) if stabilize is not None else K_raw+N_train
-#                 kernel_mat2 = lambda A, B: stabilize(K_raw+N_test) if stabilize is not None else K_raw+N_test
+alignments = [k.target_alignment(X, Y, _par) for _par in [zero_param, rnd_param, opt_param]]
+
+for noise_level in noise_levels:
+    for name_params, init_params, TA in zip(param_names, [zero_param, rnd_param, opt_param], alignments):
+        K_raw = k.square_kernel_matrix(X, init_params) # Use quantum computer
+        for i in range(n_noises if noise_level>0. else 1):
+            N_train = np.random.normal(scale=noise_level, size=(len(X), len(X)))
+            N_train = np.triu(N_train, 1) + np.triu(N_train, 1).T
+            N_test = np.random.normal(scale=noise_level, size=(len(X), len(X)))
+            N_test = np.triu(N_test, 1) + np.triu(N_test, 1).T
+            for name_stabilize, stabilize in zip(['None', 'Thresholding', 'Displacing'], [None, qml.kernels.threshold_matrix, qml.kernels.displace_matrix]):
+#                 print(init_params)
+                kernel_mat1 = lambda A, B: stabilize(K_raw+N_train) if stabilize is not None else K_raw+N_train
+                kernel_mat2 = lambda A, B: stabilize(K_raw+N_test) if stabilize is not None else K_raw+N_test
                 
-#                 svm = SVC(kernel=kernel_mat1).fit(X, Y)
-#                 kernel_mat1 = lambda x: None
-#                 svm.kernel = kernel_mat2
-#                 perf = tk.validate(svm, X, Y)
+                svm = SVC(kernel=kernel_mat1).fit(X, Y)
+                perf_reuse = tk.validate(svm, X, Y)
+                svm.kernel = kernel_mat2
+                perf_recompute = tk.validate(svm, X, Y)
             
-#                 entry = pd.Series({
-#                     'noise_level': noise_level,
-#                     'params': name_params,
-#                     'noise_iteration': i,
-#                     'Stabilisation method': name_stabilize,
-#                     'perf': perf,
-#                 })
-#                 df = df.append(entry, ignore_index=True)
+                entry = pd.Series({
+                    'noise_level': noise_level,
+                    'params': name_params,
+                    'params_long': name_params+f"\n(Alignment={TA})",
+                    'noise_iteration': i,
+                    'Stabilisation method': name_stabilize,
+                    'perf_reuse': perf_reuse,
+                    'perf_recompute': perf_recompute,
+                    'alignment': TA,
+                })
+                df = df.append(entry, ignore_index=True)
 # -
 
 # # Run and validate classifications - QUANTUM DEVICE
@@ -251,7 +240,8 @@ for shots in shots_list:
 import seaborn as sns
 sns.set_theme(style="whitegrid")
 
-plot_df = df.loc[df.shots==100]
+# plot_df = df.loc[df.shots==100]
+plot_df = df.loc[df.noise_level==1.]
 
 # print(plot_df)
 g = sns.catplot(
@@ -309,6 +299,8 @@ print("Total executions (check if correct by hand):", total_executions)
 #     performances.append(perf_)
 
 # -
+
+
 
 
 
