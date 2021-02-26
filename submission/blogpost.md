@@ -1,4 +1,4 @@
-# Trainable Quantum Kernels with PennyLane [10]
+# Trainable Quantum Embedding Kernels with PennyLane [10]
 ### _Or how finding good music title puns got out of hand_
 
 _By: Notorious F.U.B. (Peter-Jan Derks, Paul K. Faehrmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
