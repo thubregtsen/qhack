@@ -98,13 +98,18 @@ def random_params(num_wires, num_layers):
 
 # We are now in a place where we can create the embedding. Together with the ansatz we only need a device to run the quantum circuit on. For the purposes of this tutorial we will use PennyLane's `default.qubit` device with 5 wires.
 
-dev = qml.device("lightning.qubit", wires=3)
-wires = list(range(3))
+# +
+N_WIRES = 28
+N_LAYERS = 28
+
+dev = qml.device("lightning.qubit", wires=N_WIRES)
+wires = list(range(N_WIRES))
 k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x.flatten(), params, wires), dev)
+# -
 
 # And this was all of the magic! The `EmbeddingKernel` class took care of providing us with a circuit that calculates the overlap. Before we can take a look at the kernel values we have to provide values for the variational parameters. We will initialize them such that the ansatz circuit has $6$ layers.
 
-init_params = random_params(3, 8)
+init_params = random_params(N_WIRES, N_LAYERS)
 
 # Now we can have a look at the kernel value between the first and the second datapoint:
 
