@@ -125,14 +125,16 @@ kernel-target alignment as a measure of kernel quality for a specific dataset in
 ## Advantage of training
 The dataset we consider for the training evaluation is the `DoubleCake` dataset specifically created in this project.
 It has two features per sample and labels in two classes, the instance we consider contains 12 samples in total.
-In order to assess the benefits of optimising the trainable QEK via its alignment, we compare it to the QEK when deactivating the variational gates by setting them to zero and to the QEK at random parameters.
-For each of the three parameter settings, we then train an SVM on the respective QEK and obtain a classification performance for our chosen dataset.
-We find that the optimized QEK yields perfect classification of the data after training the SVM whereas both, the randomized and the zeroed parameter QEK fail to classify the entire dataset correctly obtaining only 66% accuracy each.
-This demonstrates increased classification capabilities of an alignment-trained QEK for a small and simple dataset as trained QEK adapts to the particular structure of the training data.
+In order to assess the benefits of optimising the trainable QEK via its alignment, 
+we compare it to the QEK at random parameters.
+For each of the two parameter settings, we then train an SVM on the respective QEK and obtain a classification performance for our chosen dataset.
 
 <p align="center">
 <img src="./blogpost_img/before_after_comparison_dualcake.png" alt="Comparison of decision boundaries before and after kernel training." width="550"/>
 </p>
+
+We find that the optimized QEK yields perfect classification of the data after training the SVM whereas the randomized parameter QEK fail to classify the entire dataset correctly obtaining only 58% accuracy.
+This demonstrates increased classification capabilities of an alignment-trained QEK for a small and simple dataset as trained QEK adapts to the particular structure of the training data.
 
 ## Noise issues
 When looking forward to boosting classification tasks with trainable circuits, the influence of measurement or sampling noise certainly is an important aspect.
