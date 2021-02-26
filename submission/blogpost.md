@@ -96,7 +96,7 @@ One important detail in Maria Schuld's approach in [7] is that the data embeddin
 This invites for exploring whether lifting this restriction could bring a performance advantage.
 
 Parameterised kernels are not exotic objects per se, as the most common classical kernel, the Gaussian one, contains a free parameter: the variance.
-That being said, the Gaussian kernel caps at that one parameter, whereas trainable embedding circuits can flash easily linearly many parameters in the depth of the circuit.
+That being said, the Gaussian kernel caps at that one parameter, whereas trainable embedding circuits can easily flash linearly many parameters in the depth of the circuit.
 This is an important difference!
 Having one vs. many parameters amounts to performing exhaustive hyperparameter search being feasible vs. crazy.
 
@@ -148,11 +148,11 @@ classification performance for our chosen dataset.
 We find that the optimized QEK yields perfect classification of the data after training the SVM whereas 
 the randomized parameter QEK fails to classify the entire dataset correctly, obtaining only 58% accuracy.
 This demonstrates increased classification capabilities of an alignment-trained QEK for a small 
-and simple dataset as the trained QEK adapts to the particular structure of the training data.
+and simple dataset.
 
 ## Beyond local simulations
 
-Now that we had everything up and running, we could start thinking about experiments. We are very gratefull with the support we have received, in the form of alpha access to Floq and AWS credits to run on Rigetti and IonQ. In order to assess the feasibility of the various workloads and problems we could solve, we benchmarked the cost in terms of required time and dollars spend. We did this by first plotting the total function calls per dataset size:
+Now that we had everything up and running, we could start thinking about experiments. We are very gratefull with the support we have received, in the form of alpha access to Floq and AWS credits to run on Rigetti and IonQ. In order to assess the feasibility of the various workloads and problems we could solve, we benchmarked the cost in terms of required time and dollars spent. We did this by first plotting the total function calls per dataset size:
 <p align="center">
 <img src="./blogpost_img/execution_cycles.png" alt="Floq" width="550"/>
 </p>
@@ -169,7 +169,7 @@ To overcome this, we deployed a virtual machine in LA with a tmux session to orc
 This reduced the latence to 10 ms. 
 We then benchmarked the performance of Floq compared to the 16 CPU 128G memory server we rented in the Google Cloud and plotted the perfomance:
 Here, one can see the crazy advantage: Floq performed 70 to 110x faster (no, not 70 to 110%!) for 26-28 qubits. 
-At 29 qubits our classical machine cave in, killing itself due to memory overload. 
+At 29 qubits our classical machine caved in, killing itself due to memory overload. 
 <p align="center">
 <img src="./blogpost_img/overfloqed.png" alt="Killed" width="200"/>
 </p>
@@ -217,13 +217,13 @@ For our concrete application on the `DoubleCake` dataset, this stabilisation wor
 
 We thus implemented and tested two new methods to improve the applicability of (trainable) QEKs to classification tasks.
 
-To gain insight on the applicability of using kernels on currently available quantum hardware we have ran circuits on IonQ's ion trap and Riggeti's superconducting chip. We have played with a couple of circuits and ultimetly wrote a program to calculate the kernel matrix of the `DoubleCake` training dataset. This dataset consits of 12 datapoints and to calculate the matrix we needed a total of 66 circuit evaluations, where each circuit evaluation used 100 shots. In the figure below, a representation of the kernel matrices calculated is shown. The matrix in the left figure is from a noiseless simulation and the figure next to it is constructed from measurement data from the Rigetti device.
+To gain insight on the applicability of using kernels on currently available quantum hardware we have ran circuits on IonQ's ion trap and Riggeti's superconducting chip. We have played with a couple of circuits and ultimetly wrote a program to calculate the kernel matrix of the `DoubleCake` training dataset. This dataset consits of 12 datapoints and to calculate the matrix we needed a total of 66 circuit evaluations, where each circuit evaluation used 100 shots.  We were able to classify the 12 datapoints of the DoubleCake with 100% accuracy, even though the kernel was affected by noise from the device. This is shown in the following image, where on the left one sees the kernel matrix from a noiseless simulation and on the right from the Rigetti device.
 
 <p align="center">
 <img src="blogpost_img/hardware_results.png" alt="Linear classification with embedding" width="400" height="300"/>
-</p>
+</p> 
 
-Although due to noise the values in the kernel matrix calculated using the Rigetti device are small, it can still be used to classify the 12 datapoints of the `DoubleCake` dataset with 100 % accuracy. In the future we will design more hardware efficient circuits and research how we can apply noise resilient techniques for training a kernel on quantum hardware.
+In the future we plan to build on these finding by designing more hardware efficient circuits and further developing noise resilient techniques for training kernels on quantum hardware.
 
 
 ## Conclusion
@@ -236,7 +236,7 @@ Wrapping up, for our QHack2021 project submission we have:
  - Integrated all this in a PennyLane module that implements all of this off the shelf.
  - Created a tutorial for future scientist to self-educate on the subject, and the use of module.
  - Benchmarked the run-time requirements of our module for various hyperparameters and Ansätze in order to make use of the generously provided access to real hardware devices and powerfull simulators.
- - Implemented prediction of samples on full-scale MNIST images using the Google Floq service, and provided a demo to encourage scientists to thing bigger. 
+ - Implemented prediction of samples on full-scale MNIST images using the Google Floq service, and provided a demo to encourage scientists to think bigger. 
  - Ran circuits on IonQ and Rigetti devices to calculate a kernel matrix. We use two novel noise mitagition techniques to use the calculated matrices to classify a dataset, which we achieve with 100% accuracy.
 
 And so, before us the dawn of a new day.
