@@ -88,6 +88,8 @@ opt_param = np.tensor([[[ 3.10041694,  6.28648541,  0.17216709,  3.41982814,
          [ 0.45227504,  4.11186956,  5.91495654,  3.46714211,
            3.92814319]]], requires_grad=True)
 
+W = np.random.normal(0, .7, (2, 30))
+
 # # Evaluate a single circuit
 
 # +
@@ -98,10 +100,10 @@ X = np.vstack([dataset.X, dataset.Y]).T
 Y = dataset.labels_sym.astype(int)
 params = opt_param
 
-dev = qml.device("default.qubit", wires=5, shots=100, analytic=False)#, shots=100)
+dev = qml.device("default.qubit", wires=5, analytic=True)#shots=10000, analytic=False)#, shots=100)
 
 # switch to amazon here:
-#bucket = "amazon-braket-5268bd361bba" # the name of the bucket
+#bucket = "amazon-braket-ionq" # the name of the bucket
 #prefix = "example_running_quantum_circuits_on_qpu_devices" # the name of the folder in the bucket
 #s3_folder = (bucket, prefix)
 #dev_arn = "arn:aws:braket:::device/qpu/rigetti/Aspen-9"
@@ -128,7 +130,158 @@ def circuit(x, layer_params):
 
 result = circuit(X[0] @ W, params)
 print(dev.shots,'n_shots')
-print(circuit.draw())
+print(dev.num_executions,'num executions')
+#print(circuit.draw())
+print(result)
+
+# +
+dataset = DoubleCake(0, 6)
+dataset.plot(plt.gca())
+
+X = np.vstack([dataset.X, dataset.Y]).T
+Y = dataset.labels_sym.astype(int)
+params = opt_param
+
+dev = qml.device("default.qubit", wires=5, analytic=True)#, shots=100)
+
+# switch to amazon here:
+#bucket = "amazon-braket-ionq" # the name of the bucket
+#prefix = "example_running_quantum_circuits_on_qpu_devices" # the name of the folder in the bucket
+#s3_folder = (bucket, prefix)
+#dev_arn = "arn:aws:braket:::device/qpu/rigetti/Aspen-9"
+# final safeguard: remove the comment
+#dev = qml.device("braket.aws.qubit", device_arn=dev_arn, s3_destination_folder=s3_folder, wires=5, shots=shots, parallel=True)
+
+
+def layer(x, params, wires, i0=0, inc=1):
+    i = i0
+    for j, wire in enumerate(wires):
+        qml.Hadamard(wires=[wire])
+        qml.RZ(x[i % len(x)], wires=[wire])
+        i += inc
+        qml.RY(params[0, j], wires=[wire])
+   
+    print(params)
+    
+    qml.CNOT(wires= wires[:2])
+    qml.RZ(-params[1][0]/2, wires=1)
+    qml.CNOT(wires= wires[:2])
+    qml.RZ(params[1][0]/2, wires=1)
+    
+    qml.CNOT(wires=wires[1:3])
+    qml.RZ(-params[1][1]/2, wires=2)
+    qml.CNOT(wires= wires[1:3])
+    qml.RZ(params[1][1]/2, wires=2)
+        
+    qml.CNOT(wires=wires[2:4])
+    qml.RZ(-params[1][2]/2, wires=3)
+    qml.CNOT(wires= wires[2:4])
+    qml.RZ(params[1][2]/2, wires=3)
+        
+    qml.CNOT(wires=[wires[3],wires[4]])
+    qml.RZ(-params[1][3]/2, wires=4)
+    qml.CNOT(wires= [wires[3],wires[4]])
+    qml.RZ(params[1][3]/2, wires=4)
+    
+    qml.CNOT(wires=[wires[4],wires[0]])
+    qml.RZ(-params[1][4]/2, wires=0)
+    qml.CNOT(wires= [wires[4],wires[0]])
+    qml.RZ(params[1][4]/2, wires=0)
+        
+#    qml.broadcast(unitary=qml.CRZ, pattern="ring", wires=wires, parameters=params[1])
+
+
+@qml.qnode(dev)
+def circuit(x, layer_params):
+    for j, layer_params in enumerate(params):
+        layer(x, layer_params, [0,1,2,3,4], i0=j * 5)
+    #layer(x, params[0], [0,1,2,3,4], i0=0*5)
+    return [qml.expval(qml.PauliZ(i)) for i in range(5)]
+
+
+result = circuit(X[0] @ W, params)
+print(dev.shots,'n_shots')
+print(dev.num_executions,'num executions')
+#print(circuit.draw())
+print(result)
+print(dev.shots)
+
+# +
+dataset = DoubleCake(0, 6)
+dataset.plot(plt.gca())
+
+X = np.vstack([dataset.X, dataset.Y]).T
+Y = dataset.labels_sym.astype(int)
+params = opt_param
+
+amazon = False
+    
+if amazon == True:
+    # switch to amazon here:
+    bucket = "amazon-braket-ionq" # the name of the bucket
+    prefix = "single_evaluation_test" # the name of the folder in the bucket
+    s3_folder = (bucket, prefix)
+    dev_arn = "arn:aws:braket:::device/qpu/ionq/ionQdevice"
+    # final safeguard: remove the comment
+    dev = qml.device("braket.aws.qubit", device_arn=dev_arn, s3_destination_folder=s3_folder, wires=5, shots=100, parallel=True)
+
+else: 
+    dev = qml.device("default.qubit", wires=5, shots=100, analytic=False)#, shots=100)
+    
+def layer(x, params, wires, i0=0, inc=1):
+    i = i0
+    for j, wire in enumerate(wires):
+        qml.Hadamard(wires=[wire])
+        qml.RZ(x[i % len(x)], wires=[wire])
+        i += inc
+        qml.RY(params[0, j], wires=[wire])
+        
+    qml.CNOT(wires= wires[:2])
+    qml.RZ(-params[1][0]/2, wires=1)
+    qml.CNOT(wires= wires[:2])
+    qml.RZ(params[1][0]/2, wires=1)
+    
+    qml.CNOT(wires=wires[1:3])
+    qml.RZ(-params[1][1]/2, wires=2)
+    qml.CNOT(wires= wires[1:3])
+    qml.RZ(params[1][1]/2, wires=2)
+        
+    qml.CNOT(wires=wires[2:4])
+    qml.RZ(-params[1][2]/2, wires=3)
+    qml.CNOT(wires= wires[2:4])
+    qml.RZ(params[1][2]/2, wires=3)
+        
+    qml.CNOT(wires=[wires[3],wires[4]])
+    qml.RZ(-params[1][3]/2, wires=4)
+    qml.CNOT(wires= [wires[3],wires[4]])
+    qml.RZ(params[1][3]/2, wires=4)
+    
+    qml.CNOT(wires=[wires[4],wires[0]])
+    qml.RZ(-params[1][4]/2, wires=0)
+    qml.CNOT(wires= [wires[4],wires[0]])
+    qml.RZ(params[1][4]/2, wires=0)
+
+
+@qml.qnode(dev)
+def circuit(x, layer_params):
+    for j, layer_params in enumerate(params):
+        layer(x, layer_params, [0,1,2,3,4], i0=j * 5)
+    return [qml.expval(qml.PauliZ(i)) for i in range(5)]
+
+result = circuit(X[0] @ W, params)
+print(dev.shots,'n_shots')
+print(dev.num_executions)
+#print(circuit.draw())
 print(result)
 # -
+
+Amazon results:
+100 n_shots
+0
+[ 0.3   0.04 -0.08  0.14 -0.08]
+
+# +
+with cnot [ 0.22686291 -0.08029147 -0.0533307  -0.17031097 -0.04753056]
+with crz [ 0.22686291 -0.08029147 -0.0533307  -0.17031097 -0.04753056]
+
 
