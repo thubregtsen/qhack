@@ -93,8 +93,35 @@ Having one vs. many parameters amounts to performing exhaustive hyperparameter s
 
 Now our goal is clear: take a parameterised embedding (e.g. one inspired by insights from [6], or a parameterised verision of the one from [2]), use it to build the trainable QEK, find the parameters which maximize the kernel alignment, and then feed the kernel with the optimal choice of parameters to an SVM!
 
+## Integration
+Coming up with some examples and writing single-use Pennylane-intensive scripts 
+would have been enough in answering our fundamental question of whether trainable 
+quantum kernels can provide some advantage.
+This is nevertheless far from the spirit of a hackathon, 
+where traditionally the idea was to develop a deliverable product.
+Since we were already hacking the kernels using Pennylane's quantum circuit modules, 
+we thought we might as well make this available for everyone.
+This comprises the more tangible side of our project: the `qml.kernels` module!
+
+Fully integrated into Pennylane, `qml.kernels` provides utilities ranging from 
+building kernel functions just from arbitrary data embedding Ansätze, 
+to the calculation of quality measures for kernels useful for training and up to 
+stabilizing the kernel matrix, making sure it stays positive semidefinite even in 
+the presence of sampling error or hardware noise.
+Our team embraces the open-source approach of Pennylane, making sure our participation 
+in QHack could have some lasting positive effect was especially important to us.
+
 ## Implementation
-% JJM: one paragraph about implementation + demo
+We implemented a class that takes in an ansatz representing the embedding circuit and creates the
+relevant QNode for overlap calculation in the background.
+Additionally, we added facilities to calculate kernel quality measures like kernel-target alignment,
+convenience function for the use of Quantum Embedding Kernels
+and kernel polarization and post-processing functions for kernel matrices.
+
+We wrote a PennyLane demonstration to showcase how to best use our tools
+
+
+
 
 ## Advantage of training
 The dataset we consider for the training evaluation is the `DoubleCake` dataset specifically created in this project.
@@ -114,17 +141,6 @@ We implemented thresholding, which sets negative eigenvalues to zero and is equi
 When applying either of these stabilisation techniques, we observe considerable restoration of the classification performance and in particular the simple matrix displacing yields close to perfect classification performance across many instances of sampled noise.
 For our concrete application on the `DoubleCake` dataset, this stabilisation works for noise levels up to order of one, i.e. noise with relative standard deviation at and above 100%, as the kernel computes probabilities, which naturally are smaller or equal to one.
 We thus implemented and tested two new methods to improve the applicability of (trainable) QEKs to classification tasks.
-
-## Integration
-% JJM: one paragraph how this goes into Pennylane
-
-Coming up with some examples and writing single-use Pennylane-intensive scripts would have been enough in answering our fundamental question of whether trainable quantum kernels can provide some advantage.
-This is nevertheless far from the spirit of a hackathon, where traditionally the idea was to develop a deliverable product.
-Since we were already hacking the kernels using Pennylane's quantum circuit modules, we thought we might as well make this available for everyone!
-This comprises the more tangible side of our project: the qml.kernels module!
-
-Fully integrated into Pennylane, qml.kernels provides utilities ranging from building kernel functions just from arbitrary data embedding Ansätze, to the calculation of quality measures for kernels useful for training and up to stabilizing the kernel matrix, making sure it stays positive semidefinite even in the presence of sampling error or hardware noise.
-Our team embraces the open-source approach of Pennylane, making sure our participation in QHack could have some lasting positive effect was especially important to us.
 
 ## Resources
 
