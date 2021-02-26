@@ -29,7 +29,7 @@ This is the story of what came out of that reckless attempt, and how the legacy 
 Kernel methods allow us to use simple linear classifiers like the SVM to establish non-linear decision boundaries:
 
 <p align="center">
-<img src="embedding_nonlinear_classification.png" alt="Linear classification with embedding" width="550"/>
+<img src="blogpost_img/embedding_nonlinear_classification.png" alt="Linear classification with embedding" width="550"/>
 </p>
 
 The underlying "trick" (no really - that's the official name!) is that any kernel will introduce a similarity measure, comparable to a scalar product, that allows us to unlock more complicated features of the underlying data.
