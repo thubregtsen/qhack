@@ -237,7 +237,7 @@ Wrapping up, for our QHack2021 project submission we have:
  - Created a tutorial for future scientist to self-educate on the subject, and the use of module.
  - Benchmarked the run-time requirements of our module for various hyperparameters and Ansätze in order to make use of the generously provided access to real hardware devices and powerfull simulators.
  - Implemented prediction of samples on full-scale MNIST images using the Google Floq service, and provided a demo to encourage scientists to thing bigger. 
- - [Note on real hardware experiment]
+ - Ran circuits on IonQ and Rigetti devices to calculate a kernel matrix. We use two novel noise mitagition techniques to use the calculated matrices to classify a dataset, which we achieve with 100% accuracy.
 
 And so, before us the dawn of a new day.
 The _kernel tamers_ legacy is PAC guaranteed to be passed on for at least one more generation.
