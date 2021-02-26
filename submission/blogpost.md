@@ -126,10 +126,9 @@ We wrote a PennyLane demonstration to showcase how simple it is to use the `qml.
 an actual classification. We also explicitly show that we can use stochastic gradient descent and 
 kernel-target alignment to tame the quantum kernel and improve the classification performance. 
 
-To allow others to easily understand and reproduce our results, we also paraded our inner scholars and
-included the theoretical background of kernel methods, quantum embedding kernels and the
-kernel-target alignment as a measure of kernel quality for a specific dataset in such a way that 
-every quantum-curious user can delve into the mathematical foundations.
+To allow others to easily understand and reproduce our results, we also paraded our inner scholars and included some theoretical background.
+This includes notions of kernel methods, quantum embedding kernels, and the kernel-target alignment as a measure of kernel quality for a specific dataset.
+Now every quantum-curious user can delve into the mathematical foundations.
 
 
 ## Advantage of Training
