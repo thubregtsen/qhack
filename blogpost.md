@@ -112,13 +112,10 @@ Our team embraces the open-source approach of Pennylane, making sure our partici
 in QHack could have some lasting positive effect was especially important to us.
 
 ## Implementation
-We implemented a class that takes in an ansatz representing the embedding circuit and creates the
-relevant QNode for overlap calculation in the background.
-Additionally, we added facilities to calculate kernel quality measures like kernel-target alignment,
-convenience function for the use of Quantum Embedding Kernels
-and kernel polarization and post-processing functions for kernel matrices.
 
-We wrote a PennyLane demonstration to showcase how to best use our tools
+We wrote a PennyLane demonstration to showcase how to use the `qml.kernels` module to perform
+an actual classification and to show that training the quantum kernel to increase the target alignment
+actually improves the classification performance.
 
 
 
