@@ -7,11 +7,12 @@ We, the Notorious F.U.B., have been researching trainable quantum embedding kern
 
 ## Classical Machine Learning 
 
-Throughout the 1990's and 2000's the field of Machine Learning (ML) experienced a series of breakthroughs which propelled it forward.
+Throughout the 1990's and 2000's the field of Machine Learning (ML) was propelled forward by a series of breakthroughs.
 These breakthroughs did come at a high price, though: the research landscape was divided into opposing movements who had to fight countless peaceful battles against one another.
 The survivors still today bear a troubled look when they explain how the shameless kernel methodists used to flex their nice math and performance promises, while the hardened feedfoward networkers couldn't help the prosperity backpropagation had brought being taken away from them under the unspeakable terror of vanishing gradients.
 
-The advantage of the kernel folk, with their ubiquitous and shiny Support Vector Machine (SVM), was their trust in kernels that were powerful enough.
+The advantage of the kernel folk, with their ubiquitous and shiny Support Vector Machine (SVM), 
+was their trust in kernels that were powerful enough.
 They didn't have to worry about concave optimization or other NP-hard problems.
 In exchange, they had to pass through the hoop of model selection.
 
