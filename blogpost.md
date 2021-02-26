@@ -4,7 +4,6 @@
 _By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
 
 ## Classical Machine Learning
-% This shouldn't be very long, couple paragraphs
 
 Throughout the 1990's and 2000's the field of Machine Learning (ML) experienced a series of breakthroughs which propelled it forward.
 These breakthroughs did come at a high price, though: the research landscape was divided into opposing movements who had to fight countless peaceful battles against one another.
@@ -17,19 +16,20 @@ In exchange, they had to pass through the hoop of model selection.
 In the fray of the battle, a number of gray rebellious methodists thought they could take a shot of their enemies medicine.
 They explored the concept of training their kernels in a networky fashion.
 
-This is the story of what came out of that reckless attempt, and how the legacy of these ancient kernel _tamers_  has carried on through the generations and eventually turned quantum.
+This is the story of what came out of that reckless attempt, and how the legacy of these ancient _kernel tamers_  has carried on through the generations and eventually turned quantum.
 
 ## Kernel methods
 
-Kernel methods are one of the cornerstones of classical machine learning. Kernel boundaries allow us to use linear classifiers to establish non-linear decision boundaries:
+Kernel methods are one of the cornerstones of classical ML. Kernel boundaries allow us to use linear classifiers to establish non-linear decision boundaries:
 
 <p align="center">
 <img src="./wp_TK/embedding_nonlinear_classification.png" alt="Linear classification with embedding" width="550"/>
 </p>
 
-The underlying "trick" is that any kernel will introduce a similarity measure, comparable to a scalar product, that allows us to unlock more complicated features of the underlying data. The beauty lies in the fact that the kernel implicitly contains an embedding of the data into a -- possibly infinite -- vector space -- and that we can use this to perform a linear classification in this space where the data is linearly separable.
+The underlying "trick" is that any kernel will introduce a similarity measure, comparable to a scalar product, that allows us to unlock more complicated features of the underlying data.
+The beauty lies in the fact that the kernel implicitly contains an embedding of the data into a -possibly infinite- vector space and that we can use this to perform a linear classification in this space where the data is linearly separable.
 
-## Quantum Kernels
+## Quantum Embedding Kernels
 
 Surprise! Quantum Machine Learning [1,4] is a thing!
 
@@ -38,70 +38,73 @@ Not long afterwards, one first paper deviated from the mean.
 Xanadu researchers proposed to exploit our access to the Hilbert space of quantum computers as a smart way of efficiently computing kernel matrices [5].
 In their initial article, they even made use of an infinite-dimensional Hilbert space.
 
-After a few months Nature's frontpage featured IBM's effort in implementing the entire pipeline of two supervised learning tasks on superconducting qubits [2].
+A few months later, Nature's frontpage featured IBM's effort in implementing the entire pipeline of two supervised learning tasks on superconducting qubits [2].
 The authors opened with a demonstration using an Ansatz along the predominant network-style trend.
-But, unlike other similar proposals, they went on to use the embedding part of their Ansatz as the fundamental building block for another quantum kernel.
+But, unlike other similar proposals, they went on to use the embedding part of their Ansatz as the fundamental building block for a quantum kernel.
 
 Both Xanadu's and IBM's approached differed in some fundamental details, but one thing was clear: the door to quantum kernel methods was open!
 Building upon this believe [7] recently came out, setting the technical details on firm grounds for everyone else to build novel models.
+In particular, a very natural procedure to build the Quantum Embedding Kernel (QEK) from an embedding Ansatz was provided.
 
 
 ## Trainable Kernels
 
-Where we left off, the scene was a battlefield one: a small fraction of kernel methodists are decided to step into their opponents shoes.
-They have been brought up to repeat the same creed: the first difficulty in using a kernel method is choosing the kernel.
+Where we left off, the scene was that of a steamy battlefield: a small fraction of kernel methodists are decided to step into their opponents shoes.
+They have been brought up to repeat the same creed: _the first difficulty in using a kernel method is choosing the kernel_, but those times are gone.
 Their experience in battle has taught them to trust the Gaussian Radial Basis Function as a one-size-fits-all solution, but still they struggle specifying the value of the variance parameter.
 What these brave heroes want is a supervised learning way of choosing the value, they are all tired of exhaustively searching the hyperparameter space.
 
-And indeed, they readily came up with a couple of "kernel quality estimators".
+And indeed, they readily came up with a couple of good "kernel quality estimators".
 
 We said a kernel is a measure of similarity in feature space between a pair of data instances.
-It is not unreasonable to believe that a good kernel should find two points x1, x2 with the same label y1 = y2 more similar than two points x3, x4 with opposite labels y3 = -y4.
+It is not unreasonable to believe that a good kernel should find two points x1, x2 with the same label y1 = y2 more similar to one another than two points x3, x4 with opposite labels y3 = -y4.
 We agree, right?
 If we face the choice between two kernels, we will want to ask ourselves two questions:
 Which one of them gives a higher similarity value to pairs within the same class?
 Which is the one that gives a lower similarity to pairs of points, one from each opposite class?
-If the answer to both questions were the same, we would probably pick that kernel for our task.
+If the answer to both questions is the same, we will probably pick that kernel for our task.
 
-One question still remains: could one write up a quantity computed from the kernel matrix entries that quantifies the within and without class similarity?
-Think about it for a moment, write down the simplest sum that seems to do it, notice this looks very similar to something from back in your undergrad Electromagnetism course, call it polarisation, and you are good to go!
-
-A kernel with a high polarisation (or alignment, they are closely related) will display both high accuracy on train and good generalisation behavior.
+One question still remains: could one write up a quantity computed from the kernel matrix entries that quantifies the within- and without-class similarity?
+Think about it for a moment, write down the simplest sum that seems to do it, notice this looks very similar to something from back in your undergrad Electromagnetism course, call it polarisation (or alignment, if you thought of normalisation), and you are good to go!
 
 Since we are still talking about kernel methods, though, we can and should not forget our modus operandi.
-We want beautiful math that decorates our tools and ensures their good behavior in general.
+A kernel with a high polarisation (or alignment) will display both high accuracy on train and good generalisation behavior on unseen data.
+_"But we want beautiful math that decorates our tools and ensures their good behavior in general!"_.
 Fret not! For [8] and its references have everyone's needs covered.
 
 And so, in order to make the statement "history repeats itself" more true, here we are filling in for the role of trainable kernel turncoats.
 We are the _quantum kernel tamers_!
 
-## Quantum Trainable Kernels
+## Trainable Quantum Embedding Kernels
 
-One important detail in Maria Schuld's approach in [7] is that the data embedding circuits considered do not feature free parameters that can be optimized.
-This sets the footing for exploring whether lifting this restriction could bring a performance advantage.
+One important detail in Maria Schuld's approach in [7] is that the data embedding circuits there considered do not feature free parameters that can be optimized.
+This invites for exploring whether lifting this restriction could bring a performance advantage.
 
-Parameterised kernels are not exotic objects, as the most common classical kernel, the Gaussian one, contains a free parameter, the variance.
-That being said, the Gaussian kernel flashes only that one parameter, whereas trainable embedding circuits can go easily to linearly many parameters in the depth of the circuit.
+Parameterised kernels are not exotic objects per se, as the most common classical kernel, the Gaussian one, contains a free parameter: the variance.
+That being said, the Gaussian kernel caps at that one parameter, whereas trainable embedding circuits can flash easily linearly many parameters in the depth of the circuit.
 This is an important difference!
 Having one vs. many parameters amounts to performing exhaustive hyperparameter search being feasible vs. crazy.
 
-Now our goal is clear: take a parameterised embedding (e.g. one inspired by insights from [6]), use it to build a quantum kernel, find the parameters which maximize the kernel alignment, and then feed the kernel with the optimal choice of parameters to an SVM!
+Now our goal is clear: take a parameterised embedding (e.g. one inspired by insights from [6], or a parameterised verision of the one from [2]), use it to build the trainable QEK, find the parameters which maximize the kernel alignment, and then feed the kernel with the optimal choice of parameters to an SVM!
 
 ## Implementation
 % JJM: one paragraph about implementation + demo
 
 ## Advantage of training
-The dataset we consider for the training evaluation is the `DoubleCake` dataset specifically created in this project. It has two features per sample and labels in two classes, the instance we consider contains 12 samples in total.
-In order to assess the benefits of optimising the trainable kernel via its alignment, we compare it to the kernel when deactivating the variational gates by setting them to zero and to the kernel at random parameters. For each of the three parameter settings, we then train an SVM on the respective kernel and obtain a classification performance for our chosen dataset.
-We find that the optimized kernel yields perfect classification of the data after training the SVM whereas both, the randomized and the zeroed parameter kernel fail to classify the entire dataset correctly obtaining only 66% accuracy each.
-This demonstrates increased classification capabilities of an alignment-trained kernel for a small and simple dataset as trained kernel adapts to the particular structure of the training data.
+The dataset we consider for the training evaluation is the `DoubleCake` dataset specifically created in this project.
+It has two features per sample and labels in two classes, the instance we consider contains 12 samples in total.
+In order to assess the benefits of optimising the trainable QEK via its alignment, we compare it to the QEK when deactivating the variational gates by setting them to zero and to the QEK at random parameters.
+For each of the three parameter settings, we then train an SVM on the respective QEK and obtain a classification performance for our chosen dataset.
+We find that the optimized QEK yields perfect classification of the data after training the SVM whereas both, the randomized and the zeroed parameter QEK fail to classify the entire dataset correctly obtaining only 66% accuracy each.
+This demonstrates increased classification capabilities of an alignment-trained QEK for a small and simple dataset as trained QEK adapts to the particular structure of the training data.
 
 ## Noise issues
 When looking forward to boosting classification tasks with trainable circuits, the influence of measurement or sampling noise certainly is an important aspect.
 The question then arises whether the imperfect noisy kernel matrix that is obtained on a quantum computer can actually be of any use for the classification.
 We asked this question for the zeroed, randomized and optimized parameter kernel and observed that shot noise does harm the kernel matrix sufficiently to disrupt the classification performance.
 This issue can be directly traced back to the indefiniteness of the kernel matrix due to the noise.
-Hope would be lost for our quantum kernel if it wasn't for a small addition to the PennyLane.kernels module that allows for postprocessing of the noisy kernel matrix to stabilise it against noise. We implemented thresholding, which sets negative eigenvalues to zero and is equivalent to minimizing the distance between a positive semidefinite approximation and the noisy kernel itself, and displacing by subtracting the identity scaled with the smallest eigenvalue, which keeps the eigenvectors intact and yields a positive semidefinite matrix as well.
+Hope would be lost for our quantum kernel if it wasn't for a small addition to the PennyLane.kernels module that allows for postprocessing of the noisy kernel matrix to stabilise it against noise.
+We implemented thresholding, which sets negative eigenvalues to zero and is equivalent to minimizing the distance between a positive semidefinite approximation and the noisy kernel itself, and displacing by subtracting the identity scaled with the smallest eigenvalue, which keeps the eigenvectors intact and yields a positive semidefinite matrix as well.
 When applying either of these stabilisation techniques, we observe considerable restoration of the classification performance and in particular the simple matrix displacing yields close to perfect classification performance across many instances of sampled noise.
 For our concrete application on the `DoubleCake` dataset, this stabilisation works for noise levels up to order of one, i.e. noise with relative standard deviation at and above 100%, as the kernel computes probabilities, which naturally are smaller or equal to one.
 We thus implemented and tested two new methods to improve the applicability of (trainable) QEKs to classification tasks.
