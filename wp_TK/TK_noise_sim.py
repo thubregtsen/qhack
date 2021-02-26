@@ -132,38 +132,38 @@ df = pd.DataFrame()
 # # Run and validate classifications - SIMULATION
 
 # +
-# This is how often the entire task is going to be repeated, for statistics!
-n_noises = 300
-noise_levels = [1., 1e-1,1e-2, 0.]
-# These are the keywords for which kernel parameters to run the entire thing:
-param_names = ['Zero', 'Random', 'Optimal']
+# # This is how often the entire task is going to be repeated, for statistics!
+# n_noises = 300
+# noise_levels = [1., 1e-1,1e-2, 0.]
+# # These are the keywords for which kernel parameters to run the entire thing:
+# param_names = ['Zero', 'Random', 'Optimal']
 
-for noise_level in noise_levels:
-    for name_params, init_params in zip(param_names, [zero_param, rnd_param, opt_param]):
-        K_raw = k.square_kernel_matrix(X, init_params) # Use quantum computer
-        for i in range(n_noises if noise_level>0. else 1):
-            N_train = np.random.normal(scale=noise_level, size=(len(X), len(X)))
-            N_train = np.triu(N_train, 1) + np.triu(N_train, 1).T
-            N_test = np.random.normal(scale=noise_level, size=(len(X), len(X)))
-            N_test = np.triu(N_test, 1) + np.triu(N_test, 1).T
-            for name_stabilize, stabilize in zip(['None', 'Thresholding', 'Displacing'], [None, qml.kernels.threshold_matrix, qml.kernels.displace_matrix]):
-#                 print(init_params)
-                kernel_mat1 = lambda A, B: stabilize(K_raw+N_train) if stabilize is not None else K_raw+N_train
-                kernel_mat2 = lambda A, B: stabilize(K_raw+N_test) if stabilize is not None else K_raw+N_test
+# for noise_level in noise_levels:
+#     for name_params, init_params in zip(param_names, [zero_param, rnd_param, opt_param]):
+#         K_raw = k.square_kernel_matrix(X, init_params) # Use quantum computer
+#         for i in range(n_noises if noise_level>0. else 1):
+#             N_train = np.random.normal(scale=noise_level, size=(len(X), len(X)))
+#             N_train = np.triu(N_train, 1) + np.triu(N_train, 1).T
+#             N_test = np.random.normal(scale=noise_level, size=(len(X), len(X)))
+#             N_test = np.triu(N_test, 1) + np.triu(N_test, 1).T
+#             for name_stabilize, stabilize in zip(['None', 'Thresholding', 'Displacing'], [None, qml.kernels.threshold_matrix, qml.kernels.displace_matrix]):
+# #                 print(init_params)
+#                 kernel_mat1 = lambda A, B: stabilize(K_raw+N_train) if stabilize is not None else K_raw+N_train
+#                 kernel_mat2 = lambda A, B: stabilize(K_raw+N_test) if stabilize is not None else K_raw+N_test
                 
-                svm = SVC(kernel=kernel_mat1).fit(X, Y)
-                kernel_mat1 = lambda x: None
-                svm.kernel = kernel_mat2
-                perf = tk.validate(svm, X, Y)
+#                 svm = SVC(kernel=kernel_mat1).fit(X, Y)
+#                 kernel_mat1 = lambda x: None
+#                 svm.kernel = kernel_mat2
+#                 perf = tk.validate(svm, X, Y)
             
-                entry = pd.Series({
-                    'noise_level': noise_level,
-                    'params': name_params,
-                    'noise_iteration': i,
-                    'Stabilisation method': name_stabilize,
-                    'perf': perf,
-                })
-                df = df.append(entry, ignore_index=True)
+#                 entry = pd.Series({
+#                     'noise_level': noise_level,
+#                     'params': name_params,
+#                     'noise_iteration': i,
+#                     'Stabilisation method': name_stabilize,
+#                     'perf': perf,
+#                 })
+#                 df = df.append(entry, ignore_index=True)
 # -
 
 # # Run and validate classifications - QUANTUM DEVICE
@@ -174,42 +174,44 @@ n_repeat = 1
 # This should be replace by the different number of shots per measurement value that we want to use, say [10, 100]
 shots_list = [10, 100]
 # These are the keywords for which kernel parameters to run the entire thing:
-# param_names = ['Zero', 'Random', 'Optimal']
+# param_names = ['Zero', 'Random', 'Optimal'] # CHANGE HERE TO ADD OTHER PARAMETER RUNS
 param_names = ['Optimal']
 
+recompute_K_for_testing = False
+
 for shots in shots_list:
-    perf_this_noise_level = {}
     # use the following two lines when running on a QC and add the shots parameter to the device initialization!
-#     dev = qml.device("default.qubit", wires=5)
-#     k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x @ W, params, wires), dev)
+    dev = qml.device("default.qubit", wires=5, shots=shots)
+    k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x @ W, params, wires), dev)
     for name_params, init_params in zip(param_names, [zero_param, rnd_param, opt_param]):
-        K_raw = k.square_kernel_matrix(X, init_params) # Use quantum computer
+        K_raw1 = k.square_kernel_matrix(X, init_params) # Use quantum computer
+        if recompute_K_for_testing:
+            K_raw2 = k.square_kernel_matrix(X, init_params) # Use quantum computer
         perf_this_params = {'None': [], 'Thresholding': [], 'Displacing': []}
         for i in range(n_repeat):
-            N_train = np.random.normal(scale=noise_level, size=(len(X), len(X)))
-            N_train = np.triu(N_train, 1) + np.triu(N_train, 1).T
-            N_test = np.random.normal(scale=noise_level, size=(len(X), len(X)))
-            N_test = np.triu(N_test, 1) + np.triu(N_test, 1).T
             for name_stabilize, stabilize in zip(['None', 'Thresholding', 'Displacing'], [None, qml.kernels.threshold_matrix, qml.kernels.displace_matrix]):
 #                 print(init_params)
-                kernel_mat1 = lambda A, B: stabilize(K_raw+N_train) if stabilize is not None else K_raw+N_train
-                kernel_mat2 = lambda A, B: stabilize(K_raw+N_test) if stabilize is not None else K_raw+N_test
-                
+                kernel_mat1 = lambda A, B: stabilize(K_raw1) if stabilize is not None else K_raw1
+                if recompute_K_for_testing:
+                    kernel_mat2 = lambda A, B: stabilize(K_raw2) if stabilize is not None else K_raw2
+                                
                 svm = SVC(kernel=kernel_mat1).fit(X, Y)
-                kernel_mat1 = lambda x: None
-                svm.kernel = kernel_mat2
-                perf = tk.validate(svm, X, Y)
-            
+                perf_reuse = tk.validate(svm, X, Y)
+                if recompute_K_for_testing:
+                    svm.kernel = kernel_mat2
+                    perf_recompute = tk.validate(svm, X, Y)
+                else:
+                    perf_recompute = None
                 entry = pd.Series({
-                    'noise_level': noise_level,
+                    'shots': shots,
                     'params': name_params,
                     'noise_iteration': i,
                     'Stabilisation method': name_stabilize,
-                    'perf': perf,
+                    'perf_reuse': perf_reuse,
+                    'perf_recompute': perf_recompute,
                 })
                 df = df.append(entry, ignore_index=True)
                 
-        perf_this_noise_level[name_params] = perf_this_params
 # -
 
 # # Plot classification performances
@@ -219,12 +221,12 @@ for shots in shots_list:
 import seaborn as sns
 sns.set_theme(style="whitegrid")
 
-plot_df = df.loc[df.noise_level==1e-1]
+plot_df = df.loc[df.shots==100]
 
 # print(plot_df)
 g = sns.catplot(
     data=plot_df, kind="bar",
-    x="params", y="perf", hue='Stabilisation method',
+    x="params", y="perf_reuse", hue='Stabilisation method',
     ci='sd', palette="dark", alpha=.6, height=6
 )
 g.despine(left=True)
