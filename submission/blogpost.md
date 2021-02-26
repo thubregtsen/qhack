@@ -167,17 +167,27 @@ that shot noise does indeed harm the kernel matrix sufficiently
 to disrupt the classification performance.
 
 This issue can be directly traced back to the indefiniteness of the kernel matrix due to the noise.
-Hope would be lost for our quantum kernel if it wasn't for a small addition to the PennyLane.kernels module that allows for postprocessing of the noisy kernel matrix to stabilise it against noise.
-We implemented thresholding, which sets negative eigenvalues to zero and is equivalent to minimizing the distance between a positive semidefinite approximation and the noisy kernel itself, and displacing by subtracting the identity scaled with the smallest eigenvalue, which keeps the eigenvectors intact and yields a positive semidefinite matrix as well.
+Hope would be lost for our quantum kernel if it wasn't for a small addition to the `qml.kernels` 
+module that allows for postprocessing of the noisy kernel matrix to stabilise it against noise.
+We implemented two different strategies to stbilize the kernel matrix:
+First thresholding, which sets negative eigenvalues to zero and is equivalent to 
+finding the positive semidefinite matrix that is closest to our noisy kernel matrix. 
+Second, we implemented displacing by subtracting the identity scaled with the smallest eigenvalue.
+This approach keeps the eigenvectors of the kernel matrix intact and yields a positive semidefinite matrix as well.
+
 <p align="center">
 <img src="./blogpost_img/noisy_sim_stabilisation_sigma1.png" alt="Noise stabilisation on recycled kernel matrix" width="550"/>
 </p>
+
 When applying either of these stabilisation techniques, we observe considerable restoration of the classification performance and in particular the simple matrix displacing yields close to perfect classification performance across many instances of sampled noise.
 When computing a new kernel matrix for testing on the training data - and therefore emulating a testing situation more closely - the performance is not restored quite as completely but still our simple stablisiation routines improve the performance massively.
+
 <p align="center">
 <img src="./blogpost_img/noisy_sim_stabilisation_sigma1_recompute_K.png" alt="Noise stabilisation on newly computed kernel matrix" width="550"/>
 </p>
+
 For our concrete application on the `DoubleCake` dataset, this stabilisation works for noise levels up to order of one, i.e. noise with relative standard deviation at and above 100%, as the kernel computes probabilities, which naturally are smaller or equal to one.
+
 We thus implemented and tested two new methods to improve the applicability of (trainable) QEKs to classification tasks.
 
 ## Resources
