@@ -30,7 +30,7 @@ Kernel methods allow us to use simple linear classifiers like the SVM to establi
 </p>
 
 The underlying "trick" (no really - that's the official name!) is that any kernel will introduce a similarity measure, comparable to a scalar product, that allows us to unlock more complicated features of the underlying data.
-The beauty lies in the fact that the kernel implicitly contains an embedding of the data into a -possibly infinite- vector space and that we can use this to perform a linear classification in this space where the data is linearly separable.
+The beauty lies in the fact that the kernel implicitly contains an embedding of the data into a -possibly infinite- vector space and that we can use this to perform a linear classification in this higher-dimensional space where the data is linearly separable.
 
 ## Quantum Embedding Kernels
 
