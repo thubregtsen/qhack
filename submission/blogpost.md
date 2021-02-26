@@ -36,23 +36,31 @@ The beauty lies in the fact that the kernel implicitly contains an embedding of 
 
 Surprise! Quantum Machine Learning [1,4] is a thing!
 
-Around the time John Preskill coined the acronym NISQ [3] there was one predominant trend in QML: to pick one Variational Quantum Circuit, one cost function, and one gradient-based optimization algorithm; and then perform classification or regression tasks álla Feedforward Neural Networks.
+Around the time John Preskill coined the acronym NISQ [3], there was one predominant trend in QML: 
+to pick one Variational Quantum Circuit, one cost function, 
+and one gradient-based optimization algorithm; 
+and then perform classification or regression tasks à la Feedforward Neural Networks.
 Not long afterwards, one first paper deviated from the mean.
-Xanadu researchers proposed to exploit our access to the Hilbert space of quantum computers as a smart way of efficiently computing kernel matrices [5].
+Xanadu researchers proposed to exploit our access to the Hilbert space of quantum computers 
+as a smart way of efficiently computing kernel matrices [5].
 In their initial article, they even made use of an infinite-dimensional Hilbert space.
 
-A few months later, Nature's frontpage featured IBM's effort in implementing the entire pipeline of two supervised learning tasks on superconducting qubits [2].
+A few months later, Nature's frontpage featured IBM's effort in implementing the entire pipeline 
+of two supervised learning tasks on superconducting qubits [2].
 The authors opened with a demonstration using an Ansatz along the predominant network-style trend.
 But, unlike other similar proposals, they went on to use the embedding part of their Ansatz as the fundamental building block for a quantum kernel.
-
 
 <p align="center">
 <img src="./blogpost_img/qek_drawing.png" alt="Quantum Embedding Kernels." width="550"/>
 </p>
 
-Both Xanadu's and IBM's approached differed in some fundamental details, but one thing was clear: the door to quantum kernel methods was open!
-Building upon this belief Maria Schuld recently published _Quantum Machine Learning Models are Kernel Methods_ [7]. In this paper technical details of quantum kernels are set on firm grounds for everyone else to build novel models.
-In particular, a very natural procedure to build the QEK from an embedding Ansatz was provided.
+Both Xanadu's and IBM's approached differed in some fundamental details, but one thing was clear: 
+the door to quantum kernel methods was open!
+Building upon this belief Maria Schuld recently published 
+_Quantum Machine Learning Models are Kernel Methods_ [7]. This paper elaborates the technical details of 
+quantum kernels, so they stand on firm grounds for everyone else to build novel models.
+
+In particular, a very natural procedure to build the QEK from an embedding Ansatz was provided. **(JJM: not really, that was all known before. I would just remove that sentence)**
 
 
 ## Trainable Kernels
@@ -68,7 +76,6 @@ We said a kernel is a measure of similarity in feature space between a pair of d
 It is not unreasonable to believe that a good kernel should find two points x1, x2 with the same label y1 = y2 more similar to one another than two points x3, x4 with opposite labels y3 = -y4.
 
 Agreed? Agreed!
-
 
 If we face the choice between two kernels, we will want to ask ourselves two questions:
 Which one of them gives a higher similarity value to pairs within the same class?
@@ -118,14 +125,16 @@ in QHack could have some lasting positive effect was especially important to us.
 
 ## Implementation
 
-We wrote a PennyLane demonstration to showcase how to use the `qml.kernels` module to perform
-an actual classification and to show that stochastic training the quantum kernel to increase 
-the target alignment actually improves the classification performance. 
+We wrote a PennyLane demonstration to showcase how simple it is to use the `qml.kernels` module to perform
+an actual classification. We also explicitly show that we can use stochastic gradient descent and 
+kernel-target alignment to tame the quantum kernel and improve the classification performance. 
 
-To allow others to easily understand and reproduce our results, we also included the 
-theoretical background of kernel methods, Quantum Embedding Kernels and the
-kernel-target alignment as a measure of kernel quality for a specific dataset in a pedagogical way.
+To allow others to easily understand and reproduce our results, we also paraded our inner scholars and
+included the theoretical background of kernel methods, quantum embedding kernels and the
+kernel-target alignment as a measure of kernel quality for a specific dataset in such a way that 
+every quantum-curious user can delve into the mathematical foundations.
 
+**TODO: Mention floq integration for large scale datasets if the notebook makes it to the end**
 
 
 ## Advantage of Training
