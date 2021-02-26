@@ -1,4 +1,4 @@
-# Trainable Quantum Kernels with Pennylane
+# Trainable Quantum Kernels with Pennylane [10]
 ### _Or how finding good music title puns got out of hand_
 
 _By: Notorious FUB (Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer, and David Wierichs)_
@@ -156,3 +156,5 @@ The Rigetti machine through the AWS cloud servers provided valuable insights in 
 [8] T. Wang, D, Zhao, S. Tian: _An overview of kernel alignment and its applications_ (Springer Science+Business Media Dordrecht, 2012)
 
 [9] P. Wittek: _Quantum Machine Learning: what quantum computing means to data mining_ (Academic Press, 2014)
+
+[10] Proper academic document coming up
