@@ -23,10 +23,10 @@ This is the story of what came out of that reckless attempt, and how the legacy 
 
 ## Kernel Methods
 
-Kernel methods are one of the cornerstones of classical ML. Kernel boundaries allow us to use linear classifiers to establish non-linear decision boundaries:
+Kernel methods allow us to use simple linear classifiers like the SVM to establish non-linear decision boundaries:
 
 <p align="center">
-<img src="./wp_TK/embedding_nonlinear_classification.png" alt="Linear classification with embedding" width="550"/>
+<img src="embedding_nonlinear_classification.png" alt="Linear classification with embedding" width="550"/>
 </p>
 
 The underlying "trick" (no really - that's the official name!) is that any kernel will introduce a similarity measure, comparable to a scalar product, that allows us to unlock more complicated features of the underlying data.
