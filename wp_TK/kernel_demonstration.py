@@ -17,10 +17,13 @@
 # # Quantum Embedding Kernels with PennyLane's kernels module
 #
 # _Authors: Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer and David Wierichs_
+# _On Feb 26th 2021_
 #
-# Kernel methods are one of the cornerstones of classical machine learning. To understand what a kernel method does we first look at one of the possibly simplest methods to assign class labels to datapoints: linear classification.
+# Kernel methods are one of the cornerstones of classical machine learning.
+# To understand what a kernel method does let's first revisit one of the simplest methods to assign binary labels to datapoints: linear classification.
 #
-# Imagine that we want to discern two different classes of points that lie in different corners of the plane. A linear classifier corresponds to just drawing a line between the two classes and assigning labels to the classes depending on which side of the line they are on:
+# Imagine we want to discern two different classes of points that lie in different corners of the plane.
+# A linear classifier corresponds to drawing a line and assigning different labels to the regions on opposing sides of the line:
 #
 # <img src="linear_classification.png" alt="Linear classification." width="300"/>
 #
@@ -30,9 +33,13 @@
 # y(\boldsymbol{x}) = \operatorname{sgn}(\langle \boldsymbol{w}, \boldsymbol{x}\rangle + b).
 # $$
 #
-# The vector $\boldsymbol{w}$ points perpendicular to the line and thus determine its tilt. The parameter $b$ determines where the line actually lies. In this form, the linear classification can also be extended to higher dimensional vectors $\boldsymbol{x}$, in this case the classes are not separated by a line, but by a _hyperplane_. It is immediately clear that this method is not very powerful, as datasets that are not separable by a hyperplane can't be treated. 
+# The vector $\boldsymbol{w}$ points perpendicular to the line and thus determine its slope.
+# The independent term $b$ specificies the position on the plane.
+# In this form, linear classification can also be extended to higher dimensional vectors $\boldsymbol{x}$, where a line does not divide the entire space into two regions anymore.
+# Instead one needs a _hyperplane_.
+# It is immediately clear that this method is not very powerful, as datasets that are not separable by a hyperplane can't be treated. 
 #
-# But we can actually sneak around this limitation by performing a neat trick: if we define some map $\phi(\boldsymbol{x})$ that _embeds_ our datapoints into a larger space and perform a linear classification there, we can actually create non-linear decision boundaries!
+# We can actually sneak around this limitation by performing a neat trick: if we define some map $\phi(\boldsymbol{x})$ that _embeds_ our datapoints into a larger _feature space_ and then perform linear classification there, we could actually realise non-linear classification in our original space!
 #
 # <img src="embedding_nonlinear_classification.png" alt="Linear classification with embedding" width="660"/>
 #
@@ -48,13 +55,15 @@
 # y(\boldsymbol{x}) = \operatorname{sgn}\left(\sum_i \alpha_i \langle \phi(\boldsymbol{x}_i), \phi(\boldsymbol{x})\rangle + b\right).
 # $$
 #
-# This rewriting might not seem useful at first, but the above formula only contains inner products between vectors in the embedding space:
+# This rewriting might not seem useful at first, but notice the above formula only contains inner products between vectors in the embedding space:
 #
 # $$
 # k(\boldsymbol{x}, \boldsymbol{y}) = \langle \phi(\boldsymbol{x}), \phi(\boldsymbol{y})\rangle.
 # $$
 #
-# We call this function the _kernel_. The clue now is that we can often find an explicit formula for the kernel $k$ that makes it superfluous to actually perform the embedding $\phi$. Consider for example the following embedding and the associated kernel:
+# We call this function the _kernel_.
+# The clue now is that we can often find an explicit formula for the kernel $k$ that makes it superfluous to actually perform the embedding $\phi$.
+# Consider for example the following embedding and the associated kernel:
 #
 # $$
 # \phi((x_1, x_2)) = (x_1^2, \sqrt{2} x_1 x_2, x_2^2) \qquad
@@ -63,13 +72,17 @@
 #
 # This means by just replacing the regular scalar product in our linear classification with the map $k$, we can actually express much more intricate decision boundaries!
 #
-# In this demonstration, we will explore a particular kind of kernel that can be realized on near-term quantum computers, namely _Quantum Embedding Kernels (QEKs)_, i.e. kernels that arise from embedding data into the space of quantum states. We formalize this by considering a parametrized quantum circuit $U(\boldsymbol{x})$ that embeds the datapoint $\boldsymbol{x}$ into the state
+# This is very important, because in many interesting cases the embedding will be much more costlier to compute than the kernel.
+#
+# In this demonstration, we will explore one particular kind of kernel that can be realized on near-term quantum computers, namely _Quantum Embedding Kernels (QEKs)_.
+# These are kernels that arise from embedding data into the space of quantum states.
+# We formalize this by considering a parameterised quantum circuit $U(\boldsymbol{x})$ that embeds datapoint $\boldsymbol{x}$ onto the state
 #
 # $$
 # |\psi(\boldsymbol{x})\rangle = U(\boldsymbol{x}) |0 \rangle.
 # $$
 #
-# The kernel value is given by the _overlap_ of the associated embedded quantum states
+# The kernel value is then given by the _overlap_ of the associated embedded quantum states
 #
 # $$
 # k(\boldsymbol{x}, \boldsymbol{y}) = | \langle\psi(\boldsymbol{x})|\psi(\boldsymbol{y})\rangle|^2.
@@ -77,7 +90,8 @@
 
 # ## A toy problem
 #
-# In this demonstration, we will treat a toy problem that showcases the inner workings of our approach. We will create the `DoubleCake` dataset. To do so, we first have to do some imports:
+# In this demonstration, we will treat a toy problem that showcases the inner workings of our approach. 
+# We of course need to start with some imports:
 
 # +
 import pennylane as qml
@@ -89,6 +103,8 @@ np.random.seed(2658)
 
 
 # -
+
+# And we proceed right away to create the `DoubleCake` dataset.
 
 class DoubleCake:
     def _make_circular_data(self): 
@@ -149,10 +165,13 @@ dataset.plot(plt.gca(), show_sectors=True)
 
 # ## Defining a Quantum Embedding Kernel
 #
-# PennyLane's `kernels` module allows for a particularly simple implementation of Quantum Embedding Kernels. The first ingredient we need for this is an _ansatz_ that represents the unitary $U(\boldsymbol{x})$ we use for embedding the data into a quantum state. We will use a structure where a single layer is repeated multiple times:
+# PennyLane's `kernels` module allows for a particularly simple implementation of Quantum Embedding Kernels.
+# The first ingredient we need for this is an _Ansatz_ that represents the unitary $U(\boldsymbol{x})$ we use for embedding the data into a quantum state.
+# We will use a structure where a single layer is repeated multiple times:
 
 # +
 def layer(x, params, wires, i0=0, inc=1):
+    """Building block of the embedding Ansatz"""
     i = i0
     for j, wire in enumerate(wires):
         qml.Hadamard(wires=[wire])
@@ -164,6 +183,7 @@ def layer(x, params, wires, i0=0, inc=1):
 
 @qml.template
 def ansatz(x, params, wires):
+    """The embedding Ansatz"""
     for j, layer_params in enumerate(params):
         layer(x, layer_params, wires, i0=j * len(wires))
         
@@ -173,13 +193,19 @@ def random_params(num_wires, num_layers):
 
 # -
 
-# We are now in a place where we can create the embedding. Together with the ansatz we only need a device to run the quantum circuit on. For the purposes of this tutorial we will use PennyLane's `default.qubit` device with 5 wires.
+# We are now in a place where we can create the embedding.
+# Together with the Ansatz we only need a device to run the quantum circuit on.
+# For the purposes of this tutorial we will use PennyLane's `default.qubit` device with 5 wires.
 
 dev = qml.device("default.qubit", wires=5)
 wires = list(range(5))
+# compute the kernel matrix
 k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
 
-# And this was all of the magic! The `EmbeddingKernel` class took care of providing us with a circuit that calculates the overlap. Before we can take a look at the kernel values we have to provide values for the variational parameters. We will initialize them such that the ansatz circuit has $6$ layers.
+# And this was all of the magic!
+# The `EmbeddingKernel` class took care of providing us with a circuit that calculates the overlap.
+# Before focusing on the kernel values we have to provide values for the variational parameters.
+# At this point we fix the number of layers in the Ansatz circuit to $6$.
 
 init_params = random_params(5, 6)
 
@@ -187,7 +213,8 @@ init_params = random_params(5, 6)
 
 print("The kernel value between the first and second datapoint is {:.3f}".format(k(dataset.X[0], dataset.X[1], init_params)))
 
-# The mutual kernel values between all elements of the dataset form the _kernel matrix_. We can inspect it via the `square_kernel_matrix` method:
+# The mutual kernel values between all elements of the dataset form the _kernel matrix_.
+# We can inspect it via the `square_kernel_matrix` method:
 
 # +
 K_init = k.square_kernel_matrix(dataset.X, init_params)
@@ -198,11 +225,17 @@ with np.printoptions(precision=3, suppress=True):
 
 # ## Using the Quantum Embedding Kernel for predictions
 #
-# The quantum kernel alone can not be used to make predictions on a dataset, becaues it essentially just a tool to measure the similarity between two datapoints. To perform an actual prediction we will make use of scikit-learns support vector classifier (SVC). 
+# The quantum kernel alone can not be used to make predictions on a dataset, becaues it is essentially just a tool to measure the similarity between two datapoints.
+# To perform an actual prediction we will make use of scikit-learn's Support Vector Classifier (SVC). 
 
 from sklearn.svm import SVC
 
-# The `SVC` class expects a function that maps two sets of datapoints to the corresponding kernel matrix. This is provided by the `kernel_matrix` property of the `EmbeddingKernel` class, we only have to use a lambda construction to include our parameters. Once we provide this, we can fit the SVM on our Quantum Embedding Kernel circuit. Note that this does not train the parameters in our circuit. 
+# The `SVC` class expects a function that maps two sets of datapoints to the corresponding kernel matrix.
+# This is provided by the `kernel_matrix` property of the `EmbeddingKernel` class, so we only need to use a lambda construction to include our parameters.
+# Once we have this, we can let scikit adjust the SVM from our Quantum Embedding Kernel.
+#
+# Note this step does not modify the free parameters in our circuit Ansatz.
+# What it does is solving a different optimization task for the $\alpha$ and $b$ vectors we introduced above.
 
 svm = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, init_params)).fit(dataset.X, dataset.Y)
 
@@ -216,7 +249,9 @@ def accuracy(classifier, X, Y_target):
 print("The accuracy of a kernel with random parameters is {:.3f}".format(accuracy(svm, dataset.X, dataset.Y)))
 
 
-# We also want to see what kinds of decision boundaries the classifier realizes. To this end we will introduce a second helper method.
+# We are also interested in seeing how the decision boundaries in this classification look like.
+# This could help us spotting overfitting issues visually in more complex data sets.
+# To this end we will introduce a second helper method.
 
 def plot_decision_boundaries(classifier, ax, N_gridpoints=14):
     _xx, _yy = np.meshgrid(np.linspace(-1, 1, N_gridpoints), np.linspace(-1, 1, N_gridpoints))
@@ -236,27 +271,35 @@ def plot_decision_boundaries(classifier, ax, N_gridpoints=14):
 
 init_plot_data = plot_decision_boundaries(svm, plt.gca())
 
-# We see that we can correctly classify the outer structure of the dataset, but our classifier still struggles with the inner points. But we have a circuit with many variational parameters, so it is reasonable to believe that we can improve the accuracy of our kernel based classification.
+# We see the outer points in the dataset can be correctly classified, but we still struggle with the inner circle.
+# But remember we have a circuit with many free parameters!
+# It is reasonable to believe we can give values to those parameters which improve the overall accuracy of our SVC.
 
 # ## Training the Quantum Embedding Kernel
 #
-# To be able to train the Quantum Embedding Kernel we need some measure of how well it fits the dataset in question. Re-training the SVM for every small change in the variational parameters and comparing the accuracy is no solution because it is very resource intensive and as the accuracy is a discrete quantity you would not be able to detect small improvements. 
+# To be able to train the Quantum Embedding Kernel we need some measure of how well it fits the dataset in question.
+# Performing an exhaustive search in parameter space is not a good solution because it is very resource intensive, and since the accuracy is a discrete quantity we would not be able to detect small improvements. 
 #
-# We can, however, resort to a more specialized measure, the _kernel-target alignment_ [1]. It is a measure that compares the similarity predicted by the quantum kernel to the actual labels of the training data. It is based on _kernel alignment_, a similiarity measure between two kernels with given kernel matrices $K_1$ and $K_2$:
+# We can, however, resort to a more specialized measure, the _kernel-target alignment_ [1].
+# The kernel-target alignment compares the similarity predicted by the quantum kernel to the actual labels of the training data.
+# It is based on _kernel alignment_, a similiarity measure between two kernels with given kernel matrices $K_1$ and $K_2$:
 #
 # $$
 # \operatorname{KA}(K_1, K_2) = \frac{\operatorname{Tr}(K_1 K_2)}{\sqrt{\operatorname{Tr}(K_1^2)\operatorname{Tr}(K_2^2)}}
 # $$
 #
-# Seen from a more theoretical side, this is nothing else as the cosine of the angle between the kernel matrices $K_1$ and $K_2$ seen as vectors in the space of matrices with the Hilbert-Schmidt- (or Frobenius-) scalar product $\langle A, B \rangle = \operatorname{Tr}(A^T B)$.
+# Seen from a more theoretical side, this is nothing else than the cosine of the angle between the kernel matrices $K_1$ and $K_2$ seen as vectors in the space of matrices with the Hilbert-Schmidt- (or Frobenius-) scalar product $\langle A, B \rangle = \operatorname{Tr}(A^T B)$.
+# This reinforces the geometric picture of how this measure relates to objects being aligned in a vector space.
 #
-# The training data enters picture by defining a kernel that expresses the labelling in the vector $\boldsymbol{y}$ by assigning the product of the respective labels as the kernel function
+# The training data enters the picture by defining a kernel that expresses the labelling in the vector $\boldsymbol{y}$ by assigning the product of the respective labels as the kernel function
 #
 # $$
 # k_{\boldsymbol{y}}(\boldsymbol{x}_i, \boldsymbol{x}_j) = y_i y_j
 # $$
 #
-# The assigned kernel is thus $+1$ if both datapoints lie in the same class and $-1$ otherwise. The kernel matrix for this kernel is simply given by the outer product $\boldsymbol{y}\boldsymbol{y}^T$. The kernel-target alignment is then defined as the alignment of the kernel matrix generated by the quantum kernel and $\boldsymbol{y}\boldsymbol{y}^T$:
+# The assigned kernel is thus $+1$ if both datapoints lie in the same class and $-1$ otherwise.
+# The kernel matrix for this new kernel is simply given by the outer product $\boldsymbol{y}\boldsymbol{y}^T$.
+# The kernel-target alignment is then defined as the alignment of the kernel matrix generated by the quantum kernel and $\boldsymbol{y}\boldsymbol{y}^T$:
 #
 # $$
 #     \operatorname{KTA}_{\boldsymbol{y}}(K) 
@@ -266,15 +309,22 @@ init_plot_data = plot_decision_boundaries(svm, plt.gca())
 #
 # where $N$ is the number of elements in $\boldsymbol{y}$.
 #
-# In summary, the kernel-target alignment effectively captures how well the kernel you chose reproduces the actual similarities of the data. It is, however, only a necessary but not a sufficient criterion for a good performance of the kernel [1].
+# In summary, the kernel-target alignment effectively captures how well the kernel you chose reproduces the actual similarities of the data.
+# It does have one drawback, however: having a high kernel-target alignment is only a necessary but not a sufficient condition for a good performance of the kernel [1].
+# This means having good alignment is guaranteed to good performance, but optimal alignment will not always bring optimal training accuracy.
 #
-# Let's now come back to the actual implementation. PennyLane's `EmbeddingKernel` class allows you to easily evaluate the kernel target alignment:
+# Let's now come back to the actual implementation.
+# PennyLane's `EmbeddingKernel` class allows you to easily evaluate the kernel target alignment:
 
 print("The kernel-target-alignment for our dataset with random parameters is {:.3f}".format(
     k.target_alignment(dataset.X, dataset.Y, init_params))
 )
 
-# Now let's code up an optimization loop and improve this. To this end, we will make use of regular gradient descent optimization. To speed up the optimization we will sample smaller subsets of the data at each step, we choose $4$ datapoints at random. Remember that PennyLane's inbuilt optimizer works to _minimize_ the cost function that is given to it, which is why we have to multiply the kernel target alignment by $-1$ to actually _maximize_ it in the process. 
+# Now let's code up an optimization loop and improve this!
+#
+# We will make use of regular gradient descent optimization.
+# To speed up the optimization we will not use the entire training set but rather sample smaller subsets of the data at each step, we choose $4$ datapoints at random.
+# Remember that PennyLane's inbuilt optimizer works to _minimize_ the cost function that is given to it, which is why we have to multiply the kernel target alignment by $-1$ to actually _maximize_ it in the process. 
 
 # +
 params = init_params
@@ -288,19 +338,25 @@ for i in range(500):
         print("Step {} - Alignment = {:.3f}".format(i+1, k.target_alignment(dataset.X, dataset.Y, params)))
 # -
 
-# Now let's build a second support vector classifier with the trained kernel:
+# We want to assess the impact of training the parameters of the quantum kernel.
+# Thus, let's build a second support vector classifier with the trained kernel:
 
 svm_trained = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(dataset.X, dataset.Y)
 
-# Now we expect to see that the accuracy has improved:
+# We expect to see an accuracy improvement vs. the SVM with random parameters:
 
 print("The accuracy of a kernel with trained parameters is {:.3f}".format(accuracy(svm_trained, dataset.X, dataset.Y)))
 
-# Very well we now get perfect classification! We also expect that the decision boundaries of our classifier captures the nature of the dataset better, so let's check that:
+# Very well!
+# We now achieved perfect classification!
+#
+# Following on the results that SVM's have proven good generalisation behavior, it will be interesting to inspect the decision boundaries of our classifier:
 
 trained_plot_data = plot_decision_boundaries(svm_trained, plt.gca())
 
-# With this, we have seen that training our Quantum Embedding Kernel indeed yields not only improved accuracy but also more reasonable decision boundaries. In that sense, kernel training allows us to adjust the kernel to the dataset.
+# Indeed, we see that now not only every data instance falls within the correct class, but also that there are no strong artifacts that make us distrust the model.
+# In this sense, our approach benefits from both:
+# On the one hand it can adjust itself to the dataset, and on the other hand is not expected to suffer from bad generalisation.
 
 # ### References
 #
