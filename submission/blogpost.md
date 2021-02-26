@@ -225,8 +225,10 @@ Wrapping up, in our QHack2021 project we have:
  - Explored specific classification tasks confirming the theoretical knowledge.
  - Provided mechanisms for stable performance against finite sampling and hardware noise.
  - Developed a PennyLane module that implements all of this out of the shelf.
- - Tested the scaling of our methods for bigger problems and bigger circuits on high-performance TPUs.
- - Studied what dataset sizes and what Ansätze can be used for our pipeline on a budget on real hardware devices.
+ - Created a demo for future scientist to learn about trainable kernels.
+ - Studied what dataset sizes and what Ansätze can be used for our pipeline on a budget on real hardware devices and powerfull simulators.
+ - Implemented prediction of samples on full-scale MNIST images using the Google Floq service, and provided a demo. 
+ - [Note on real hardware experiment]
 
 And so, before us the dawn of a new day.
 The _kernel tamers_ legacy is PAC guaranteed to be passed on for at least one more generation.
