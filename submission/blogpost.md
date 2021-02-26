@@ -206,7 +206,7 @@ This approach keeps the eigenvectors of the kernel matrix intact and yields a po
 </p>
 
 When applying either of these stabilisation techniques, we observe considerable restoration of the classification performance and in particular the simple matrix displacing yields close to perfect classification performance across many instances of sampled noise.
-When computing a new kernel matrix for testing on the training data - and therefore emulating a testing situation more closely - the performance is not restored quite as completely but still our simple stablisiation routines improve the performance massively.
+When computing a new kernel matrix for testing on the training data - and therefore emulating a testing situation more closely - the performance is not restored fully, but still our simple stablisation routines improve the performance massively.
 
 <p align="center">
 <img src="./blogpost_img/noisy_sim_stabilisation_sigma1_recompute_K.png" alt="Noise stabilisation on newly computed kernel matrix" width="550"/>
