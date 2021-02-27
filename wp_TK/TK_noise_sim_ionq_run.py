@@ -153,7 +153,7 @@ if local:
     dev = qml.device("default.qubit", wires=5, shots=shots, analytic=False)
 else:
     print("MONEY IS BEING USED")
-    bucket = "amazon-braket-5268bd361bba" # the name of the bucket
+    bucket = "KEY" # the name of the bucket
     prefix = "example_running_quantum_circuits_on_qpu_devices" # the name of the folder in the bucket
     s3_folder = (bucket, prefix)
     dev_arn = "arn:aws:braket:::device/qpu/rigetti/Aspen-9"

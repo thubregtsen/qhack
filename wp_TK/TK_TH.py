@@ -53,7 +53,7 @@ def random_params(num_wires, num_layers):
 
 # -
 
-bucket = "amazon-braket-5268bd361bba" # the name of the bucket
+bucket = "KEY" # the name of the bucket
 prefix = "example_running_quantum_circuits_on_qpu_devices" # the name of the folder in the bucket
 s3_folder = (bucket, prefix)
 #remote_device = qml.device("braket.aws.qubit",device_arn="arn:aws:braket:::device/qpu/rigetti/Aspen-9")
