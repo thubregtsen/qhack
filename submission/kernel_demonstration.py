@@ -14,6 +14,11 @@
 #     name: python3
 # ---
 
+# **To be able to run this notebook you need to install the modified PennyLane version that contains the `qml.kernels` module via**
+# ```
+# pip install git+https://www.github.com/johannesjmeyer/pennylane@kernel_module --upgrade
+# ```
+
 # # Quantum Embedding Kernels with PennyLane's kernels module
 #
 # _Authors: Peter-Jan Derks, Paul Fährmann, Elies Gil-Fuster, Tom Hubregtsen, Johannes Jakob Meyer and David Wierichs_

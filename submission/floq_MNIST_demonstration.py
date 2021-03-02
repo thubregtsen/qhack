@@ -129,9 +129,9 @@ init_params = random_params(N_WIRES, N_LAYERS)
 
 print("The kernel value between the first and second datapoint is {:.3f}".format(k(train_X0[0], train_X1[0], init_params)))
 
-# The mutual kernel values between all elements of the dataset form the _kernel matrix_. We can calculate it via the `square_kernel_matrix` method:
+# The mutual kernel values between all elements of the dataset from the _kernel matrix_. We can calculate it via the `square_kernel_matrix` method, which will be used in fit() later on:
 
-K = k.square_kernel_matrix(X, init_params)
+K_init = k.square_kernel_matrix(X, init_params)
 
 # ## Using the Quantum Embedding Kernel for predictions
 #

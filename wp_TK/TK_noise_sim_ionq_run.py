@@ -144,21 +144,25 @@ n_repeat = 1
 
 total_executions = 0
 recompute_K_for_testing = False
+
 shots = 100
 
 
 local = False
+
 if local:
     print("You're safe")
     dev = qml.device("default.qubit", wires=5, shots=shots, analytic=False)
 else:
     print("MONEY IS BEING USED")
-    bucket = "amazon-braket-ionq" # the name of the bucket
-    prefix = "single_evaluation_test" # the name of the folder in the bucket
+
+    bucket = "KEY" # the name of the bucket
+    prefix = "example_running_quantum_circuits_on_qpu_devices" # the name of the folder in the bucket
     s3_folder = (bucket, prefix)
-    dev_arn = "arn:aws:braket:::device/qpu/ionq/ionQdevice"
+    dev_arn = "arn:aws:braket:::device/qpu/rigetti/Aspen-9"
     # final safeguard: remove the comment
-    dev = qml.device("braket.aws.qubit", device_arn=dev_arn, s3_destination_folder=s3_folder, wires=5, shots=100, parallel=True)
+    #dev = qml.device("braket.aws.qubit", device_arn=dev_arn, s3_destination_folder=s3_folder, wires=5, shots=shots, parallel=True)
+
 
 k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x @ W, params, wires), dev)
 
@@ -204,7 +208,11 @@ print(total_executions)
 import seaborn as sns
 sns.set_theme(style="whitegrid")
 
+<<<<<<< HEAD
 plot_df = df.loc[df.shots==100]
+=======
+plot_df = df.loc[df.shots==2]
+>>>>>>> 86ed4f7068aee757e25f594d73947340016b8780
 #plot_df = df.loc[df.noise_level==1.]
 
 # print(plot_df)
