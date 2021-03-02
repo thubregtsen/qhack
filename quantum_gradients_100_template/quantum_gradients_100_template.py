@@ -38,7 +38,14 @@ def parameter_shift(weights):
     gradient = np.zeros_like(weights)
 
     # QHACK #
-    #
+    shift = np.zeros_like(weights)
+    for i in range(len(gradient)):
+        for j in range(len(gradient[i])):
+            shift[i][j] = np.pi/2
+            gradient[i][j] = circuit(weights+shift) - circuit(weights-shift)
+            gradient[i][j] *= 0.5
+            shift[i][j] = 0.0
+
     # QHACK #
 
     return gradient

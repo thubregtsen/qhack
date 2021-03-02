@@ -246,7 +246,7 @@ plot_df = df.loc[df.noise_level==1.]
 # print(plot_df)
 g = sns.catplot(
     data=plot_df, kind="bar",
-    x="params", y="perf_reuse", hue='Stabilisation method',
+    x="params", y="perf_recompute", hue='Stabilisation method',
     ci='sd', palette="dark", alpha=.6, height=6
 )
 g.despine(left=True)

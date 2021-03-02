@@ -46,7 +46,29 @@ def gradient_200(weights, dev):
     hessian = np.zeros([5, 5], dtype=np.float64)
 
     # QHACK #
+    aux = circuit(weights)
+    shift_1 = np.zeros([5], dtype = np.float64)
+    shift_2 = np.zeros([5], dtype = np.float64)
+    for i in range(5):
+        shift_1[i] = .5*np.pi
+        aux_f = circuit(weights + shift_1)
+        aux_b = circuit(weights - shift_1)
+        gradient[i] = aux_f - aux_b
+        gradient[i] *= .5
 
+        hessian[i][i] = aux_f + aux_b - 2*aux
+        hessian[i][i] *= .5
+        
+        for j in range(i):
+            shift_2[j] = .5*np.pi
+            hessian[i][j] = (circuit(weights + shift_1 + shift_2)
+                             + circuit(weights - shift_1 - shift_2)
+                             - circuit(weights + shift_1 - shift_2)
+                             - circuit(weights - shift_1 + shift_2))
+            hessian[i][j] *= .25
+            hessian[j][i] = hessian[i][j]
+            shift_2[j] = 0.0
+        shift_1[i] = 0.0
     # QHACK #
 
     return gradient, hessian, circuit.diff_options["method"]
