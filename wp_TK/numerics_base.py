@@ -19,10 +19,6 @@
 # pip install git+https://www.github.com/johannesjmeyer/pennylane@kernel_module --upgrade
 # ```
 
-#
-
-#
-
 # +
 import pennylane as qml
 from pennylane import numpy as np
@@ -31,17 +27,7 @@ import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 
 np.random.seed(42)
-# -
 
-#
-
-
-
-#
-
-
-
-#
 
 # +
 def layer(x, params, wires, i0=0, inc=1):
@@ -67,78 +53,12 @@ def random_params(num_wires, num_layers):
 
 # -
 
-#
-
 dev = qml.device("default.qubit", wires=5)
 wires = list(range(5))
 
 
-
-#
-
-
-
-#
-
-
-
-#
-
-
-
-#
-
-
-
-#
-
-
-
-#
-
 def accuracy(classifier, X, Y_target):
     return 1 - np.count_nonzero(classifier.predict(X) - Y_target) / len(Y_target)
-
-
-
-#
-
-
-
-#
-
-
-
-#
-
-#
-
-
-
-#
-
-
-
-#
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # +
@@ -212,6 +132,88 @@ print("with kernel training accuracy", trained_accuracy)
 svm_ideal_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_train, y_train)
 ideal_accuracy = accuracy(svm_ideal_kernel, X_train, y_train)
 print("ideal accuracy", trained_accuracy)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
