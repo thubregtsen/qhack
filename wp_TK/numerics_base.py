@@ -63,7 +63,7 @@ def accuracy(classifier, X, Y_target):
 
 # +
 # create dataset
-samples = 10
+samples = 20
 features = 2
 ## choose random input
 X = np.random.random((2*samples,features))
@@ -78,44 +78,66 @@ X_train = X[:samples]
 indices = np.arange(samples)
 np.random.shuffle(indices)
 indices = indices[:int(samples/2)] # uneven will get rounded
-y_init = np.ones((10))
+y_init = np.ones((samples))
 y_init[indices] = -1
 ## fit the SVM
-svm_init = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_train, y_init)
+svm_init_train = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_train, y_init)
 ## and determine what the SVM can actually predict with our ideal parameters
-y_train = svm_init.predict(X_train)
+y_train = svm_init_train.predict(X_train)
+# do it again
+svm_init_train = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_train, y_train)
+## and determine what the SVM can actually predict with our ideal parameters
+y_train = svm_init_train.predict(X_train)
 
-#generate train data
+#generate test data
 X_test = X[samples:]
 ## choose random y targets in a balanced way
 indices = np.arange(samples)
 np.random.shuffle(indices)
 indices = indices[:int(samples/2)] # uneven will get rounded
-y_init = np.ones((10))
+y_init = np.ones((samples))
 y_init[indices] = -1
 ## fit the SVM
-svm_init = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_test, y_init)
+svm_init_test = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_test, y_init)
 ## and determine what the SVM can actually predict with our ideal parameters
-y_test = svm_init.predict(X_train)
+y_test = svm_init_test.predict(X_test)
+# do it again
+svm_init_test = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_test, y_test)
+## and determine what the SVM can actually predict with our ideal parameters
+y_test = svm_init_test.predict(X_test)
 
 print("X_train:", X_train)
 print("y_train:", y_train)
 print("X_test:", X_test)
 print("y_test:", y_test)
 
+# sanity check
+ideal_accuracy_train = accuracy(svm_init_train, X_train, y_train)
+ideal_accuracy_test = accuracy(svm_init_test, X_test, y_test)
+print("these 2 values should be high", ideal_accuracy_train, ideal_accuracy_test)
+
 # -
+
+
+
+
+
+
+
+
 
 # evaluate the performance with random parameters for the kernel
 ## choose random params for the kernel
 params = random_params(5, 6)
-## fit the SVM
+## fit the SVM on the training data
 svm_untrained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
+## evaluate on the test set
 untrained_accuracy = accuracy(svm_untrained_kernel, X_test, y_test)
 print("without kernel training accuracy", untrained_accuracy)
 
 # evaluate the performance with trained parameters for the kernel
 ## train the kernel
-opt = qml.GradientDescentOptimizer(2.5)
+opt = qml.GradientDescentOptimizer(0.5)
 for i in range(500):
     subset = np.random.choice(list(range(len(X_train))), 4)
     params = opt.step(lambda _params: -k.target_alignment(X_train[subset], y_train[subset], _params), params)
@@ -123,15 +145,18 @@ for i in range(500):
     if (i+1) % 50 == 0:
         print("Step {} - Alignment on train = {:.3f}".format(i+1, k.target_alignment(X_train, y_train, params)))
 
-## fit the SVM
+## fit the SVM on the train set
 svm_trained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
+## evaluate the accuracy on the test set
 trained_accuracy = accuracy(svm_untrained_kernel, X_test, y_test)
-print("with kernel training accuracy", trained_accuracy)
+print("with kernel training accuracy on test", trained_accuracy)
 
-## fit the SVM
+## sanity check, fit on train with IDEAL parameters
 svm_ideal_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_train, y_train)
+## evaluate on train
 ideal_accuracy = accuracy(svm_ideal_kernel, X_train, y_train)
-print("ideal accuracy", trained_accuracy)
+## should be high
+print("ideal accuracy", ideal_accuracy)
 
 
 
