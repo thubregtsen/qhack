@@ -117,11 +117,42 @@ ideal_accuracy_test = accuracy(svm_init_test, X_test, y_test)
 print("these 2 values should be high", ideal_accuracy_train, ideal_accuracy_test)
 
 # -
+def make_dataset(kernel, data_shape, data_domain=(0,1), N1=10, N2=10, lower_interval=(0.0, 0.3), upper_interval=(.7, .9), seed=None):
+    if seed is None:
+        seed = np.random.uniform(*data_domain, data_shape)
+    
+    friends = [seed] # add a seed point
+    enemies = []
+    it = 0
+    while (len(friends) < N1 or len(enemies) < N2) and it < 10000:
+        datapoint = np.random.uniform(*data_domain, data_shape)
+        
+        val = kernel(friends[0], datapoint)
+        
+        if val >= upper_interval[0] and val <= upper_interval[1] and len(friends) < N1:
+            print("Friend!", end=" ")
+            friends.append(datapoint)
+        elif val >= lower_interval[0] and val <= lower_interval[1] and len(enemies) < N2:
+            print("Foe!", end=" ")
+            enemies.append(datapoint)
+            
+        it += 1
+            
+    if it == 10000:
+        print("DIDN'T SUCCEED TO BUILD A DATASET IN 10000 ITERATIONS.")
+    
+    print("\nTook ", it, " iterations.")
+        
+    # returns X and y
+    return np.vstack([friends, enemies]), np.hstack([[1]*len(friends), [-1]*len(enemies)])            
 
 
+X_train, y_train = make_dataset(lambda x,y: k(x,y,ideal_params), (2,))
+X_test, y_test = make_dataset(lambda x,y: k(x,y,ideal_params), (2,), seed=X_train[0])
 
+K = k.square_kernel_matrix(X, ideal_params)
 
-
+K[:,0]
 
 
 
