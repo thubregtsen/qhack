@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py
+#     formats: ipynb,py:light
 #     text_representation:
 #       extension: .py
 #       format_name: light
@@ -37,7 +37,17 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 from pennylane_cirq import ops as cirq_ops
+# -
 
+
+# # Some global variables (used below!)
+
+shots = 0
+#  Actually use shots by setting analytic to False in the device. If shots=0, use analytic
+analytic_device = (shots==0)
+num_wires = 5
+
+# # Dataset
 
 # +
 dataset = DoubleCake(0, 6)
@@ -201,10 +211,9 @@ kernel_matrix_from_simulation = np.array([[1., 0.03, 0.05, 0., 0.23, 0.1, 0.26, 
 
 # +
 class noisy_kernel(qml.kernels.EmbeddingKernel):
-    """add noise to circuit"""
-    def __init__(self,ansatz, device, noise_probability, interface="autograd", diff_method="best", **kwargs):
+    """adds single-qubit noise to the end of the circuit for ancilla-free approach."""
+    def __init__(self,ansatz, device, noise_probability, **kwargs):
         self.probs_qnode = None
-        """QNode: The QNode representing the quantum embedding kernel."""
         self.noise_probability = noise_probability
         print(self.noise_probability)
 
@@ -212,65 +221,211 @@ class noisy_kernel(qml.kernels.EmbeddingKernel):
             ansatz(x1, params, **kwargs)
             qml.inv(ansatz(x2, params, **kwargs))
             for wire in device.wires:
-                
                 cirq_ops.Depolarize(self.noise_probability, wires=wire)
             return qml.probs(wires=device.wires)
         
-        self.probs_qnode = qml.QNode(
-            circuit, device, interface=interface, diff_method=diff_method, **kwargs
-        )
+        self.probs_qnode = qml.QNode(circuit, device, **kwargs)
         
-
-# -
-
-def calculate_kernel_matrix(noise_probability, hardware_backend):
-    shots = 100
-    local = False
-    dev = qml.device("cirq.mixedsimulator", wires=5, shots=shots, analytic=False)
-
-    df = pd.DataFrame()
-    wires = list(range(5))
-    k = noisy_kernel(lambda x, params: rigetti_ansatz(x @ W, params, wires), dev, noise_probability )
-
-    name_params = 'optimal'
-    init_params = opt_param
-    
-    K_raw1 = k.square_kernel_matrix(X, init_params) # Use quantum computer
-    return(K_raw1)
-
-
-def visualize_kernel_matrices(kernel_matrices, noise_probabilites):
-    fig,ax = plt.subplots(1, len(kernel_matrices))
-    print(fig,'ax')
-    sns.set()
-    for i, kernel_matrix in enumerate(kernel_matrices):
-        sns.heatmap(kernel_matrix, vmin=0, vmax=1, xticklabels='', yticklabels='', ax=ax[i], cmap='Spectral', cbar=False)
-    
-
-
-noise_probabilities_array = (np.arange(0, 1, 0.2))
-kernel_matrices = []
-for noise_p in noise_probabilities_array:
-    print(noise_p)
-    k_matrix = calculate_kernel_matrix(noise_p, 'rigetti')
-    kernel_matrices.append(k_matrix)
-
-
-print(noise_probabilities_array)
-visualize_kernel_matrices(kernel_matrices, noise_probabilities_array)
+class dummy_kernel(qml.kernels.EmbeddingKernel):
+    """effectively adds global noise after the entire circuit, for testing purposes"""
+    def __init__(self,ansatz, device, lambda_, **kwargs):
+        self.probs_qnode = None
+        self.lambda_ = lambda_
+        
+        def circuit(x1, x2, params,**kwargs):
+            ansatz(x1, params, **kwargs)
+            qml.inv(ansatz(x2, params, **kwargs))
+            return qml.probs(wires=device.wires)
+        
+        def wrapped_qnode(*args, **qnode_kwargs):
+            qnode_ = qml.QNode(circuit, device, **kwargs)(*args, **qnode_kwargs)
+            return (1-self.lambda_) * qnode_ +self.lambda_/(2**device.num_wires)       
+        
+        self.probs_qnode = wrapped_qnode
+        
+class dummy_split_kernel(qml.kernels.EmbeddingKernel):
+    """effectively adds global noise after each embedding with individual noise rates, for testing purposes"""
+    def __init__(self,ansatz, device, lambdas, X_, **kwargs):
+        """This kernel requires the training set as input in order to properly emulate the noise model"""
+        self.probs_qnode = None
+        self.lambdas = np.array(lambdas)
+        self.X_ = X_
+        
+        def circuit(x1, x2, params,**kwargs):
+            ansatz(x1, params, **kwargs)
+            qml.inv(ansatz(x2, params, **kwargs))
+            return qml.probs(wires=device.wires)
+        
+        def wrapped_qnode(x1, x2, *qnode_args, **qnode_kwargs):
+            qnode_ = qml.QNode(circuit, device, **kwargs)(x1, x2, *qnode_args, **qnode_kwargs)
+            lambda_1 = self.lambdas[np.where([np.allclose(x_, x1) for x_ in self.X_])[0]]
+            lambda_2 = self.lambdas[np.where([np.allclose(x_, x2) for x_ in self.X_])[0]]
+            lambda_ = - (1-lambda_1) * (1-lambda_2) + 1
+            return (1-lambda_) * qnode_ +lambda_/(2**device.num_wires)       
+        
+        self.probs_qnode = wrapped_qnode
 
 
 # +
-def my_quantum_function(x, y):
-    qml.RZ(x, wires=0)
-    qml.CNOT(wires=[0,1])
-    qml.RY(y, wires=1)
-    #cirq_ops.Depolarize(0.1, wires=1)
-    return qml.expval(qml.PauliZ(1))
-dev = qml.device('cirq.mixedsimulator', wires=2, shots=1000, analytic=True)
+def calculate_kernel_matrix(noise_probability, hardware_backend, fix_diag=True):
+    local = False
+    if shots==0:
+        shots_device = 1 # shots=0 raises an error...
+    dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
 
-circuit = qml.QNode(my_quantum_function, dev)
-circuit(1,2)
+    df = pd.DataFrame()
+    wires = list(range(5))
+    # Here one can choose the noisy kernel model
+#     k = noisy_kernel(lambda x, params: rigetti_ansatz(x @ W, params, wires), dev, noise_probability )
+#     k = dummy_kernel(lambda x, params: rigetti_ansatz(x @ W, params, wires), dev, lambda_=noise_probability )
+    lambdas = (0.8+np.random.random(len(X))*0.2)*noise_probability
+    k = dummy_split_kernel(lambda x, params: rigetti_ansatz(x @ W, params, wires), dev, lambdas=lambdas, X_=X)
+
+#     name_params = 'optimal'
+    init_params = opt_param
+    k_mapped = lambda x1, x2: k(x1, x2, init_params)
+    K_raw1 = qml.kernels.square_kernel_matrix(X, k_mapped, assume_normalized_kernel=fix_diag)
+#     K_raw1 = k.square_kernel_matrix(X, init_params) # Use quantum computer
+    return(K_raw1)
+
+
+# -
+
+def visualize_kernel_matrices(kernel_matrices, noise_probabilites, draw_last_cbar=False):
+    num_mat = len(kernel_matrices)
+    width_ratios = [1]*num_mat+[0.2]*int(draw_last_cbar)
+    fig,ax = plt.subplots(1, num_mat+draw_last_cbar, figsize=(num_mat*5+draw_last_cbar, 5), gridspec_kw={'width_ratios': width_ratios})
+    sns.set()
+    for i, kernel_matrix in enumerate(kernel_matrices):
+        plot = sns.heatmap(
+            kernel_matrix, 
+            vmin=0,
+            vmax=1,
+            xticklabels='',
+            yticklabels='',
+            ax=ax[i],
+            cmap='Spectral',
+            cbar=False
+        )
+    if draw_last_cbar:
+        ch = plot.get_children()
+        fig.colorbar(ch[0], ax=ax[-2], cax=ax[-1])
+
+
+def mitigate_global_depolarization(kernel_matrix, num_wires, strategy='average', use_entries=None):
+    """Estimate the noise rate of a global depolarizing noise model based on the diagonal entries of a kernel
+    matrix and mitigate the effect of said noise model.
+    Args:
+      kernel_matrix (ndarray): Noisy kernel matrix.
+      num_wires (int): Number of wires/qubits that was used to compute the kernel matrix.
+      strategy ('average'|'split_channel'): Details of the noise model and strategy for mitigation.
+        'average': Compute the noise rate based on the diagonal entries in use_entries, average if applicable.
+        'split_channel': Assume a distinct effective noise rate for the embedding circuit of each feature vector.
+      use_entries (list<int>): Indices of diagonal entries to use if strategy=='average'. Set to all if None.
+    Returns:
+      mitigated_matrix (ndarray): Mitigated kernel matrix.
+      noise_rates (ndarray): Determined noise rates, meaning depends on kwarg strategy.
+    Comments:
+      If strategy is 'average', the diagonal entries with indices use_entries have to be measured on the QC.
+      If it is 'split_channel', all diagonal entries are required.
+    """
+    dim = 2**num_wires
+    
+    if strategy=='average':
+        if use_entries is None:
+            diagonal_elements = np.diag(kernel_matrix)
+        else:
+            diagonal_elements = np.diag(kernel_matrix)[use_entries]
+        noise_rates = (1 - diagonal_elements) * dim / (dim - 1)
+        eff_noise_rate = np.mean(noise_rates)
+        mitigated_matrix = (kernel_matrix - eff_noise_rate / dim) / (1 - eff_noise_rate)
+        
+    elif strategy=='split_channel':
+        noise_rates = (1 - np.diag(kernel_matrix)) * dim / (dim - 1)
+        noise_rates = 1-np.sqrt(1-noise_rates)
+        n = len(kernel_matrix)
+        inverse_noise = -np.outer(noise_rates, noise_rates)\
+            + noise_rates.reshape((1, n))\
+            + noise_rates.reshape((n, 1))
+        mitigated_matrix = (kernel_matrix - inverse_noise / dim) / (1 - inverse_noise)
+    
+    return mitigated_matrix, noise_rates
+
+
+# # Noise mitigation computations
+#
+# ## Compute noisy kernel matrix
+
+noise_probabilities = np.arange(0, 1, 0.2)
+kernel_matrices = []
+for noise_p in noise_probabilities:
+    print(noise_p)
+    k_matrix = calculate_kernel_matrix(noise_p, 'rigetti', fix_diag=False)
+    kernel_matrices.append(k_matrix)
+
+
+# ## Compute noise-mitigated matrices
+# We look at three strategies of mitigation, corresponding to distinct assumptions on the noise.
+
+mitigated_matrices = {
+    (strategy, use_entries): 
+    [
+    mitigate_global_depolarization(K, num_wires=num_wires, strategy=strategy, use_entries=use_entries)[0] 
+        for K in kernel_matrices
+]
+    for strategy, use_entries in [('average', (0,)), ('average', None), ('split_channel', None)]
+}
+
+# ## Plotting mitigated noise
+# In the following collection of heatmaps, the row corresponds to the mitigation technique:
+#  0. No mitigation
+#  1. Based on first diagonal element
+#  2. Averaged over entire diagonal
+#  3. split up noise per embedding (and inverse embedding) subcircuits
+#
+#  The columns correspond to the noise strength
+#  0. No noise
+#  1. noise_probability=0.2
+#  2. noise_probability=0.4
+#  3. noise_probability=0.6
+#  4. noise_probability=0.8
+#
+#  The used noisy kernel (there are two for testing, namely `dummy_kernel` and `dummy_split_kernel`) is set in `calculate_kernel_matrix`.
+#  
+#  Note that for testing, `analytic` has to be set to `False` in the device because otherwise statistical 
+#  fluctuations will prevent a perfect mitigation. 
+
+print(noise_probabilities)
+visualize_kernel_matrices(kernel_matrices, noise_probabilities, draw_last_cbar=True)
+for mats in mitigated_matrices.values():
+    visualize_kernel_matrices(mats, noise_probabilities, draw_last_cbar=True)
+
+# +
+np.set_printoptions(precision=5)
+distances = np.zeros((len(mitigated_matrices)+1, len(noise_probabilities)))
+
+for j, mat in enumerate(kernel_matrices):
+    distances[0,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
+#     distances[i+1,j] = np.max(np.abs(mat-kernel_matrices[0]))
+for i, (key, mats) in enumerate(mitigated_matrices.items()):
+    for j, mat in enumerate(mats):
+        distances[i+1,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
+#         distances[i+1,j] = np.max(np.abs(mat-kernel_matrices[0]))
+print(distances)
+
+# +
+# Deactivated this cell for now :-)
+
+# def my_quantum_function(x, y):
+#     qml.RZ(x, wires=0)
+#     qml.CNOT(wires=[0,1])
+#     qml.RY(y, wires=1)
+#     #cirq_ops.Depolarize(0.1, wires=1)
+#     return qml.expval(qml.PauliZ(1))
+# dev = qml.device('cirq.mixedsimulator', wires=2, shots=1000, analytic=True)
+
+# circuit = qml.QNode(my_quantum_function, dev)
+# circuit(1,2)
 # -
 
 

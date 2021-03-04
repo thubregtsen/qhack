@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py
+#     formats: ipynb,py:light
 #     text_representation:
 #       extension: .py
 #       format_name: light
@@ -111,7 +111,7 @@ for noise_strength in noise_strength_array:
     stop = timeit.default_timer()
     runtime_array.append(stop-start)
     score_array.append(score/50)
-    
+
 
 # -
 
