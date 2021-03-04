@@ -103,13 +103,6 @@ opt_param = np.tensor([[[3.16112692, 2.96383445, 6.42069708, 6.71137123, 2.55598
          [5.99802411, 0.86416771, 1.52129757, 4.48878166, 5.1649024 ]]], requires_grad=True)
 
 
-# Create a new data frame. WARNING, if you already computed something on the quantum computer, 
-# this might reset your data if it is only stored in df! 
-#
-#                                             WARNING: Read the above
-#
-df = pd.DataFrame()
-
 # # Run and validate classifications - QUANTUM DEVICE
 
 # +
@@ -380,8 +373,8 @@ sns.heatmap(kernel_matrix_from_rigetti, vmin=0, vmax=1, cmap='Spectral', xtickla
 sns.heatmap(matrix_from_ionq, vmin=0, vmax=1, cmap='Spectral', xticklabels='', yticklabels='', ax=ax3)
 
 plt.savefig('rigetti_simulation')
+# -
 
-# +
 matrix_from_ionq = np.array([[1.  , 0.03, 0.05, 0.  , 0.23, 0.1 , 0.26, 0.39, 0.  , 0.3 ,
          0.06, 0.15],
         [0.03, 1.  , 0.07, 0.22, 0.03, 0.13, 0.18, 0.  , 0.29, 0.02,
