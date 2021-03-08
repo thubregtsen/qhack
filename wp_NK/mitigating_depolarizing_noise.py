@@ -210,6 +210,7 @@ kernel_matrix_from_simulation = np.array([[1., 0.03, 0.05, 0., 0.23, 0.1, 0.26, 
 # # Simulating the circuit with noise 
 
 def add_noise_channel(operation_list, noise_channel):
+    """This is not tested yet! A less hacky version to add noise to the circuit, copied from qml.inv """
     if isinstance(operation_list, qml.operation.Operation):
         operation_list = [operation_list]
     elif operation_list is None:
