@@ -42,7 +42,7 @@ from pennylane_cirq import ops as cirq_ops
 
 # # Some global variables (used below!)
 
-shots = 1000
+shots = 0
 #  Actually use shots by setting analytic to False in the device. If shots=0, use analytic
 analytic_device = (shots==0)
 num_wires = 5
@@ -209,6 +209,74 @@ kernel_matrix_from_simulation = np.array([[1., 0.03, 0.05, 0., 0.23, 0.1, 0.26, 
 
 # # Simulating the circuit with noise 
 
+def add_noise_channel(operation_list, noise_channel):
+    if isinstance(operation_list, qml.operation.Operation):
+        operation_list = [operation_list]
+    elif operation_list is None:
+        raise ValueError(
+            "None was passed as an argument to add_noise_channel. "
+            "This could happen if adding noise to a template without the template decorator is attempted."
+        )
+    elif callable(operation_list):
+        raise ValueError(
+            "A function was passed as an argument to add_noise_channel. "
+            "This could happen if adding noise to a template function is attempted. "
+            "Please use add_noise_channel on the function including its arguments, "
+            "as in add_noise_channel(template(args), channel)."
+        )
+#     elif isinstance(operation_list, qml.tape.QuantumTape):
+#         operation_list.inv()
+#         return operation_list
+    elif not isinstance(operation_list, Iterable):
+        raise ValueError("The provided operation_list is not iterable.")
+
+    non_ops = [
+        (idx, op)
+        for idx, op in enumerate(operation_list)
+        if not isinstance(op, qml.operation.Operation)
+    ]
+
+    if non_ops:
+        string_reps = [" operation_list[{}] = {}".format(idx, op) for idx, op in non_ops]
+        raise ValueError(
+            "The given operation_list does not only contain Operations."
+            + "The following elements of the iterable were not Operations:"
+            + ",".join(string_reps)
+        )
+
+    if qml.tape_mode_active():
+        for op in operation_list:
+            try:
+                # remove the queued operation to add noise to
+                # from the existing queuing context
+                qml.tape.QueuingContext.remove(op)
+            except KeyError:
+                # operation to be inverted does not
+                # exist on the queuing context
+                pass
+
+        with qml.tape.QuantumTape() as tape:
+            for o in operation_list:
+                o.queue()
+                if o.inverse:
+                    o.inv()
+                (c.queue() for c in noise_channel(o.wires))
+
+        return tape
+
+    for op in operation_list:
+        qml.QueuingContext.remove(op)
+    
+    all_ops = []
+    for op in operation_list:
+        qml.QueuingContext.append(op)
+        (qml.QueuingContext.append(c) for c in noise_channel(op.wires))
+        all_ops.append(op)
+        (all_ops.append(c) for c in noise_channel(op.wires))
+
+    return all_ops
+
+
 # +
 def apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False):
     """Add noise channels after each gate of an ansatz
@@ -351,26 +419,6 @@ class depolarize_per_embedding_kernel(qml.kernels.EmbeddingKernel):
         self.probs_qnode = wrapped_qnode
 
 
-# +
-# def calculate_kernel_matrix(noise_channel, fix_diag=True):
-#     local = False
-#     if shots==0:
-#         shots_device = 1 # shots=0 raises an error...
-#     dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
-
-#     wires = list(range(5))
-#     # Here one can choose the noisy kernel model
-#     k = noisy_kernel(lambda x, params: rigetti_ansatz(x @ W, params, wires), dev, noise_probability )
-# #     k = dummy_kernel(lambda x, params: rigetti_ansatz(x @ W, params, wires), dev, lambda_=noise_probability )
-# #     lambdas = (0.8+np.random.random(len(X))*0.2)*noise_probability
-# #     k = dummy_split_kernel(lambda x, params: rigetti_ansatz(x @ W, params, wires), dev, lambdas=lambdas, X_=X)
-
-# #     name_params = 'optimal'
-#     init_params = opt_param
-#     k_mapped = lambda x1, x2: k(x1, x2, init_params)
-#     K_raw1 = qml.kernels.square_kernel_matrix(X, k_mapped, assume_normalized_kernel=fix_diag)
-# #     K_raw1 = k.square_kernel_matrix(X, init_params) # Use quantum computer
-#     return K_raw1
 # -
 
 def visualize_kernel_matrices(kernel_matrices, noise_probabilites, draw_last_cbar=False):
@@ -449,7 +497,7 @@ fix_diag = False # Compute the diagonal entries
 shots_device = 1 if shots==0 else shots # shots=0 raises an error...
 
 rigetti_ansatz_mapped = lambda x, params: rigetti_ansatz(x @ W, params, range(num_wires))
-noise_channel = lambda p, wires: [cirq_ops.AmplitudeDamp(p, wires=wire) for wire in wires]
+noise_channel = lambda p, wires: [cirq_ops.Depolarize(p, wires=wire) for wire in wires]
     
 for noise_p in noise_probabilities:
     dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
@@ -500,12 +548,7 @@ doubly_mitigated_matrices = {
 #  2. Averaged over entire diagonal
 #  3. split up noise per embedding (and inverse embedding) subcircuits
 #
-#  The columns correspond to the noise strength
-#  0. No noise
-#  1. noise_probability=0.2
-#  2. noise_probability=0.4
-#  3. noise_probability=0.6
-#  4. noise_probability=0.8
+#  The columns correspond to the noise strengths given in `noise_probabilities`
 #
 #  The used noisy kernel (there are two for testing, namely `dummy_kernel` and `dummy_split_kernel`) is set in `calculate_kernel_matrix`.
 #  
@@ -531,48 +574,3 @@ for i, (key, mats) in enumerate(doubly_mitigated_matrices.items()):
         violation[i,j] = np.linalg.eigvalsh(mat)[0]
 print(distances)
 print(violation)
-
-# +
-# Deactivated this cell for now :-)
-
-# def my_quantum_function(x, y):
-#     qml.RZ(x, wires=0)
-#     qml.CNOT(wires=[0,1])
-#     qml.RY(y, wires=1)
-#     #cirq_ops.Depolarize(0.1, wires=1)
-#     return qml.expval(qml.PauliZ(1))
-# dev = qml.device('cirq.mixedsimulator', wires=2, shots=1000, analytic=True)
-
-# circuit = qml.QNode(my_quantum_function, dev)
-# circuit(1,2)
-# +
-dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=100, analytic=analytic_device)
-
-def ans(*args, **kwargs):
-    qml.inv(rigetti_ansatz(*args, **kwargs))
-#     cirq_ops.Depolarize(0.1, wires=range(num_wires))
-    return qml.expval(qml.PauliZ(0))
-    
-q = qml.QNode(
-    ans,
-    dev)
-
-# -
-
-
-print(dev.state)
-q.construct((X[0], opt_param), {'wires': range(num_wires)})
-# q(X[0], opt_param, wires=range(num_wires))
-print(dev.state)
-
-ops = q.qtape.operations
-op = ops[4]
-
-
-
-op.inverse
-
-print(dev.__class__(wires=dev.num_wires, shots=dev.shots))
-print(dev)
-
-
