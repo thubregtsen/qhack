@@ -211,11 +211,26 @@ kernel_matrix_from_simulation = np.array([[1., 0.03, 0.05, 0., 0.23, 0.1, 0.26, 
 
 # +
 def apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False):
+    """Add noise channels after each gate of an ansatz
+    Args:
+      ansatz (qml.template): Ansatz to add noise to.
+      device (qml.Device): Device that the ansatz will be run on.
+      noise_channel (qml.Operation): Noise channel to apply after each gate;
+        Note that it should be applicable on a flexible number of qubits.
+      args_noise_channel (tuple): Arguments to pass to noise_channel.
+      adjoint (bool): Whether the adjoint/inverse of the circuits should be used.
+    Returns:
+      noisy_ansatz (qml.template): The ansatz with added noise.
+    """
     
+    # Dummy device to construct the qnode on.
+    # This is an additional safety measure to avoid changing the device state with the QNode.construct call.
     _device = device.__class__(wires=device.wires)
-#     @qml.template
-    def noisy_ansatz(*args_ansatz, **kwargs_ansatz):
     
+    @qml.template
+    def noisy_ansatz(*args_ansatz, **kwargs_ansatz):
+        
+        # Define a circuit with which a QNode can be instantiated.
         def _ansatz(*args, **kwargs):
             if adjoint:
                 qml.inv(ansatz(*args, **kwargs))
@@ -223,16 +238,17 @@ def apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False
                 ansatz(*args, **kwargs)
             return qml.expval(qml.PauliZ(0))
 
+        # Instantiate and construct a qnode and extract the list of operations.
         _qnode = qml.QNode(_ansatz, _device)
         _qnode.construct(args_ansatz, kwargs_ansatz)
         ops = _qnode.qtape.operations
     
+        # Apply the original operations and the noise_channel alternatingly.
         for op in ops:
             if op.inverse:
                 op.__class__(*op.data, wires=op.wires).inv()
             else:
                 op.__class__(*op.data, wires=op.wires)
-#             print(f'applying depolarizing noise with p={args_noise_channel[0]} to wires {op.wires}')
             noise_channel(*args_noise_channel, wires=op.wires)
     
     return noisy_ansatz
@@ -455,6 +471,7 @@ for noise_p in noise_probabilities:
 # ## Compute noise-mitigated matrices
 # We look at three strategies of mitigation, corresponding to distinct assumptions on the noise.
 
+# +
 mitigated_matrices = {
     (strategy, use_entries): 
     [
@@ -463,6 +480,16 @@ mitigated_matrices = {
 ]
     for strategy, use_entries in [('average', (0,)), ('average', None), ('split_channel', None)]
 }
+
+doubly_mitigated_matrices = {
+    (strategy, use_entries): 
+    [
+    qml.kernels.displace_matrix(mitigate_global_depolarization(K, num_wires=num_wires, strategy=strategy, use_entries=use_entries)[0]) 
+        for K in kernel_matrices
+]
+    for strategy, use_entries in [('average', (0,)), ('average', None), ('split_channel', None)]
+}
+# -
 
 # ## Plotting mitigated noise
 # In the following collection of heatmaps, the row corresponds to the mitigation technique:
@@ -485,7 +512,7 @@ mitigated_matrices = {
 
 print(noise_probabilities)
 visualize_kernel_matrices(kernel_matrices, noise_probabilities, draw_last_cbar=True)
-for mats in mitigated_matrices.values():
+for mats in doubly_mitigated_matrices.values():
     visualize_kernel_matrices(mats, noise_probabilities, draw_last_cbar=True)
 
 # +
@@ -495,13 +522,11 @@ violation = np.zeros((len(mitigated_matrices)+1, len(kernel_matrices)))
 
 for j, mat in enumerate(kernel_matrices):
     distances[0,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
-#     violation[0,j] = np.linalg.eigvalsh(mat)[0]
-#     distances[i+1,j] = np.max(np.abs(mat-kernel_matrices[0]))
-for i, (key, mats) in enumerate(mitigated_matrices.items()):
+    violation[0,j] = np.linalg.eigvalsh(mat)[0]
+for i, (key, mats) in enumerate(doubly_mitigated_matrices.items()):
     for j, mat in enumerate(mats):
         distances[i+1,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
-#         violation[i+1,j] = np.linalg.eigvalsh(mat)[0]
-#         distances[i+1,j] = np.max(np.abs(mat-kernel_matrices[0]))
+        violation[i+1,j] = np.linalg.eigvalsh(mat)[0]
 print(distances)
 print(violation)
 
