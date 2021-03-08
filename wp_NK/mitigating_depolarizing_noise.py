@@ -42,7 +42,7 @@ from pennylane_cirq import ops as cirq_ops
 
 # # Some global variables (used below!)
 
-shots = 0
+shots = 1000
 #  Actually use shots by setting analytic to False in the device. If shots=0, use analytic
 analytic_device = (shots==0)
 num_wires = 5
@@ -400,9 +400,10 @@ def mitigate_global_depolarization(kernel_matrix, num_wires, strategy='average',
     Args:
       kernel_matrix (ndarray): Noisy kernel matrix.
       num_wires (int): Number of wires/qubits that was used to compute the kernel matrix.
-      strategy ('average'|'split_channel'): Details of the noise model and strategy for mitigation.
+      strategy ('average'|'split_channel'|None): Details of the noise model and strategy for mitigation.
         'average': Compute the noise rate based on the diagonal entries in use_entries, average if applicable.
         'split_channel': Assume a distinct effective noise rate for the embedding circuit of each feature vector.
+        None: Don't do anything.
       use_entries (list<int>): Indices of diagonal entries to use if strategy=='average'. Set to all if None.
     Returns:
       mitigated_matrix (ndarray): Mitigated kernel matrix.
@@ -413,7 +414,10 @@ def mitigate_global_depolarization(kernel_matrix, num_wires, strategy='average',
     """
     dim = 2**num_wires
     
-    if strategy=='average':
+    if strategy is None:
+        return kernel_matrix, None
+    
+    elif strategy=='average':
         if use_entries is None:
             diagonal_elements = np.diag(kernel_matrix)
         else:
@@ -442,12 +446,10 @@ def mitigate_global_depolarization(kernel_matrix, num_wires, strategy='average',
 noise_probabilities = np.arange(0, 0.005, 0.001)
 kernel_matrices = []
 fix_diag = False # Compute the diagonal entries
-if shots==0:
-    shots_device = 1 if shots==0 else shots # shots=0 raises an error...
+shots_device = 1 if shots==0 else shots # shots=0 raises an error...
 
-# dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
 rigetti_ansatz_mapped = lambda x, params: rigetti_ansatz(x @ W, params, range(num_wires))
-noise_channel = lambda p, wires: [cirq_ops.Depolarize(p, wires=wire) for wire in wires]
+noise_channel = lambda p, wires: [cirq_ops.AmplitudeDamp(p, wires=wire) for wire in wires]
     
 for noise_p in noise_probabilities:
     dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
@@ -478,7 +480,7 @@ mitigated_matrices = {
     mitigate_global_depolarization(K, num_wires=num_wires, strategy=strategy, use_entries=use_entries)[0] 
         for K in kernel_matrices
 ]
-    for strategy, use_entries in [('average', (0,)), ('average', None), ('split_channel', None)]
+    for strategy, use_entries in [(None, None), ('average', (0,)), ('average', None), ('split_channel', None)]
 }
 
 doubly_mitigated_matrices = {
@@ -487,7 +489,7 @@ doubly_mitigated_matrices = {
     qml.kernels.displace_matrix(mitigate_global_depolarization(K, num_wires=num_wires, strategy=strategy, use_entries=use_entries)[0]) 
         for K in kernel_matrices
 ]
-    for strategy, use_entries in [('average', (0,)), ('average', None), ('split_channel', None)]
+    for strategy, use_entries in [(None, None), ('average', (0,)), ('average', None), ('split_channel', None)]
 }
 # -
 
@@ -511,22 +513,22 @@ doubly_mitigated_matrices = {
 #  fluctuations will prevent a perfect mitigation. 
 
 print(noise_probabilities)
-visualize_kernel_matrices(kernel_matrices, noise_probabilities, draw_last_cbar=True)
+# visualize_kernel_matrices(kernel_matrices, noise_probabilities, draw_last_cbar=True)
 for mats in doubly_mitigated_matrices.values():
     visualize_kernel_matrices(mats, noise_probabilities, draw_last_cbar=True)
 
 # +
 np.set_printoptions(precision=5)
-distances = np.zeros((len(mitigated_matrices)+1, len(kernel_matrices)))
-violation = np.zeros((len(mitigated_matrices)+1, len(kernel_matrices)))
+distances = np.zeros((len(mitigated_matrices), len(kernel_matrices)))
+violation = np.zeros((len(mitigated_matrices), len(kernel_matrices)))
 
-for j, mat in enumerate(kernel_matrices):
-    distances[0,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
-    violation[0,j] = np.linalg.eigvalsh(mat)[0]
+# for j, mat in enumerate(kernel_matrices):
+#     distances[0,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
+#     violation[0,j] = np.linalg.eigvalsh(mat)[0]
 for i, (key, mats) in enumerate(doubly_mitigated_matrices.items()):
     for j, mat in enumerate(mats):
-        distances[i+1,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
-        violation[i+1,j] = np.linalg.eigvalsh(mat)[0]
+        distances[i,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
+        violation[i,j] = np.linalg.eigvalsh(mat)[0]
 print(distances)
 print(violation)
 
@@ -566,7 +568,7 @@ print(dev.state)
 ops = q.qtape.operations
 op = ops[4]
 
-op.__class__(*op.data, wires=op.wires, inv=op.inverse)
+
 
 op.inverse
 
