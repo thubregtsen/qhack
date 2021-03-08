@@ -210,20 +210,29 @@ kernel_matrix_from_simulation = np.array([[1., 0.03, 0.05, 0., 0.23, 0.1, 0.26, 
 # # Simulating the circuit with noise 
 
 # +
-def apply_noise(ansatz, device, noise_channel, args_noise_channel):
+def apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False):
     
+    _device = device.__class__(wires=device.wires)
+#     @qml.template
     def noisy_ansatz(*args_ansatz, **kwargs_ansatz):
     
         def _ansatz(*args, **kwargs):
-            ansatz(*args, **kwargs)
+            if adjoint:
+                qml.inv(ansatz(*args, **kwargs))
+            else:
+                ansatz(*args, **kwargs)
             return qml.expval(qml.PauliZ(0))
 
-        _qnode = qml.QNode(_ansatz, device)
+        _qnode = qml.QNode(_ansatz, _device)
         _qnode.construct(args_ansatz, kwargs_ansatz)
         ops = _qnode.qtape.operations
     
         for op in ops:
-            op.__class__(*op.data, wires=op.wires)
+            if op.inverse:
+                op.__class__(*op.data, wires=op.wires).inv()
+            else:
+                op.__class__(*op.data, wires=op.wires)
+#             print(f'applying depolarizing noise with p={args_noise_channel[0]} to wires {op.wires}')
             noise_channel(*args_noise_channel, wires=op.wires)
     
     return noisy_ansatz
@@ -248,19 +257,23 @@ class noisy_kernel(qml.kernels.EmbeddingKernel):
         self.args_noise_channel = args_noise_channel
         self.noise_application_level = noise_application_level
         if self.noise_application_level == 'per_gate':
-            self.noisy_ansatz = apply_noise(ansatz, device, noise_channel, args_noise_channel)
-        else:
-            self.noisy_ansatz = ansatz
-        
+            noisy_ansatz = apply_noise(ansatz, device, noise_channel, args_noise_channel)
+            noisy_adj_ansatz = apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=True)
 
-        def circuit(x1, x2, params,**kwargs):
-            self.noisy_ansatz(x1, params, **kwargs)
+        def circuit(x1, x2, params, **kwargs):
+            if self.noise_application_level == 'per_gate':
+                noisy_ansatz(x1, params, **kwargs)
+            else:
+                ansatz(x1, params, **kwargs)
             if self.noise_application_level == 'per_embedding':
-                self.noise_channel(*self.args_noise_channel)
+                self.noise_channel(*self.args_noise_channel, device.wires)
                 
-            self.noisy_ansatz(x2, params, **kwargs)
+            if self.noise_application_level == 'per_gate':
+                noisy_adj_ansatz(x2, params, **kwargs)
+            else:
+                qml.inv(ansatz(x2, params, **kwargs))
             if self.noise_application_level in ('per_embedding', 'global'):
-                self.noise_channel(*self.args_noise_channel)
+                self.noise_channel(*self.args_noise_channel, device.wires)
 
             return qml.probs(wires=device.wires)
         
@@ -410,17 +423,18 @@ def mitigate_global_depolarization(kernel_matrix, num_wires, strategy='average',
 # ## Compute noisy kernel matrix
 
 # +
-noise_probabilities = np.arange(0, 0.8, 0.2)
+noise_probabilities = np.arange(0, 0.005, 0.001)
 kernel_matrices = []
 fix_diag = False # Compute the diagonal entries
 if shots==0:
     shots_device = 1 if shots==0 else shots # shots=0 raises an error...
 
-dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
+# dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
 rigetti_ansatz_mapped = lambda x, params: rigetti_ansatz(x @ W, params, range(num_wires))
 noise_channel = lambda p, wires: [cirq_ops.Depolarize(p, wires=wire) for wire in wires]
     
 for noise_p in noise_probabilities:
+    dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
     print(noise_p)
     k = noisy_kernel(
         rigetti_ansatz_mapped,
@@ -429,11 +443,12 @@ for noise_p in noise_probabilities:
         args_noise_channel=(noise_p,),
         noise_application_level='per_gate',
     )
+#     k = qml.kernels.EmbeddingKernel(rigetti_ansatz_mapped, dev) # Noise-free, for testing
     k_mapped = lambda x1, x2: k(x1, x2, opt_param)
     
     K_raw1 = qml.kernels.square_kernel_matrix(X, k_mapped, assume_normalized_kernel=fix_diag)    
         
-    kernel_matrices.append(k_matrix)
+    kernel_matrices.append(K_raw1)
 # -
 
 
@@ -475,17 +490,17 @@ for mats in mitigated_matrices.values():
 
 # +
 np.set_printoptions(precision=5)
-distances = np.zeros((len(mitigated_matrices)+1, len(noise_probabilities)))
-violation = np.zeros((len(mitigated_matrices)+1, len(noise_probabilities)))
+distances = np.zeros((len(mitigated_matrices)+1, len(kernel_matrices)))
+violation = np.zeros((len(mitigated_matrices)+1, len(kernel_matrices)))
 
 for j, mat in enumerate(kernel_matrices):
     distances[0,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
-    violation[0,j] = np.linalg.eigvalsh(mat)[0]
+#     violation[0,j] = np.linalg.eigvalsh(mat)[0]
 #     distances[i+1,j] = np.max(np.abs(mat-kernel_matrices[0]))
 for i, (key, mats) in enumerate(mitigated_matrices.items()):
     for j, mat in enumerate(mats):
         distances[i+1,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
-        violation[i+1,j] = np.linalg.eigvalsh(mat)[0]
+#         violation[i+1,j] = np.linalg.eigvalsh(mat)[0]
 #         distances[i+1,j] = np.max(np.abs(mat-kernel_matrices[0]))
 print(distances)
 print(violation)
@@ -507,8 +522,8 @@ print(violation)
 dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=100, analytic=analytic_device)
 
 def ans(*args, **kwargs):
-    rigetti_ansatz(*args, **kwargs)
-    cirq_ops.Depolarize(0.1, wires=range(num_wires))
+    qml.inv(rigetti_ansatz(*args, **kwargs))
+#     cirq_ops.Depolarize(0.1, wires=range(num_wires))
     return qml.expval(qml.PauliZ(0))
     
 q = qml.QNode(
@@ -523,10 +538,14 @@ q.construct((X[0], opt_param), {'wires': range(num_wires)})
 # q(X[0], opt_param, wires=range(num_wires))
 print(dev.state)
 
-op = q.qtape.operations[4]
+ops = q.qtape.operations
+op = ops[4]
 
-op.__class__(*op.data, wires=op.wires)
+op.__class__(*op.data, wires=op.wires, inv=op.inverse)
 
+op.inverse
 
+print(dev.__class__(wires=dev.num_wires, shots=dev.shots))
+print(dev)
 
 
