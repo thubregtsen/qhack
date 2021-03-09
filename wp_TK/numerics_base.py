@@ -25,6 +25,7 @@ from pennylane import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
+from sklearn import datasets
 
 np.random.seed(42+1) # sorry, 42 did not build a nice dataset
 
@@ -145,10 +146,10 @@ def make_dataset(kernel, data_shape, data_domain=(0,1), N1=10, N2=10, lower_inte
 
 
 # +
-samples = 10
-features = 10
+samples = 20
+features = 2
 width = 5
-depth = 20
+depth = 4
 
 
 dev = qml.device("default.qubit", wires=width)
@@ -159,19 +160,10 @@ k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
 ## choose random params for the kernel, which will be our ideal parameters
 ideal_params = random_params(width, depth) 
 
-# -
 
-X, y = make_dataset(lambda x,y: k(x,y,ideal_params), (features,), N1 = 2*samples, N2=2*samples)
+# +
+#X, y = make_dataset(lambda x,y: k(x,y,ideal_params), (features,), N1 = 2*samples, N2=2*samples, lower_interval=(0., 0.45), upper_interval=(0.55,1.))
 #X_test, y_test = make_dataset(lambda x,y: k(x,y,ideal_params), (samples,), seed=X_train[0], N1 = samples, N2 = samples)
-
-
-
-# +
-#K = k.square_kernel_matrix(X_train, ideal_params)
-
-# +
-#K[:,0]
-#half_samples = int(samples/2)
 # -
 
 
@@ -180,29 +172,74 @@ X, y = make_dataset(lambda x,y: k(x,y,ideal_params), (features,), N1 = 2*samples
 
 
 
-X_train = np.vstack([X[:samples], X[2*samples:3*samples]])
-y_train = np.hstack([y[:samples], y[2*samples:3*samples]])
-X_test = np.vstack([X[samples:2*samples], X[3*samples:]])
-y_test = np.hstack([y[samples:2*samples], y[3*samples:]])
-#print(X_train)
-#print(y_train)
-#print(X_test)#
-#print(y_test)
 
 
-# evaluate the performance with random parameters for the kernel
-## choose random params for the kernel
-params = random_params(width, depth)
-## fit the SVM on the training data
-svm_untrained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
-## evaluate on the test set
-untrained_accuracy = accuracy(svm_untrained_kernel, X_test, y_test)
-print("without kernel training accuracy", untrained_accuracy)
+
+
+
+
+
+c_0[:,0]
+
+
+
+# +
+samples = 20 # number of samples to X_train[np.where(y=-1)], so total = 4*samples
+data = datasets.make_moons(n_samples=4*samples, shuffle=False, random_state=2)
+X = data[0]
+X = X + np.abs(np.min(X))
+X = X / np.max(X)
+y = data[1]
+
+
+false = X[np.where(y==0)]
+true = X[np.where(y==1)]
+np.random.shuffle(false)
+np.random.shuffle(true)
+
+X_train = np.vstack([false[:samples], true[:samples]])
+y_train = np.hstack([-np.ones((samples)), np.ones((samples))])
+X_test = np.vstack([false[samples:2*samples], true[samples:2*samples]])
+y_test = np.hstack([-np.ones((samples)), np.ones((samples))])
+
+print("The training data is as follows:")
+plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", marker=".", label="train, 1")
+plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", marker=".", label="train, -1")
+print("The test data is as follows:")
+plt.scatter(X_test[np.where(y_train == 1)[0],0], X_test[np.where(y_train == 1)[0],1], color="b", marker="x", label="test, 1")
+plt.scatter(X_test[np.where(y_train == -1)[0],0], X_test[np.where(y_train == -1)[0],1], color="r", marker="x", label="test, -1")
+plt.ylim([0, 1])
+plt.xlim([0, 1])
+plt.legend()
+# -
+
+
+
+
+
+
+
+
+
+
+
+
+
+for i in range(5):
+    # evaluate the performance with random parameters for the kernel
+    ## choose random params for the kernel
+    params = random_params(width, depth)
+    print(params)
+    ## fit the SVM on the training data
+    svm_untrained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
+    ## evaluate on the test set
+    untrained_accuracy = accuracy(svm_untrained_kernel, X_test, y_test)
+    print("without kernel training accuracy", untrained_accuracy)
 
 # evaluate the performance with trained parameters for the kernel
 ## train the kernel
-opt = qml.GradientDescentOptimizer(0.5)
-for i in range(500):
+opt = qml.GradientDescentOptimizer(2)
+for i in range(1000):
     subset = np.random.choice(list(range(len(X_train))), 4)
     params = opt.step(lambda _params: -k.target_alignment(X_train[subset], y_train[subset], _params), params)
     
@@ -212,19 +249,32 @@ for i in range(500):
 ## fit the SVM on the train set
 svm_trained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
 ## evaluate the accuracy on the test set
-trained_accuracy = accuracy(svm_untrained_kernel, X_test, y_test)
+trained_accuracy = accuracy(svm_trained_kernel, X_test, y_test)
 print("with kernel training accuracy on test", trained_accuracy)
 
-## sanity check, fit on train with IDEAL parameters
-svm_ideal_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_train, y_train)
-## evaluate on train
-ideal_accuracy = accuracy(svm_ideal_kernel, X_train, y_train)
-## should be high
-print("ideal accuracy", ideal_accuracy)
 
 
 
 
+# +
+precision = 5 # higher is preciser and more compute time
+    
+# create a dummy dataset that uniformly spans the input space
+X_dummy = []
+for i in range(-precision,precision):
+    for j in range(-precision,precision):
+        X_dummy.append([np.pi*i/precision,np.pi*j/precision])
+X_dummy = np.asarray(X_dummy)
+print(len(X_dummy))
+
+# predict (about a minute on my laptop)
+y_dummy = svm_trained_kernel.predict(X_dummy)
+
+# plot in order to observe the decision boundary
+plt.scatter(X_dummy[np.where(y_dummy == 1)[0],0], X_dummy[np.where(y_dummy == 1)[0],1], color="b")
+plt.scatter(X_dummy[np.where(y_dummy == -1)[0],0], X_dummy[np.where(y_dummy == -1)[0],1], color="r")
+
+# -
 
 
 
