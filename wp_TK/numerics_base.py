@@ -26,7 +26,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 
-np.random.seed(42)
+np.random.seed(42+1) # sorry, 42 did not build a nice dataset
 
 
 # +
@@ -49,12 +49,8 @@ def ansatz(x, params, wires):
         
 def random_params(num_wires, num_layers):
     return np.random.uniform(0, 2*np.pi, (num_layers, 2, num_wires))
-
-
 # -
 
-dev = qml.device("default.qubit", wires=5)
-wires = list(range(5))
 
 
 def accuracy(classifier, X, Y_target):
@@ -62,69 +58,70 @@ def accuracy(classifier, X, Y_target):
 
 
 # +
-# create dataset
-samples = 20
-features = 2
-## choose random input
-X = np.random.random((2*samples,features))
-## choose random params for the kernel, which will be our ideal parameters
-ideal_params = random_params(5, 6)
-# init the embedding kernel
-k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
+## create dataset
+#samples = 20
+#features = 2
+### choose random input
+#X = np.random.random((2*samples,features))
+### choose random params for the kernel, which will be our ideal parameters
+#ideal_params = random_params(5, 6)
+## init the embedding kernel
+#k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
 
-#generate train data
-X_train = X[:samples]
-## choose random y targets in a balanced way
-indices = np.arange(samples)
-np.random.shuffle(indices)
-indices = indices[:int(samples/2)] # uneven will get rounded
-y_init = np.ones((samples))
-y_init[indices] = -1
-## fit the SVM
-svm_init_train = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_train, y_init)
-## and determine what the SVM can actually predict with our ideal parameters
-y_train = svm_init_train.predict(X_train)
-# do it again
-svm_init_train = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_train, y_train)
-## and determine what the SVM can actually predict with our ideal parameters
-y_train = svm_init_train.predict(X_train)
+##generate train data
+#X_train = X[:samples]
+### choose random y targets in a balanced way
+#indices = np.arange(samples)
+#np.random.shuffle(indices)
+#indices = indices[:int(samples/2)] # uneven will get rounded
+#y_init = np.ones((samples))
+#y_init[indices] = -1
+### fit the SVM
+#svm_init_train = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_train, y_init)
+### and determine what the SVM can actually predict with our ideal parameters
+#y_train = svm_init_train.predict(X_train)
+## do it again
+#svm_init_train = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_train, y_train)
+### and determine what the SVM can actually predict with our ideal parameters
+#y_train = svm_init_train.predict(X_train)
 
-#generate test data
-X_test = X[samples:]
-## choose random y targets in a balanced way
-indices = np.arange(samples)
-np.random.shuffle(indices)
-indices = indices[:int(samples/2)] # uneven will get rounded
-y_init = np.ones((samples))
-y_init[indices] = -1
-## fit the SVM
-svm_init_test = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_test, y_init)
-## and determine what the SVM can actually predict with our ideal parameters
-y_test = svm_init_test.predict(X_test)
-# do it again
-svm_init_test = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_test, y_test)
-## and determine what the SVM can actually predict with our ideal parameters
-y_test = svm_init_test.predict(X_test)
+##generate test data
+#X_test = X[samples:]
+### choose random y targets in a balanced way
+#indices = np.arange(samples)
+#np.random.shuffle(indices)
+#indices = indices[:int(samples/2)] # uneven will get rounded
+#y_init = np.ones((samples))
+#y_init[indices] = -1
+### fit the SVM
+#svm_init_test = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_test, y_init)
+### and determine what the SVM can actually predict with our ideal parameters
+#y_test = svm_init_test.predict(X_test)
+## do it again
+#svm_init_test = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, ideal_params)).fit(X_test, y_test)
+### and determine what the SVM can actually predict with our ideal parameters
+#y_test = svm_init_test.predict(X_test)
 
-print("X_train:", X_train)
-print("y_train:", y_train)
-print("X_test:", X_test)
-print("y_test:", y_test)
+#print("X_train:", X_train)
+#print("y_train:", y_train)
+#print("X_test:", X_test)
+#print("y_test:", y_test)
 
-# sanity check
-ideal_accuracy_train = accuracy(svm_init_train, X_train, y_train)
-ideal_accuracy_test = accuracy(svm_init_test, X_test, y_test)
-print("these 2 values should be high", ideal_accuracy_train, ideal_accuracy_test)
+## sanity check
+#ideal_accuracy_train = accuracy(svm_init_train, X_train, y_train)
+#ideal_accuracy_test = accuracy(svm_init_test, X_test, y_test)
+#print("these 2 values should be high", ideal_accuracy_train, ideal_accuracy_test)
 
 # -
 def make_dataset(kernel, data_shape, data_domain=(0,1), N1=10, N2=10, lower_interval=(0.0, 0.3), upper_interval=(.7, .9), seed=None):
+    retry_limit = 100000
     if seed is None:
         seed = np.random.uniform(*data_domain, data_shape)
     
     friends = [seed] # add a seed point
     enemies = []
     it = 0
-    while (len(friends) < N1 or len(enemies) < N2) and it < 10000:
+    while (len(friends) < N1 or len(enemies) < N2) and it < retry_limit:
         datapoint = np.random.uniform(*data_domain, data_shape)
         
         val = kernel(friends[0], datapoint)
@@ -138,8 +135,8 @@ def make_dataset(kernel, data_shape, data_domain=(0,1), N1=10, N2=10, lower_inte
             
         it += 1
             
-    if it == 10000:
-        print("DIDN'T SUCCEED TO BUILD A DATASET IN 10000 ITERATIONS.")
+    if it == retry_limit:
+        print("DIDN'T SUCCEED TO BUILD A DATASET IN", retry_limit, "ITERATIONS.")
     
     print("\nTook ", it, " iterations.")
         
@@ -147,19 +144,55 @@ def make_dataset(kernel, data_shape, data_domain=(0,1), N1=10, N2=10, lower_inte
     return np.vstack([friends, enemies]), np.hstack([[1]*len(friends), [-1]*len(enemies)])            
 
 
-X_train, y_train = make_dataset(lambda x,y: k(x,y,ideal_params), (2,))
-X_test, y_test = make_dataset(lambda x,y: k(x,y,ideal_params), (2,), seed=X_train[0])
+# +
+samples = 10
+features = 10
+width = 5
+depth = 20
 
-K = k.square_kernel_matrix(X, ideal_params)
 
-K[:,0]
+dev = qml.device("default.qubit", wires=width)
+wires = list(range(width))
+
+# init the embedding kernel
+k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
+## choose random params for the kernel, which will be our ideal parameters
+ideal_params = random_params(width, depth) 
+
+# -
+
+X, y = make_dataset(lambda x,y: k(x,y,ideal_params), (features,), N1 = 2*samples, N2=2*samples)
+#X_test, y_test = make_dataset(lambda x,y: k(x,y,ideal_params), (samples,), seed=X_train[0], N1 = samples, N2 = samples)
 
 
+
+# +
+#K = k.square_kernel_matrix(X_train, ideal_params)
+
+# +
+#K[:,0]
+#half_samples = int(samples/2)
+# -
+
+
+
+
+
+
+
+X_train = np.vstack([X[:samples], X[2*samples:3*samples]])
+y_train = np.hstack([y[:samples], y[2*samples:3*samples]])
+X_test = np.vstack([X[samples:2*samples], X[3*samples:]])
+y_test = np.hstack([y[samples:2*samples], y[3*samples:]])
+#print(X_train)
+#print(y_train)
+#print(X_test)#
+#print(y_test)
 
 
 # evaluate the performance with random parameters for the kernel
 ## choose random params for the kernel
-params = random_params(5, 6)
+params = random_params(width, depth)
 ## fit the SVM on the training data
 svm_untrained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
 ## evaluate on the test set
