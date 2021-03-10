@@ -264,9 +264,25 @@ if plotting:
 # -
 
 
+#filename = "dataset_checkerboard.npy"
+#with open(filename, 'wb') as f:
+#    np.save(f, X_dummy)
+#    np.save(f, y_dummy)
+#    np.save(f, X_train)
+#    np.save(f, y_train)
+#    np.save(f, X_test)
+#    np.save(f, y_test)
 
 
-
+# +
+#with open(filename, 'rb') as f:
+#    X_dummy_c = np.load(f)
+#    y_dummy_c = np.load(f)
+#    X_train_c = np.load(f)
+#    y_train_c = np.load(f)
+#    X_test_c = np.load(f)
+#    y_test_c = np.load(f)
+# -
 
 
 
