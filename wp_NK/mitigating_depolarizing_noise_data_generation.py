@@ -271,11 +271,9 @@ def apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False
         _qnode = qml.QNode(_ansatz, _device)
         _qnode.construct(args_ansatz, kwargs_ansatz)
         ops = _qnode.qtape.operations
-        print(_qnode.qtape.graph.operations_in_order)
         # Apply the original operations and the noise_channel alternatingly.
         # does this add idling noise?
         for op in ops:
-            #print(op,'op')
             if op.inverse:
                 op.__class__(*op.data, wires=op.wires).inv()
             else:
@@ -302,13 +300,13 @@ class noisy_kernel(qml.kernels.EmbeddingKernel):
         self.noise_channel = noise_channel
         self.args_noise_channel = args_noise_channel
         self.noise_application_level = noise_application_level
-        print(self.noise_application_level)
+        
         if self.noise_application_level == 'per_gate':
             noisy_ansatz = apply_noise(ansatz, device, noise_channel, args_noise_channel)
-            #noisy_adj_ansatz = apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=True)
+            noisy_adj_ansatz = apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=True)
         elif self.noise_application_level == 'circuit_level':
             noisy_ansatz = apply_circuit_level_noise(ansatz, device, noise_channel, args_noise_channel)
-            #noisy_adj_ansatz = apply_circuit_level_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=True)
+            noisy_adj_ansatz = apply_circuit_level_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=True)
             
         def circuit(x1, x2, params, **kwargs):
             if self.noise_application_level == 'per_gate' or self.noise_application_level=='circuit_level':
@@ -336,7 +334,6 @@ class singly_qubit_noisy_kernel(qml.kernels.EmbeddingKernel):
     def __init__(self,ansatz, device, noise_probability, **kwargs):
         self.probs_qnode = None
         self.noise_probability = noise_probability
-        print(self.noise_probability)
 
         def circuit(x1, x2, params,**kwargs):
             ansatz(x1, params, **kwargs)
@@ -490,18 +487,16 @@ doubly_mitigated_matrices = {
 
 # # Save data
 
-# +
 mitigated_matrices_arrays = {}
 for ki in doubly_mitigated_matrices.keys():
     mitigated_matrices_arrays[ki] = []
     for valu in doubly_mitigated_matrices[ki]:
         mitigated_matrices_arrays[ki].append(valu.numpy())
-#print('change save file name!')
+print('change save file name!')
 np.save('doubly_mitigated_matrices.npy', mitigated_matrices_arrays,allow_pickle=True)
-
+print('change save file name!')
 np.save('kernel_matrices.npy', kernel_matrices, allow_pickle = True)
-#kernel_matrices
-# -
+
 # # Circuit Level Noise single qubit depolarizing channel
 
 def apply_circuit_level_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False):
@@ -542,17 +537,13 @@ def apply_circuit_level_noise(ansatz, device, noise_channel, args_noise_channel,
                 op.__class__(*op.data, wires=op.wires).inv()
             else:
                 op.__class__(*op.data, wires=op.wires)
-
-            #print(noise_channel,'noise_channel')
-            #print()
-            print(set(op.wires), active_qubits_in_timestep)
+            
             if set(op.wires).intersection(active_qubits_in_timestep):
                 noise_channel(*args_noise_channel, wires= device.wires)
                 active_qubits_in_timestep = set()
                 timestep +=1
             else:
                 active_qubits_in_timestep |= set(op.wires)
-        print(timestep, 'n timesteps, keeping track just for testing')
     return noisy_ansatz
 
 
@@ -571,13 +562,15 @@ rigetti_ansatz_mapped = lambda x, params: rigetti_ansatz(x @ W, params, range(nu
 #noise_channel = lambda p, wires: [cirq_ops.Depolarize(p, wires=wire) for wire in wires]
 from pennylane.operation import Operation
 
+from pennylane_cirq import ops
 
 
+noise_channel = lambda p, wires: [ops.Depolarize(p, wires=wire) for wire in wires]
 
-noise_channel_2_qubits = lambda p, wires: Depolarize(p, wires=wires)
-noise_channel_2_qubits.num_wires = 2
+#noise_channel_2_qubits = lambda p, wires: qml.Depolarize(p, wires=wires)
+#noise_channel_2_qubits.num_wires = 2
 
-dev = qml.device("default.mixed", wires=num_wires, shots=shots_device, analytic=analytic_device)
+dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
 k = noisy_kernel(
     rigetti_ansatz_mapped,
     dev,
