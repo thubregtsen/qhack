@@ -100,13 +100,21 @@ opt_param = np.tensor([[[3.16112692, 2.96383445, 6.42069708, 6.71137123, 2.55598
 # +
 def rigetti_layer(x, params, wires, i0=0, inc=1):
     i = i0
+    N = len(wires)
     for j, wire in enumerate(wires):
         qml.Hadamard(wires=[wire])
+    for j, wire in enumerate(wires):    
         qml.RZ(x[i % len(x)], wires=[wire])
         i += inc
+    for j, wire in enumerate(wires):
         qml.RY(params[0, j], wires=[wire])
         
-    qml.broadcast(unitary=qml.CRZ, pattern="ring", wires=wires, parameters=params[1])
+    for j in range(N//2):
+        qml.CRZ(params[1][2*j], wires=wires[2*j:2*(j+1)])
+    for j in range(N//2):
+        qml.CRZ(params[1][2*j+1], wires=[wires[2*j+1], wires[(2*j+2)%N]])
+    if N%2==1: # There is the "hop the boundary" gate missing if N is odd.
+        qml.CRZ(params[1][-1], wires=[wires[-1], wires[0]])
 
 
 @qml.template
@@ -167,78 +175,59 @@ def ionq_ansatz(x, params, wires, noise_probability):
 
 # # Simulate noise
 
-def add_noise_channel(operation_list, noise_channel):
-    """This is not tested yet! A less hacky version to add noise to the circuit, copied from qml.inv """
-    if isinstance(operation_list, qml.operation.Operation):
-        operation_list = [operation_list]
-    elif operation_list is None:
-        raise ValueError(
-            "None was passed as an argument to add_noise_channel. "
-            "This could happen if adding noise to a template without the template decorator is attempted."
-        )
-    elif callable(operation_list):
-        raise ValueError(
-            "A function was passed as an argument to add_noise_channel. "
-            "This could happen if adding noise to a template function is attempted. "
-            "Please use add_noise_channel on the function including its arguments, "
-            "as in add_noise_channel(template(args), channel)."
-        )
-#     elif isinstance(operation_list, qml.tape.QuantumTape):
-#         operation_list.inv()
-#         return operation_list
-    elif not isinstance(operation_list, Iterable):
-        raise ValueError("The provided operation_list is not iterable.")
+# ## Circuit Level Noise single qubit depolarizing channel
 
-    non_ops = [
-        (idx, op)
-        for idx, op in enumerate(operation_list)
-        if not isinstance(op, qml.operation.Operation)
-    ]
-
-    if non_ops:
-        string_reps = [" operation_list[{}] = {}".format(idx, op) for idx, op in non_ops]
-        raise ValueError(
-            "The given operation_list does not only contain Operations."
-            + "The following elements of the iterable were not Operations:"
-            + ",".join(string_reps)
-        )
-
-    if qml.tape_mode_active():
-        for op in operation_list:
-            try:
-                # remove the queued operation to add noise to
-                # from the existing queuing context
-                qml.tape.QueuingContext.remove(op)
-            except KeyError:
-                # operation to be inverted does not
-                # exist on the queuing context
-                pass
-
-        with qml.tape.QuantumTape() as tape:
-            for o in operation_list:
-                o.queue()
-                if o.inverse:
-                    o.inv()
-                (c.queue() for c in noise_channel(o.wires))
-
-        return tape
-
-    for op in operation_list:
-        qml.QueuingContext.remove(op)
+def apply_circuit_level_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False):
+    """Add noise channels after each gate of an ansatz
+    Args:
+      ansatz (qml.template): Ansatz to add noise to.
+      device (qml.Device): Device that the ansatz will be run on.
+      noise_channel (qml.Operation): Noise channel to apply after each gate;
+        Note that it should be applicable on a flexible number of qubits.
+      args_noise_channel (tuple): Arguments to pass to noise_channel.
+      adjoint (bool): Whether the adjoint/inverse of the circuits should be used.
+    Returns:
+      noisy_ansatz (qml.template): The ansatz with added noise.
+    """
     
-    all_ops = []
-    for op in operation_list:
-        qml.QueuingContext.append(op)
-        (qml.QueuingContext.append(c) for c in noise_channel(op.wires))
-        all_ops.append(op)
-        (all_ops.append(c) for c in noise_channel(op.wires))
+    # Dummy device to construct the qnode on.
+    # This is an additional safety measure to avoid changing the device state with the QNode.construct call.
+    _device = device.__class__(wires=device.wires)
+    @qml.template
+    def noisy_ansatz(*args_ansatz, **kwargs_ansatz):
+        
+        # Define a circuit with which a QNode can be instantiated.
+        def _ansatz(*args, **kwargs):
+            if adjoint:
+                qml.inv(ansatz(*args, **kwargs))
+            else:
+                ansatz(*args, **kwargs)
+            return qml.expval(qml.PauliZ(0))
 
-    return all_ops
+        # Instantiate and construct a qnode and extract the list of operations.
+        _qnode = qml.QNode(_ansatz, _device)
+        _qnode.construct(args_ansatz, kwargs_ansatz)
+        ops = _qnode.qtape.operations        
+#         print(ops)
+        timestep = 0
+        active_qubits_in_timestep = set()
+        for op in ops:
+            if op.inverse:
+                op.__class__(*op.data, wires=op.wires).inv()
+            else:
+                op.__class__(*op.data, wires=op.wires)
+            
+            if set(op.wires).intersection(active_qubits_in_timestep):
+#                 print('intersected -> next timestep')
+                noise_channel(*args_noise_channel, wires= device.wires)
+                active_qubits_in_timestep = set()
+                timestep +=1
+            active_qubits_in_timestep |= set(op.wires)
+#         print(timestep)
+    return noisy_ansatz
+
 
 # +
-
-
-
 def apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False):
     """Add noise channels after each gate of an ansatz
     Args:
@@ -309,19 +298,19 @@ class noisy_kernel(qml.kernels.EmbeddingKernel):
             noisy_adj_ansatz = apply_circuit_level_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=True)
             
         def circuit(x1, x2, params, **kwargs):
-            if self.noise_application_level == 'per_gate' or self.noise_application_level=='circuit_level':
+            if self.noise_application_level in ('per_gate', 'circuit_level'):
                 noisy_ansatz(x1, params, **kwargs)
-            
             else:
                 ansatz(x1, params, **kwargs)
             
             if self.noise_application_level == 'per_embedding':
                 self.noise_channel(*self.args_noise_channel, device.wires)
                 
-            if self.noise_application_level == 'per_gate':
+            if self.noise_application_level in ('per_gate', 'circuit_level'):
                 noisy_adj_ansatz(x2, params, **kwargs)
             else:
                 qml.inv(ansatz(x2, params, **kwargs))
+                
             if self.noise_application_level in ('per_embedding', 'global'):
                 self.noise_channel(*self.args_noise_channel, device.wires)
             
@@ -443,7 +432,7 @@ shots_device = 1 if shots==0 else shots # shots=0 raises an error...
 rigetti_ansatz_mapped = lambda x, params: rigetti_ansatz(x @ W, params, range(num_wires))
 noise_channel = lambda p, wires: [cirq_ops.Depolarize(p, wires=wire) for wire in wires]
     
-for noise_p in noise_probabilities:
+for noise_p in noise_probabilities[:1]:
     dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
     print(noise_p)
     k = noisy_kernel(
@@ -451,7 +440,7 @@ for noise_p in noise_probabilities:
         dev,
         noise_channel=noise_channel,
         args_noise_channel=(noise_p,),
-        noise_application_level='per_gate',
+        noise_application_level='circuit_level',
     )
 #     k = qml.kernels.EmbeddingKernel(rigetti_ansatz_mapped, dev) # Noise-free, for testing
     k_mapped = lambda x1, x2: k(x1, x2, opt_param)
@@ -496,57 +485,6 @@ print('change save file name!')
 np.save('doubly_mitigated_matrices.npy', mitigated_matrices_arrays,allow_pickle=True)
 print('change save file name!')
 np.save('kernel_matrices.npy', kernel_matrices, allow_pickle = True)
-
-# # Circuit Level Noise single qubit depolarizing channel
-
-def apply_circuit_level_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False):
-    """Add noise channels after each gate of an ansatz
-    Args:
-      ansatz (qml.template): Ansatz to add noise to.
-      device (qml.Device): Device that the ansatz will be run on.
-      noise_channel (qml.Operation): Noise channel to apply after each gate;
-        Note that it should be applicable on a flexible number of qubits.
-      args_noise_channel (tuple): Arguments to pass to noise_channel.
-      adjoint (bool): Whether the adjoint/inverse of the circuits should be used.
-    Returns:
-      noisy_ansatz (qml.template): The ansatz with added noise.
-    """
-    
-    # Dummy device to construct the qnode on.
-    # This is an additional safety measure to avoid changing the device state with the QNode.construct call.
-    _device = device.__class__(wires=device.wires)
-    @qml.template
-    def noisy_ansatz(*args_ansatz, **kwargs_ansatz):
-        
-        # Define a circuit with which a QNode can be instantiated.
-        def _ansatz(*args, **kwargs):
-            if adjoint:
-                qml.inv(ansatz(*args, **kwargs))
-            
-            ansatz(*args, **kwargs)
-            return qml.expval(qml.PauliZ(0))
-
-        # Instantiate and construct a qnode and extract the list of operations.
-        _qnode = qml.QNode(_ansatz, _device)
-        _qnode.construct(args_ansatz, kwargs_ansatz)
-        ops = _qnode.qtape.operations        
-        timestep = 0
-        active_qubits_in_timestep = set()
-        for op in ops:
-            if op.inverse:
-                op.__class__(*op.data, wires=op.wires).inv()
-            else:
-                op.__class__(*op.data, wires=op.wires)
-            
-            if set(op.wires).intersection(active_qubits_in_timestep):
-                noise_channel(*args_noise_channel, wires= device.wires)
-                active_qubits_in_timestep = set()
-                timestep +=1
-            else:
-                active_qubits_in_timestep |= set(op.wires)
-    return noisy_ansatz
-
-
 # +
 noise_p = 0.01
 kernel_matrices = []
@@ -584,8 +522,8 @@ k_mapped = lambda x1, x2: k(x1, x2, opt_param)
 K_raw1 = qml.kernels.square_kernel_matrix(X, k_mapped, assume_normalized_kernel=fix_diag) 
 # -
 
-print(K_raw1)
-
+print(np.diag(kernel_matrices[0]))
+# print(mitigated_matrices)
 
 # # Attempt at circuit level noise with two qubit depolarizing channel
 
