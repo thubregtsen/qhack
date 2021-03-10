@@ -235,8 +235,10 @@ def add_noise_channel(operation_list, noise_channel):
 
     return all_ops
 
-
 # +
+
+
+
 def apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False):
     """Add noise channels after each gate of an ansatz
     Args:
@@ -269,9 +271,11 @@ def apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False
         _qnode = qml.QNode(_ansatz, _device)
         _qnode.construct(args_ansatz, kwargs_ansatz)
         ops = _qnode.qtape.operations
-    
+        print(_qnode.qtape.graph.operations_in_order)
         # Apply the original operations and the noise_channel alternatingly.
+        # does this add idling noise?
         for op in ops:
+            #print(op,'op')
             if op.inverse:
                 op.__class__(*op.data, wires=op.wires).inv()
             else:
@@ -279,7 +283,6 @@ def apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False
             noise_channel(*args_noise_channel, wires=op.wires)
     
     return noisy_ansatz
-
 
 class noisy_kernel(qml.kernels.EmbeddingKernel):
     """adds noise to a QEK
@@ -299,15 +302,21 @@ class noisy_kernel(qml.kernels.EmbeddingKernel):
         self.noise_channel = noise_channel
         self.args_noise_channel = args_noise_channel
         self.noise_application_level = noise_application_level
+        print(self.noise_application_level)
         if self.noise_application_level == 'per_gate':
             noisy_ansatz = apply_noise(ansatz, device, noise_channel, args_noise_channel)
-            noisy_adj_ansatz = apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=True)
-
+            #noisy_adj_ansatz = apply_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=True)
+        elif self.noise_application_level == 'circuit_level':
+            noisy_ansatz = apply_circuit_level_noise(ansatz, device, noise_channel, args_noise_channel)
+            #noisy_adj_ansatz = apply_circuit_level_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=True)
+            
         def circuit(x1, x2, params, **kwargs):
-            if self.noise_application_level == 'per_gate':
+            if self.noise_application_level == 'per_gate' or self.noise_application_level=='circuit_level':
                 noisy_ansatz(x1, params, **kwargs)
+            
             else:
                 ansatz(x1, params, **kwargs)
+            
             if self.noise_application_level == 'per_embedding':
                 self.noise_channel(*self.args_noise_channel, device.wires)
                 
@@ -317,7 +326,7 @@ class noisy_kernel(qml.kernels.EmbeddingKernel):
                 qml.inv(ansatz(x2, params, **kwargs))
             if self.noise_application_level in ('per_embedding', 'global'):
                 self.noise_channel(*self.args_noise_channel, device.wires)
-
+            
             return qml.probs(wires=device.wires)
         
         self.probs_qnode = qml.QNode(circuit, device, **kwargs)
@@ -376,9 +385,9 @@ class depolarize_per_embedding_kernel(qml.kernels.EmbeddingKernel):
             return (1-lambda_) * qnode_ +lambda_/(2**device.num_wires)       
         
         self.probs_qnode = wrapped_qnode
+
+
 # -
-
-
 
 def mitigate_global_depolarization(kernel_matrix, num_wires, strategy='average', use_entries=None):
     """Estimate the noise rate of a global depolarizing noise model based on the diagonal entries of a kernel
@@ -492,6 +501,281 @@ np.save('doubly_mitigated_matrices.npy', mitigated_matrices_arrays,allow_pickle=
 
 np.save('kernel_matrices.npy', kernel_matrices, allow_pickle = True)
 #kernel_matrices
+# -
+# # Circuit Level Noise single qubit depolarizing channel
+
+def apply_circuit_level_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False):
+    """Add noise channels after each gate of an ansatz
+    Args:
+      ansatz (qml.template): Ansatz to add noise to.
+      device (qml.Device): Device that the ansatz will be run on.
+      noise_channel (qml.Operation): Noise channel to apply after each gate;
+        Note that it should be applicable on a flexible number of qubits.
+      args_noise_channel (tuple): Arguments to pass to noise_channel.
+      adjoint (bool): Whether the adjoint/inverse of the circuits should be used.
+    Returns:
+      noisy_ansatz (qml.template): The ansatz with added noise.
+    """
+    
+    # Dummy device to construct the qnode on.
+    # This is an additional safety measure to avoid changing the device state with the QNode.construct call.
+    _device = device.__class__(wires=device.wires)
+    @qml.template
+    def noisy_ansatz(*args_ansatz, **kwargs_ansatz):
+        
+        # Define a circuit with which a QNode can be instantiated.
+        def _ansatz(*args, **kwargs):
+            if adjoint:
+                qml.inv(ansatz(*args, **kwargs))
+            
+            ansatz(*args, **kwargs)
+            return qml.expval(qml.PauliZ(0))
+
+        # Instantiate and construct a qnode and extract the list of operations.
+        _qnode = qml.QNode(_ansatz, _device)
+        _qnode.construct(args_ansatz, kwargs_ansatz)
+        ops = _qnode.qtape.operations        
+        timestep = 0
+        active_qubits_in_timestep = set()
+        for op in ops:
+            if op.inverse:
+                op.__class__(*op.data, wires=op.wires).inv()
+            else:
+                op.__class__(*op.data, wires=op.wires)
+
+            #print(noise_channel,'noise_channel')
+            #print()
+            print(set(op.wires), active_qubits_in_timestep)
+            if set(op.wires).intersection(active_qubits_in_timestep):
+                noise_channel(*args_noise_channel, wires= device.wires)
+                active_qubits_in_timestep = set()
+                timestep +=1
+            else:
+                active_qubits_in_timestep |= set(op.wires)
+        print(timestep, 'n timesteps, keeping track just for testing')
+    return noisy_ansatz
+
+
+# +
+noise_p = 0.01
+kernel_matrices = []
+fix_diag = False # Compute the diagonal entries
+shots_device = 1 if shots==0 else shots # shots=0 raises an error...
+import pyquil
+p=0.01
+no_error_prob = [1-p]
+error_prob = [p/15]*15
+probabilities = no_error_prob + error_prob
+kraus_operators_depolarizing = pyquil.noise.pauli_kraus_map(probabilities)
+rigetti_ansatz_mapped = lambda x, params: rigetti_ansatz(x @ W, params, range(num_wires))
+#noise_channel = lambda p, wires: [cirq_ops.Depolarize(p, wires=wire) for wire in wires]
+from pennylane.operation import Operation
+
+
+
+
+noise_channel_2_qubits = lambda p, wires: Depolarize(p, wires=wires)
+noise_channel_2_qubits.num_wires = 2
+
+dev = qml.device("default.mixed", wires=num_wires, shots=shots_device, analytic=analytic_device)
+k = noisy_kernel(
+    rigetti_ansatz_mapped,
+    dev,
+    noise_channel=noise_channel,
+    args_noise_channel=(noise_p,),
+    noise_application_level='circuit_level',
+)
+#     k = qml.kernels.EmbeddingKernel(rigetti_ansatz_mapped, dev) # Noise-free, for testing
+k_mapped = lambda x1, x2: k(x1, x2, opt_param)
+
+K_raw1 = qml.kernels.square_kernel_matrix(X, k_mapped, assume_normalized_kernel=fix_diag) 
+# -
+
+print(K_raw1)
+
+
+# # Attempt at circuit level noise with two qubit depolarizing channel
+
+def apply_circuit_level_two_qubit_noise(ansatz, device, noise_channel, args_noise_channel, adjoint=False):
+    """Add noise channels after each gate of an ansatz
+    Args:
+      ansatz (qml.template): Ansatz to add noise to.
+      device (qml.Device): Device that the ansatz will be run on.
+      noise_channel (qml.Operation): Noise channel to apply after each gate;
+        Note that it should be applicable on a flexible number of qubits.
+      args_noise_channel (tuple): Arguments to pass to noise_channel.
+      adjoint (bool): Whether the adjoint/inverse of the circuits should be used.
+    Returns:
+      noisy_ansatz (qml.template): The ansatz with added noise.
+    """
+    
+    # Dummy device to construct the qnode on.
+    # This is an additional safety measure to avoid changing the device state with the QNode.construct call.
+    _device = device.__class__(wires=device.wires)
+    print('testing')
+    @qml.template
+    def noisy_ansatz(*args_ansatz, **kwargs_ansatz):
+        
+        # Define a circuit with which a QNode can be instantiated.
+        def _ansatz(*args, **kwargs):
+            #if adjoint:
+            #    qml.inv(ansatz(*args, **kwargs))
+            
+            ansatz(*args, **kwargs)
+            return qml.expval(qml.PauliZ(0))
+
+        # Instantiate and construct a qnode and extract the list of operations.
+        _qnode = qml.QNode(_ansatz, _device)
+        _qnode.construct(args_ansatz, kwargs_ansatz)
+        ops = _qnode.qtape.operations
+        
+        #print(_qnode.qtape.graph.operations_in_order)
+        # Apply the original operations and the noise_channel alternatingly.
+        # does this add idling noise?
+        
+        for op in ops:
+            #if op.inverse:
+              #  op.__class__(*op.data, wires=op.wires).inv()
+            #else:
+            op.__class__(*op.data, wires=op.wires)
+
+            #print(noise_channel,'noise_channel')
+            #if set(op.wires).intersection(active_qubits_in_timestep):
+                
+            #else:
+            #    active_qubits_in_timestep.union(op.wires)
+            if len(op.wires) == 2:
+                noise_channel[1](*args_noise_channel, wires= op.wires)
+            else:
+                noise_channel[0](*args_noise_channel, wires= op.wires)
+        
+        
+    return noisy_ansatz
+
+
+# +
+noise_p = 0.01
+kernel_matrices = []
+fix_diag = False # Compute the diagonal entries
+shots_device = 1 if shots==0 else shots # shots=0 raises an error...
+import pyquil
+p=0.01
+no_error_prob = [1-p]
+error_prob = [p/15]*15
+probabilities = no_error_prob + error_prob
+kraus_operators_depolarizing = pyquil.noise.pauli_kraus_map(probabilities)
+rigetti_ansatz_mapped = lambda x, params: rigetti_ansatz(x @ W, params, range(num_wires))
+#noise_channel = lambda p, wires: [cirq_ops.Depolarize(p, wires=wire) for wire in wires]
+from pennylane.operation import Operation
+
+
+
+
+noise_channel_2_qubits = lambda p, wires: Depolarize(p, wires=wires)
+noise_channel_2_qubits.num_wires = 2
+
+dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
+k = noisy_kernel(
+    rigetti_ansatz_mapped,
+    dev,
+    noise_channel=[noise_channel, noise_channel_2_qubits],
+    args_noise_channel=(noise_p,),
+    noise_application_level='circuit_level',
+)
+#     k = qml.kernels.EmbeddingKernel(rigetti_ansatz_mapped, dev) # Noise-free, for testing
+k_mapped = lambda x1, x2: k(x1, x2, opt_param)
+
+K_raw1 = qml.kernels.square_kernel_matrix(X, k_mapped, assume_normalized_kernel=fix_diag) 
+
+# +
+noise_p = 0.01
+kernel_matrices = []
+fix_diag = False # Compute the diagonal entries
+shots_device = 1 if shots==0 else shots # shots=0 raises an error...
+#dev = qml.device("default.qubit", wires=num_wires, shots=shots_device, analytic=analytic_device)
+import pyquil
+p=0.01
+no_error_prob = [1-p]
+error_prob = [p/15]*15
+probabilities = no_error_prob + error_prob
+k_matrices = pyquil.noise.pauli_kraus_map(probabilities)
+
+rigetti_ansatz_mapped = lambda x, params: rigetti_ansatz(x @ W, params, range(num_wires))
+noise_channel = lambda p, wires: [qml.DepolarizingChannel(p, wires=wire) for wire in wires]
+
+noise_channel_2_qubits = lambda p,wires: qml.QubitChannel(pyquil.noise.pauli_kraus_map([1-p]+[p/15]*15), wires=wires)
+
+#noise_channel = lambda p, wires: [TwoQubitDepolarizingChannel(p, wires=[0,1]) for wire in wires]
+dev = qml.device("default.mixed", wires=num_wires, shots=shots_device, analytic=analytic_device)
+k = noisy_kernel(
+    rigetti_ansatz_mapped,
+    dev,
+    noise_channel=[noise_channel, noise_channel_2_qubits],
+    args_noise_channel=(noise_p,),
+    noise_application_level='circuit_level',
+)
+#     k = qml.kernels.EmbeddingKernel(rigetti_ansatz_mapped, dev) # Noise-free, for testing
+k_mapped = lambda x1, x2: k(x1, x2, opt_param)
+
+K_raw1 = qml.kernels.square_kernel_matrix(X, k_mapped, assume_normalized_kernel=fix_diag) 
+#print(noise_channel(0,),'noise channel')
+
+# +
+from pennylane.operation import AnyWires, Channel
+
+class TwoQubitDepolarizingChannel(Channel):
+    r"""DepolarizingChannel(p, wires)
+    Single-qubit symmetrically depolarizing error channel.
+
+    This channel is modelled by the following Kraus matrices:
+
+    .. math::
+        K_0 = \sqrt{1-p} \begin{bmatrix}
+                1 & 0 \\
+                0 & 1
+                \end{bmatrix}
+
+    .. math::
+        K_1 = \sqrt{p/3}\begin{bmatrix}
+                0 & 1  \\
+                1 & 0
+                \end{bmatrix}
+
+    .. math::
+        K_2 = \sqrt{p/3}\begin{bmatrix}
+                0 & -i \\
+                i & 0
+                \end{bmatrix}
+
+    .. math::
+        K_3 = \sqrt{p/3}\begin{bmatrix}
+                1 & 0 \\
+                0 & -1
+                \end{bmatrix}
+
+    where :math:`p \in [0, 1]` is the depolarization probability and is equally
+    divided in the application of all Pauli operations.
+
+    **Details:**
+
+    * Number of wires: 1
+    * Number of parameters: 1
+
+    Args:
+        p (float): Each Pauli gate is applied with probability :math:`\frac{p}{3}`
+        wires (Sequence[int] or int): the wire the channel acts on
+    """
+    num_params = 1
+    num_wires = 2
+    par_domain = "R"
+    grad_method = "A"
+    grad_recipe = ([[1, 0, 1], [-1, 0, 0]],)
+
+    @classmethod
+    def _kraus_matrices(cls, *params):
+        p = params[0]
+        K0 = np.identity(4)
+        return [K0] * 16
 # -
 
 
