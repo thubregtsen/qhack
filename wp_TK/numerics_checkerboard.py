@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 from sklearn import datasets
 
-np.random.seed(21) # sorry, 42 did not build a nice dataset
+np.random.seed(42+1) # sorry, 42 did not build a nice dataset
 
 
 # +
@@ -59,51 +59,78 @@ def accuracy(classifier, X, Y_target):
 
 
 
+def make_dataset(kernel, data_shape, data_domain=(0,1), N1=10, N2=10, lower_interval=(0.0, 0.3), upper_interval=(.7, .9), seed=None):
+    retry_limit = 100000
+    if seed is None:
+        seed = np.random.uniform(*data_domain, data_shape)
+    
+    friends = [seed] # add a seed point
+    enemies = []
+    it = 0
+    while (len(friends) < N1 or len(enemies) < N2) and it < retry_limit:
+        datapoint = np.random.uniform(*data_domain, data_shape)
+        
+        val = kernel(friends[0], datapoint)
+        
+        if val >= upper_interval[0] and val <= upper_interval[1] and len(friends) < N1:
+            print("Friend!", end=" ")
+            friends.append(datapoint)
+        elif val >= lower_interval[0] and val <= lower_interval[1] and len(enemies) < N2:
+            print("Foe!", end=" ")
+            enemies.append(datapoint)
+            
+        it += 1
+            
+    if it == retry_limit:
+        print("DIDN'T SUCCEED TO BUILD A DATASET IN", retry_limit, "ITERATIONS.")
+    
+    print("\nTook ", it, " iterations.")
+        
+    # returns X and y
+    return np.vstack([friends, enemies]), np.hstack([[1]*len(friends), [-1]*len(enemies)])            
+
 
 # +
 features = 2
 width = 5
-depth = 16
+depth = 8 
 
-# init device
+
 dev = qml.device("default.qubit", wires=width)
 wires = list(range(width))
 
 # init the embedding kernel
 k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
+
+
+
 # -
 
 
 # +
-dim = 5
+dim = 4
 
-# generate the data
 init_false = False
 init_true = False
-
-# for every cluster we create
-for i in range(8):
-    # choose a location for the cluster, make sure it doesn't run of the screen
-    pos_x, pos_y = np.random.random((2))*((2*dim-2)/(2*dim))+(1/(2*dim))
-    # create data around the cluster
-    data = (np.random.random((40,2))-0.5)/(2*dim)
-    # add the offset for the location
-    data[:,0] += pos_x
-    data[:,1] += pos_y
-    # store as either +1 or -1 data
-    if (i%2 == 0):
-        if init_false == False:
-            false = data
-            init_false = True
+for i in range(dim):
+    for j in range(dim):
+        pos_x = i
+        pos_y = j
+        data = (np.random.random((40,2))-0.5)/(2*dim)
+        data[:,0] += (2*pos_x+1)/(2*dim)
+        data[:,1] += (2*pos_y+1)/(2*dim)
+        if (i%2 == 0 and j%2 == 0) or (i%2 == 1 and j%2 == 1):
+            if init_false == False:
+                false = data
+                init_false = True
+            else:
+                false = np.vstack([false, data])
         else:
-            false = np.vstack([false, data])
-    else:
-        if init_true == False:
-            true = data
-            init_true = True
-        else:
-            true = np.vstack([true, data])
-# the following can be unbalanced, will be resolved in the next section
+            if init_true == False:
+                true = data
+                init_true = True
+            else:
+                true = np.vstack([true, data])
 print(false.shape)
 print(true.shape)
 # -
@@ -111,27 +138,25 @@ print(true.shape)
 
 
 
-
-
-
-
-
-
-
-
 # +
-samples = 30 # both train and test will have samples+samples in total, in a balanced way
+samples = 30 # number of samples to X_train[np.where(y=-1)], so total = 4*samples
+#data = datasets.make_moons(n_samples=4*samples, shuffle=False, random_state=42, noise=0.2)
+#X = data[0]
+#X = X + np.abs(np.min(X))
+#X = X / np.max(X)
+#y = data[1]
 
-# shuffle the data within each set
+
+#false = c_0
+#true = c_1
 np.random.shuffle(false)
 np.random.shuffle(true)
-# select the number of samples that we need in a balanced way
+
 X_train = np.vstack([false[:samples], true[:samples]])
 y_train = np.hstack([-np.ones((samples)), np.ones((samples))])
 X_test = np.vstack([false[samples:2*samples], true[samples:2*samples]])
 y_test = np.hstack([-np.ones((samples)), np.ones((samples))])
 
-# plot for visual inspection
 print("The training data is as follows:")
 plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", marker=".", label="train, 1")
 plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", marker=".", label="train, -1")
@@ -141,14 +166,13 @@ plt.scatter(X_test[np.where(y_train == -1)[0],0], X_test[np.where(y_train == -1)
 plt.ylim([0, 1])
 plt.xlim([0, 1])
 plt.legend()
-plt.show()
 # -
 
-# make various runs with random parameters to see what range the results can be in
 acc_log = []
 params_log = []
+# evaluate the performance with random parameters for the kernel
+## choose random params for the kernel
 for i in range(5):
-    ## choose random params for the kernel
     params = random_params(width, depth)
     #print(params)
     ## fit the SVM on the training data
@@ -162,6 +186,8 @@ print("going with", acc_log[np.argmin(np.asarray(acc_log))])
 params = params_log[np.argmin(np.asarray(acc_log))]
 
 print("Untrained accuracies:", acc_log)
+
+params = params_log[np.argmin(np.asarray(acc_log))]
 
 
 
@@ -192,9 +218,6 @@ if plotting:
     plt.legend()
 
 
-
-
-
 # evaluate the performance with trained parameters for the kernel
 ## train the kernel
 opt = qml.GradientDescentOptimizer(2)
@@ -204,6 +227,7 @@ for i in range(1000):
     
     if (i+1) % 50 == 0:
         print("Step {} - Alignment on train = {:.3f}".format(i+1, k.target_alignment(X_train, y_train, params)))
+
 # +
 ## fit the SVM on the train set
 svm_trained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
@@ -236,23 +260,8 @@ if plotting:
     plt.xlim([0, 1])
     plt.legend()
 
+
 # -
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
