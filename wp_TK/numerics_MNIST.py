@@ -265,6 +265,20 @@ plt.xlim(0,1)
 plt.ylim(0,1)
 plt.show
 
+# currently slightly cheating
+sample_size = 10
+zero_indices = np.random.randint(low=0, high=len(distinct_zeros[0]), size=sample_size)
+not_zero_indices = np.random.randint(low=0, high=len(not_zeros[0]), size=sample_size)
+X_test = np.vstack([distinct_zeros.T[zero_indices], not_zeros.T[not_zero_indices]])
+y_test = np.hstack([np.ones((sample_size)), -np.ones((sample_size))])
+plt.scatter(X_train[np.where(y_test==1)][:,0], X_train[np.where(y_train==1)][:,1], label="zero")
+plt.scatter(X_train[np.where(y_tes==-1)][:,0], X_train[np.where(y_train==-1)][:,1], label="not zero")
+plt.legend()
+plt.xlim(0,1)
+plt.ylim(0,1)
+plt.show()
+
+
 
 
 acc_log = []
