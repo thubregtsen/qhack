@@ -29,7 +29,7 @@ from sklearn import datasets
 import matplotlib as mpl
 from keras.datasets import mnist
 
-np.random.seed(42)
+np.random.seed(42+42)
 
 
 # +
@@ -63,8 +63,8 @@ def accuracy(classifier, X, Y_target):
 
 # +
 features = 2
-width = 10
-depth = 320 
+width = 4
+depth = 16 
 
 
 dev = qml.device("default.qubit", wires=width)
@@ -75,57 +75,68 @@ k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
 # +
 (train_X, train_y), (test_X, test_y) = mnist.load_data()
 
-sample_size = 1000 # will be x+x
+sample_size = 1000 # leave high here, change in next step
 
-train_idx0 = np.argwhere(train_y == 0)[:4*sample_size]
+train_idx0 = np.argwhere(train_y == 0)[:sample_size]
 train_X0 = train_X[train_idx0].squeeze() * np.pi/255
 
-train_idx1 = np.argwhere(train_y == 1)[:4*sample_size]
+train_idx1 = np.argwhere(train_y == 1)[:sample_size]
 train_X1 = train_X[train_idx1].squeeze() * np.pi/255
 
-X = np.vstack([train_X0, train_X1])
-y = np.hstack([[-1]*sample_size, [1]*sample_size])
+#X = np.vstack([train_X0, train_X1])
+#y = np.hstack([[-1]*sample_size, [1]*sample_size])
 
 X_train = np.vstack([train_X0[:sample_size], train_X1[:sample_size]])
-X_test = np.vstack([train_X0[2*sample_size:3*sample_size], train_X1[2*sample_size:3*sample_size]])
 y_train = np.hstack([[-1]*sample_size, [1]*sample_size])
+
+test_idx0 = np.argwhere(test_y == 0)[:sample_size]
+test_X0 = test_X[test_idx0].squeeze() * np.pi/255
+
+test_idx1 = np.argwhere(test_y == 1)[:sample_size]
+test_X1 = test_X[test_idx1].squeeze() * np.pi/255
+
+X_test = np.vstack([test_X0[:sample_size], test_X1[:sample_size]])
 y_test = np.hstack([[-1]*sample_size, [1]*sample_size])
 
+# -
+
+len(X_test)
+
 # +
-gs = mpl.gridspec.GridSpec(2, sample_size) 
+gs = mpl.gridspec.GridSpec(2, 10) 
 fig = plt.figure(figsize=(8,2))
 
 print(y_train)
-for j in range(sample_size):
+for j in range(10):
     ax=plt.subplot(gs[0, j])
     plt.imshow(X_train[j], cmap=plt.get_cmap('gray'))
     ax.axis("off")
     
     ax=plt.subplot(gs[1, j])
-    plt.imshow(X_train[sample_size+j], cmap=plt.get_cmap('gray'))
+    plt.imshow(X_train[5+j], cmap=plt.get_cmap('gray'))
     ax.axis("off")    
 plt.show()
 
 print(y_test)
-gs = mpl.gridspec.GridSpec(2, sample_size) 
+gs = mpl.gridspec.GridSpec(2, 10) 
 fig = plt.figure(figsize=(8,2))
-for j in range(sample_size):
+for j in range(10):
     ax=plt.subplot(gs[0, j])
     plt.imshow(X_test[j], cmap=plt.get_cmap('gray'))
     ax.axis("off")
     
     ax=plt.subplot(gs[1, j])
-    plt.imshow(X_test[sample_size+j], cmap=plt.get_cmap('gray'))
+    plt.imshow(X_test[5+j], cmap=plt.get_cmap('gray'))
     ax.axis("off")  
 plt.show()
 # -
 
 
-np.asarray([x.flatten() for x in X_train]).shape
 
-X_train[sample_size+2][5]
 
-np.where(X_train[sample_size+2]!=0)
+
+
+
 
 # +
 x_0, x_1 = np.where(train_X0[0]>=0.95)
@@ -279,7 +290,7 @@ params = params_log[np.argmin(np.asarray(acc_log))]
 
 
 
-plotting =  False
+plotting =  True
 if plotting:
     precision = 20 # higher is preciser and more compute time
 
