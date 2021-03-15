@@ -38,11 +38,17 @@ from dill import load
 # # Load raw kernel matrices
 
 # +
-filename = 'data/kernel_matrices_2d_sweep.dill'
+filename = 'data/kernel_matrices_2d_sweep_more_noise.dill'
 # fun = nk_lib.closest_psd_matrix
 num_wires = 5
 
 kernel_matrices = load(open(filename, 'rb+'))
+# kernel_matrices = {}
+
+previous_filename = 'data/kernel_matrices_2d_sweep.dill'
+previous_kernel_matrices = load(open(previous_filename, 'rb+'))
+
+kernel_matrices = {**previous_kernel_matrices, **kernel_matrices}
 
 # tensor_mitigated_matrices = np.load(f'mitigated_matrices_{file_name_add}.npy', allow_pickle=True)
 # mitigated_matrices = tensor_mitigated_matrices.numpy()
@@ -58,6 +64,8 @@ kernel_matrices = load(open(filename, 'rb+'))
 pipelines = {
     'None': [],
     'sdp': [(nk_lib.closest_psd_matrix, {'fix_diagonal': True})],
+    'displace': [(qml.kernels.postprocessing.displace_matrix, {})],
+    'thresh': [(qml.kernels.postprocessing.threshold_matrix, {})],
     'single': [(nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'average', 'use_entries': (0,)})],
     'avg': [(nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'average', 'use_entries': None})],
     'avg_sdp': [
@@ -123,8 +131,8 @@ for pipeline_name, pipeline in pipelines.items():
                     'base_noise_rate': key[0],
                     'shots': key[1],
                     'pipeline': pipeline_name,
-                    'mitigated_kernel_matrix': K,
-                    'alignment': align,
+#                     'mitigated_kernel_matrix': K,
+                    'alignment': np.real(align),
                     'shots_sort': key[1] if key[1]>0 else int(1e10),
                 }),
             ignore_index=True,
@@ -171,18 +179,18 @@ def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
 
 # +
 
-shots = 0
+# shots = 0
 
-for key, mats in mitigated_matrices.items():
-#     print(key,mats)
-    show_mats = [mat for k, mat in sorted(list(mats.items()), key=lambda x: x[0][0]) if shots in k]
-    if len(mats)>5:
-        show_mats = show_mats[::len(show_mats)//5]
-    else:
-        show_mats = show_mats
-#     print(show_mats)
-#     show_mats = [mat for mat in show_mats if mat is not None]
-    nk_lib.visualize_kernel_matrices(show_mats, draw_last_cbar=True)
+# for key, mats in mitigated_matrices.items():
+# #     print(key,mats)
+#     show_mats = [mat for k, mat in sorted(list(mats.items()), key=lambda x: x[0][0]) if shots in k]
+#     if len(mats)>5:
+#         show_mats = show_mats[::len(show_mats)//5]
+#     else:
+#         show_mats = show_mats
+# #     print(show_mats)
+# #     show_mats = [mat for mat in show_mats if mat is not None]
+#     nk_lib.visualize_kernel_matrices(show_mats, draw_last_cbar=True)
 
 # +
 # np.set_printoptions(precision=5)
@@ -202,9 +210,9 @@ for key, mats in mitigated_matrices.items():
 #         alignment[i,j] = qml.kernels.cost_functions._matrix_inner_product(mat, kernel_matrices[0])/np.linalg.norm(mat, 'fro')/ norm0
 # print(distances)
 # print(violation)
+# -
 
-# +
-# df
+df
 
 # +
 # # %matplotlib notebook
@@ -230,7 +238,9 @@ figsize = (9, 3*len(pipelines))
 fig, ax = plt.subplots(len(pipelines), 1, figsize=figsize)
 titles = {
     'None': "No Postprocessing",
-    'sdp': "Best Regularization",
+    'sdp': "Best Regularization", # SDP is best of the three regularization methods alone.
+    'displace': "Displacing", # Worse average than SDP alone
+    'thresh': "Thresholding", # Worse worst output than SDP alone
     'single': "Single Rate Mitigation (Single)",
     'avg': "Single Rate Mitigation (Average)",
     'avg_sdp': "Single Rate Mitigation (Average) and Regularization",
@@ -245,13 +255,14 @@ print(f"Worst performances:")
 for i, pipeline_name in enumerate(pipelines.keys()):
     subdf = df.loc[df['pipeline']==pipeline_name]
     subdf_pivot = subdf.pivot('shots_sort', 'base_noise_rate', 'alignment')
-    nc_df = subdf[subdf['alignment'].abs()>0.0001]
-    min_not_crashed = np.min(nc_df['alignment'])
-    mnc_df = nc_df.loc[[nc_df['alignment'].idxmin()]]
-
+    
+    min_alignment = np.min(subdf['alignment'])
+    min_alignment_finite = np.min(subdf.loc[subdf['shots']>0]['alignment'])
+    min_df = subdf.loc[[subdf['alignment'].idxmin()]]
+    min_finite_df = subdf.loc[[subdf.loc[subdf['shots']>0]['alignment'].idxmin()]]
     plot = sns.heatmap(data=subdf_pivot,
                 vmin=-1,
-                vmax=1,
+                vmax=1+1e-5,
                 cbar=True,
                 ax=ax[i],
                 linewidth=0.2,
@@ -263,28 +274,40 @@ for i, pipeline_name in enumerate(pipelines.keys()):
         ax[i].set_xticks([])
         ax[i].set_xlabel('')
     else:
+        
+        print(ax[i].get_xticklabels())
+        ax[i].set_xticklabels([ticklabel.get_text()[:4] for ticklabel in ax[i].get_xticklabels()])
         ax[i].set_xticks(ax[i].get_xticks()[::5])
         plt.setp( ax[i].xaxis.get_majorticklabels(), rotation=0 )
         ax[i].set_xlabel('Base noise rate $\\lambda_0$')
     plt.setp( ax[i].yaxis.get_majorticklabels(), rotation=0 )
     ax[i].set_ylabel('# Measurements')
     ax[i].set_title(titles[pipeline_name])
+    
     cbar = ax[i].collections[0].colorbar
-    tick_col = 'k' if min_not_crashed > 0.2 else '1'
-    cbar.ax.hlines(min_not_crashed, -1.2, 1.2, color=tick_col)
-    cbar.ax.text(-1.5, min_not_crashed, f"{min_not_crashed:.2f}", horizontalalignment='right', verticalalignment='center')
-    shot_coord = np.log10(mnc_df['shots_sort'].item()) if mnc_df['shots_sort'].item() <1e6 else 5
-    ax[i].plot((mnc_df['base_noise_rate'].item()/0.002)+0.5, shot_coord-0.5, marker='x', color=tick_col)
-#     ax[i].text(0.0, 4.5, f'Minimal alignment: {min_not_crashed:.3f}')
+    # Tick 1
+    tick_col = 'k' if min_alignment > 0.2 else '1'
+    cbar.ax.hlines(min_alignment, -1.2, 1.2, color=tick_col)
+    cbar.ax.text(-1.5, min_alignment, f"{min_alignment:.2f}", horizontalalignment='right', verticalalignment='center')
+    shot_coord = np.log10(min_df['shots_sort'].item()) if min_df['shots_sort'].item() <1e6 else 5
+    ax[i].plot((min_df['base_noise_rate'].item()/0.002)+0.5, shot_coord-0.5, marker='x', color=tick_col)
+    if min_df['shots'].item() == 0:
+        # Tick 2
+        tick_col = 'k' if min_alignment_finite > 0.2 else '1'
+        cbar.ax.hlines(min_alignment_finite, -1.2, 1.2, color=tick_col)
+        cbar.ax.text(-1.5, min_alignment_finite, f"{min_alignment_finite:.2f}", horizontalalignment='right', verticalalignment='center')
+        shot_coord = np.log10(min_finite_df['shots_sort'].item()) if min_finite_df['shots_sort'].item() <1e6 else 5
+        ax[i].plot((min_finite_df['base_noise_rate'].item()/0.002)+0.5, shot_coord-0.5, marker='x', color=tick_col)
+#     ax[i].text(0.0, 4.5, f'Minimal alignment: {min_alignment:.3f}')
+#     print(np.min(subdf['alignment']), np.max(subdf['alignment']))
 
-    print(f"{titles[pipeline_name]} - {min_not_crashed}")
+    print(f"{titles[pipeline_name]} - {min_alignment}")
 plt.tight_layout()
-plt.savefig('2d_sweep_mitigation_and_regularization.pdf')
+plt.savefig('2d_sweep_mitigation_and_regularization_more_noise.pdf')
 # -
 
 
-a = ax[i]
-print(a.collections[0].__dict__)
+df['base_noise_rate']
 
 # +
 # mitigated_matrices = {

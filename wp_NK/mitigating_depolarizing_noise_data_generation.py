@@ -368,10 +368,10 @@ rigetti_ansatz_mapped = lambda x, params: rigetti_ansatz(x @ W, params, range(nu
 
 shot_numbers = [10, 100, 1000, 10000, 0]
 # shot_numbers = [10]
-noise_probabilities = np.arange(0, 0.05, 0.002)
+noise_probabilities = np.arange(0.05, 0.1, 0.002)
 
 kernel_matrices = {}
-for noise_p, shots in tqdm.tqdm(product(noise_probabilities, shot_numbers)):
+for noise_p, shots in tqdm.notebook.tqdm(product(noise_probabilities, shot_numbers)):
     analytic_device = (shots==0)
     shots_device = 1 if shots==0 else shots # shots=0 raises an error...
 
@@ -429,7 +429,7 @@ for noise_p, shots in tqdm.tqdm(product(noise_probabilities, shot_numbers)):
 # # Save data
 
 # +
-filename = f'data/kernel_matrices_2d_sweep.dill'
+filename = f'data/kernel_matrices_2d_sweep_more_noise.dill'
 pure_np_kernel_matrices = {key: pure_np.asarray(mat) for key, mat in kernel_matrices.items()}
 dump(pure_np_kernel_matrices, open(filename, 'wb+'))
 # np.save(f'kernel_matrices_{file_name_add}.npy', kernel_matrices, allow_pickle = True)
