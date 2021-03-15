@@ -15,6 +15,7 @@
 
 # +
 import pennylane as qml
+import numpy as pure_np
 from pennylane import numpy as np
 
 
@@ -29,25 +30,55 @@ import matplotlib.pyplot as plt
 
 from pennylane_cirq import ops as cirq_ops
 import nk_lib
-import rsmf
-formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
+# import rsmf
+from dill import load
+# formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
 # -
 
-# # Load data
-# don't forget to change the file name
+# # Load raw kernel matrices
 
 # +
-file_name_add = 'analytic'
-fun = nk_lib.closest_psd_matrix
+filename = 'data/kernel_matrices_2d_sweep.dill'
+# fun = nk_lib.closest_psd_matrix
 num_wires = 5
 
-kernel_matrices = np.load(f'kernel_matrices_{file_name_add}.npy', allow_pickle=True).numpy()
+kernel_matrices = load(open(filename, 'rb+'))
 
-tensor_mitigated_matrices = np.load(f'mitigated_matrices_{file_name_add}.npy', allow_pickle=True)
-mitigated_matrices = tensor_mitigated_matrices.numpy()
+# tensor_mitigated_matrices = np.load(f'mitigated_matrices_{file_name_add}.npy', allow_pickle=True)
+# mitigated_matrices = tensor_mitigated_matrices.numpy()
 
-tensor_doubly_mitigated_matrices = np.load(f'doubly_mitigated_matrices_{file_name_add}_{fun.__name__}.npy', allow_pickle=True)
-doubly_mitigated_matrices = tensor_doubly_mitigated_matrices.numpy()
+# tensor_doubly_mitigated_matrices = np.load(f'doubly_mitigated_matrices_{file_name_add}_{fun.__name__}.npy', allow_pickle=True)
+# doubly_mitigated_matrices = tensor_doubly_mitigated_matrices.numpy()
+
+# -
+
+# # Apply mitigation techniques
+
+# +
+pipelines = {
+    'avg': [(nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'average', 'use_entries': (0,)})],
+    'split': [(nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'split_channel'})], 
+    'split_sdp': [
+        (nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'split_channel'}),
+        (nk_lib.closest_psd_matrix, {'fix_diagonal': True}),
+    ]
+}
+
+mitigated_matrices = {}
+
+for pipeline_name, pipeline in pipelines.items():
+    mitigated = {}
+    for key, mat in kernel_matrices.items():
+        K = np.copy(mat)
+        for fun, kwargs in pipeline:
+            try:
+                K = fun(K, **kwargs)
+            except Exception as e:
+                print(e)
+                K = None
+                break
+        mitigated[key] = K
+    mitigated_matrices[pipeline_name] = mitigated
 
 # -
 
@@ -86,14 +117,21 @@ def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
         fig.colorbar(ch[0], ax=ax[-2], cax=ax[-1])
 
 
-# noise_probabilities = np.arange(0, 0.005, 0.001)
-#print(doubly_mitigated_matrices[(0,0)])
-for mats in doubly_mitigated_matrices.values():
+# +
+
+shots = 0
+
+for key, mats in mitigated_matrices.items():
+#     print(key,mats)
+    show_mats = [mat for k, mat in sorted(list(mats.items()), key=lambda x: x[0][0]) if shots in k]
     if len(mats)>5:
-        show_mats = mats[::len(mats)//5]
+        show_mats = show_mats[::len(show_mats)//5]
     else:
-        show_mats = mats
-    visualize_kernel_matrices(show_mats, draw_last_cbar=True)
+        show_mats = show_mats
+#     print(show_mats)
+#     show_mats = [mat for mat in show_mats if mat is not None]
+    nk_lib.visualize_kernel_matrices(show_mats, draw_last_cbar=True)
+# -
 
 np.set_printoptions(precision=5)
 distances = np.zeros((len(doubly_mitigated_matrices), len(kernel_matrices)))
@@ -136,35 +174,35 @@ plt.savefig('../plots_and_data/device_noise_mitigation_analytic.pdf')
 
 
 # +
-mitigated_matrices = {
-    (strategy, use_entries): 
-    [
-    nk_lib.mitigate_global_depolarization(K, num_wires=num_wires, strategy=strategy, use_entries=use_entries)[0] 
-        for K in kernel_matrices
-]
-    for strategy, use_entries in [(None, None), ('average', (0,)), ('average', None), ('split_channel', None)]
-}
+# mitigated_matrices = {
+#     (strategy, use_entries): 
+#     [
+#     nk_lib.mitigate_global_depolarization(K, num_wires=num_wires, strategy=strategy, use_entries=use_entries)[0] 
+#         for K in kernel_matrices
+# ]
+#     for strategy, use_entries in [(None, None), ('average', (0,)), ('average', None), ('split_channel', None)]
+# }
 
-def wrap_mitigation(mat, fun=qml.kernels.displace_matrix, **kwargs):
-    try:
-        return fun(mat, **kwargs)
-    except:
-        return None
+# def wrap_mitigation(mat, fun=qml.kernels.displace_matrix, **kwargs):
+#     try:
+#         return fun(mat, **kwargs)
+#     except:
+#         return None
 
-fun = nk_lib.closest_psd_matrix    
+# fun = nk_lib.closest_psd_matrix    
     
-doubly_mitigated_matrices = {
-    (strategy, use_entries): 
-    [
-    wrap_mitigation(
-        nk_lib.mitigate_global_depolarization(K, num_wires=num_wires, strategy=strategy, use_entries=use_entries)[0],
-        fun=fun,
-        fix_diag=True,
-    ) 
-        for K in kernel_matrices
-]
-    for strategy, use_entries in [(None, None), ('average', (0,)), ('average', None), ('split_channel', None)]
-}
+# doubly_mitigated_matrices = {
+#     (strategy, use_entries): 
+#     [
+#     wrap_mitigation(
+#         nk_lib.mitigate_global_depolarization(K, num_wires=num_wires, strategy=strategy, use_entries=use_entries)[0],
+#         fun=fun,
+#         fix_diag=True,
+#     ) 
+#         for K in kernel_matrices
+# ]
+#     for strategy, use_entries in [(None, None), ('average', (0,)), ('average', None), ('split_channel', None)]
+# }
 # -
 
 
