@@ -19,8 +19,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import rsmf
 
-print(*glob.glob("*.npy"), sep='\n')
-
 
 def plot_classification(ax, filename, markersize=15, marker="o"):
     with open(filename, 'rb') as f:
@@ -64,8 +62,15 @@ plot_classification(plt.gca(), "dataset_checkerboard.npy")
 plt.tight_layout()
 
 # +
-from scipy.ndimage.filters import gaussian_filter
+filenames = glob.glob("*.npy")
 
-sigma = 0.8
-zzprime = gaussian_filter(zz, sigma)
-plt.contourf(xx, yy, zzprime, cmap=linmap)
+fig = fmt.figure(aspect_ratio=2.0)
+axes = fig.subplots(nrows=3)
+
+for ax, filename in zip(axes, filenames):
+    plot_classification(ax, filename)
+    
+plt.tight_layout()
+# -
+
+
