@@ -55,10 +55,13 @@ def random_params(num_wires, num_layers):
 
 def accuracy(classifier, X, Y_target):
     return 1 - np.count_nonzero(classifier.predict(X) - Y_target) / len(Y_target)
+
+def accuracy_predict(Y_predict, Y_target):
+    return 1 - np.count_nonzero(Y_predict - Y_target) / len(Y_target)
 # +
 features = 2
-width = 5
-depth = 16
+width = 3
+depth = 3
 
 # init device
 dev = qml.device("default.qubit", wires=width)
@@ -78,6 +81,7 @@ k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
 
 def datagen (n_train, n_test):
     # generate data in two circles
+    # the radii are chosen so that data is balanced
     n_part = int(n_train/2)
     n_test = int(n_test/2)
     i = 0
@@ -86,48 +90,48 @@ def datagen (n_train, n_test):
     y = []
     y_ = []
     while (i<n_part):
-        x1 = np.random.uniform(-.8,.8)
-        x2 = np.random.uniform(-.8,.8)
-        if((x1)*(x1) + x2*x2 < .64):
+        x1 = np.random.uniform(-.707,.707) # 0.707... = 0.5*\sqrt(2)
+        x2 = np.random.uniform(-.707,.707)
+        if((x1)*(x1) + x2*x2 < .5):
             i+=1
             X.append([1+x1,x2])
-            if(x1*x1 + x2*x2 < .16):
+            if(x1*x1 + x2*x2 < .25):
                 y.append(1)
             else:
                 y.append(-1)
     
     i=0
     while(i<n_part):
-        x1 = np.random.uniform(-.8,.8)
-        x2 = np.random.uniform(-.8,.8)
-        if(x1*x1 + x2*x2 <.64):
+        x1 = np.random.uniform(-.707,.707)
+        x2 = np.random.uniform(-.707,.707)
+        if(x1*x1 + x2*x2 <.5):
             i+=1
             X.append([x1-1,x2])
-            if(x1*x1 + x2*x2 < .16):
+            if(x1*x1 + x2*x2 < .25):
                 y.append(-1)
             else:
                 y.append(1)
     
     i = 0
     while (i<n_test):
-        x1 = np.random.uniform(-.8,.8)
-        x2 = np.random.uniform(-.8,.8)
-        if(x1*x1 + x2*x2 < .64):
+        x1 = np.random.uniform(-.707,.707)
+        x2 = np.random.uniform(-.707,.707)
+        if(x1*x1 + x2*x2 < .5):
             i+=1
             X_.append([1+x1,x2])
-            if(x1*x1 + x2*x2 < .16):
+            if(x1*x1 + x2*x2 < .25):
                 y_.append(1)
             else:
                 y_.append(-1)
     
     i=0
     while(i<n_test):
-        x1 = np.random.uniform(-.8,.8)
-        x2 = np.random.uniform(-.8,.8)
-        if(x1*x1 + x2*x2 <.64):
+        x1 = np.random.uniform(-.707,.707)
+        x2 = np.random.uniform(-.707,.707)
+        if(x1*x1 + x2*x2 <.5):
             i+=1
             X_.append([x1-1,x2])
-            if(x1*x1 + x2*x2 < .16):
+            if(x1*x1 + x2*x2 < .25):
                 y_.append(-1)
             else:
                 y_.append(1)
@@ -135,7 +139,7 @@ def datagen (n_train, n_test):
     return X,y, X_,y_
 
 
-X_train ,y_train, X_test, y_test = datagen(20,160)
+X_train ,y_train, X_test, y_test = datagen(40,100)
 
 X_train = np.asarray(X_train)
 y_train = np.asarray(y_train)
@@ -161,6 +165,8 @@ plt.show()
 # make various runs with random parameters to see what range the results can be in
 acc_log = []
 params_log = []
+test_predict_log = []
+train_predict_log = []
 for i in range(5):
     ## choose random params for the kernel
     params = random_params(width, depth)
@@ -168,9 +174,13 @@ for i in range(5):
     ## fit the SVM on the training data
     svm_untrained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
     ## evaluate on the test set
-    untrained_accuracy = accuracy(svm_untrained_kernel, X_test, y_test)
-    print("without kernel training accuracy", untrained_accuracy)
-    acc_log.append(untrained_accuracy)
+    test_predict_log.append(svm_untrained_kernel.predict(X_test))
+    train_predict_log.append(svm_untrained_kernel.predict(X_train))
+    untrained_accuracy_test = accuracy_predict(test_predict_log[-1], y_test)
+    untrained_accuracy_train = accuracy_predict(train_predict_log[-1], y_train)
+    print("without kernel training accuracy on test", untrained_accuracy_test)
+    print("without kernel training accuracy on train", untrained_accuracy_train)
+    acc_log.append(untrained_accuracy_test)
     params_log.append(params)
 print("going with", acc_log[np.argmin(np.asarray(acc_log))])
 params = params_log[np.argmin(np.asarray(acc_log))]
@@ -183,7 +193,7 @@ plotting =  True
 
 # evaluate the performance with trained parameters for the kernel
 ## train the kernel
-opt = qml.GradientDescentOptimizer(.5)
+opt = qml.GradientDescentOptimizer(1)
 for i in range(1000):
     subset = np.random.choice(list(range(len(X_train))), 4)
     params = opt.step(lambda _params: -k.target_alignment(X_train[subset], y_train[subset], _params), params)
@@ -191,7 +201,6 @@ for i in range(1000):
     if (i+1) % 50 == 0:
         print("Step {} - Alignment on train = {:.3f}".format(i+1, k.target_alignment(X_train, y_train, params)))
 # ### Train SVM
-
 # +
 ## fit the SVM on the train set
 svm_trained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
@@ -207,17 +216,20 @@ print("with kernel training accuracy on test", test_accuracy)
 # ### Plot results
 
 # +
-start = -2
-stop = 2
+startx = -2
+stopx = 2
+starty = -1
+stopy = 1
 num = 20
 
 X_dummy = []
 
-inc = (stop-start)/num
+incx = (stopx-startx)/num
+incy = (stopy-starty)/num
 
 for i in range(num):
     for j in range(num):
-        X_dummy.append([start + i*inc,start + j*inc])
+        X_dummy.append([startx + i*incx,starty + j*incy])
 # -
 
 y_dummy = svm_trained_kernel.predict(X_dummy)
@@ -229,8 +241,8 @@ plt.scatter(X_dummy[np.where(y_dummy == 1)[0],0], X_dummy[np.where(y_dummy == 1)
 plt.scatter(X_dummy[np.where(y_dummy == -1)[0],0], X_dummy[np.where(y_dummy == -1)[0],1], color="r", marker=".",label="dummy, -1")
 plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", marker="+", label="train, 1")
 plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", marker="+", label="train, -1")
-plt.scatter(X_test[np.where(y_train == 1)[0],0], X_test[np.where(y_train == 1)[0],1], color="b", marker="x", label="test, 1")
-plt.scatter(X_test[np.where(y_train == -1)[0],0], X_test[np.where(y_train == -1)[0],1], color="r", marker="x", label="test, -1")
+plt.scatter(X_test[np.where(y_test == 1)[0],0], X_test[np.where(y_test == 1)[0],1], color="b", marker="x", label="test, 1")
+plt.scatter(X_test[np.where(y_test == -1)[0],0], X_test[np.where(y_test == -1)[0],1], color="r", marker="x", label="test, -1")
 plt.ylim([-1, 1])
 plt.xlim([-2, 2])
 plt.legend()
