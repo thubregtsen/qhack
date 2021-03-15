@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.10.2
+#       jupytext_version: 1.6.0
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -206,6 +206,8 @@ def reembed(x, param, embedding, n_layers=2, n_qubits=2, n_features=2, **kwargs)
 
 
 
+
+
 # -
 
 # # Kernel optimization
@@ -266,6 +268,7 @@ if False:
     sns.lineplot(x=samples_, y=P);
 
 # # Train and validate
+
 
 
 
