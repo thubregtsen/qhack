@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py
+#     formats: ipynb,py:light
 #     text_representation:
 #       extension: .py
 #       format_name: light
@@ -15,6 +15,7 @@
 
 # +
 import pennylane as qml
+import numpy as pure_np
 from pennylane import numpy as np
 
 
@@ -28,15 +29,110 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 from pennylane_cirq import ops as cirq_ops
+import nk_lib
+# import rsmf
+from dill import load
+# formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
 # -
 
-# # Load data
-# don't forget to change the file name
+# # Load raw kernel matrices
 
-tensor_doubly_mitigated_matrices = np.load('doubly_mitigated_matrices.npy', allow_pickle=True)
-doubly_mitigated_matrices = tensor_doubly_mitigated_matrices.numpy()
-kernel_matrices = np.load('kernel_matrices.npy', allow_pickle=True).numpy()
+# +
+filename = 'data/kernel_matrices_2d_sweep.dill'
+# fun = nk_lib.closest_psd_matrix
+num_wires = 5
 
+kernel_matrices = load(open(filename, 'rb+'))
+
+# tensor_mitigated_matrices = np.load(f'mitigated_matrices_{file_name_add}.npy', allow_pickle=True)
+# mitigated_matrices = tensor_mitigated_matrices.numpy()
+
+# tensor_doubly_mitigated_matrices = np.load(f'doubly_mitigated_matrices_{file_name_add}_{fun.__name__}.npy', allow_pickle=True)
+# doubly_mitigated_matrices = tensor_doubly_mitigated_matrices.numpy()
+
+# -
+
+# # Apply mitigation techniques
+
+# +
+pipelines = {
+    'None': [],
+    'sdp': [(nk_lib.closest_psd_matrix, {'fix_diagonal': True})],
+    'single': [(nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'average', 'use_entries': (0,)})],
+    'avg': [(nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'average', 'use_entries': None})],
+    'avg_sdp': [
+        (nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'average'}),
+        (nk_lib.closest_psd_matrix, {'fix_diagonal': True}),
+    ],
+    'displace_avg_sdp': [
+        (qml.kernels.postprocessing.displace_matrix, {}),
+        (nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'average'}),
+        (nk_lib.closest_psd_matrix, {'fix_diagonal': True}),
+    ],
+    'displace_avg': [
+        (qml.kernels.postprocessing.displace_matrix, {}),
+        (nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'average'}),
+    ],
+    'split': [(nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'split_channel'})], 
+    'split_sdp': [
+        (nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'split_channel'}),
+        (nk_lib.closest_psd_matrix, {'fix_diagonal': True}),
+    ],
+    'displace_split_sdp': [
+        (qml.kernels.postprocessing.displace_matrix, {}),
+        (nk_lib.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'split_channel'}),
+        (nk_lib.closest_psd_matrix, {'fix_diagonal': True}),
+    ],
+
+}
+
+df = pd.DataFrame()
+
+mitigated_matrices = {}
+mitigated_alignment = {}
+exact_matrix = kernel_matrices[(0., 0)]
+norm0 = np.linalg.norm(exact_matrix, 'fro')
+print(norm0)
+
+for pipeline_name, pipeline in pipelines.items():
+    mitigated = {}
+    alignment = {}
+    for key, mat in kernel_matrices.items():
+        K = np.copy(mat)
+        for fun, kwargs in pipeline:
+            try:
+                K = fun(K, **kwargs)
+                if np.any(np.isinf(K)):
+                    raise ValueError
+            except Exception as e:
+#                 print(e)
+                K = None
+                align = np.nan
+                break
+        else:
+            mat_ip = qml.kernels.cost_functions._matrix_inner_product(K, exact_matrix)
+            normK = np.linalg.norm(K, 'fro')
+            if np.isclose(normK, 0.):
+                align = np.nan
+            else:
+                align = mat_ip / (normK * norm0)
+        alignment[key] = align
+        mitigated[key] = K
+        df = df.append(pd.Series(
+            {
+                    'base_noise_rate': key[0],
+                    'shots': key[1],
+                    'pipeline': pipeline_name,
+                    'mitigated_kernel_matrix': K,
+                    'alignment': align,
+                    'shots_sort': key[1] if key[1]>0 else int(1e10),
+                }),
+            ignore_index=True,
+            )
+    mitigated_matrices[pipeline_name] = mitigated
+    mitigated_alignment[pipeline_name] = alignment
+
+# -
 
 # ## Plotting mitigated noise
 # In the following collection of heatmaps, the row corresponds to the mitigation technique:
@@ -52,11 +148,11 @@ kernel_matrices = np.load('kernel_matrices.npy', allow_pickle=True).numpy()
 #  Note that for testing, `analytic` has to be set to `False` in the device because otherwise statistical 
 #  fluctuations will prevent a perfect mitigation. 
 
-def visualize_kernel_matrices(kernel_matrices, noise_probabilites, draw_last_cbar=False):
-    num_mat = 4
+def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
+    num_mat = len(kernel_matrices)
     width_ratios = [1]*num_mat+[0.2]*int(draw_last_cbar)
     fig,ax = plt.subplots(1, num_mat+draw_last_cbar, figsize=(num_mat*5+draw_last_cbar, 5), gridspec_kw={'width_ratios': width_ratios})
-    sns.set()
+#     sns.set()
     for i, kernel_matrix in enumerate(kernel_matrices):
         plot = sns.heatmap(
             kernel_matrix, 
@@ -73,30 +169,155 @@ def visualize_kernel_matrices(kernel_matrices, noise_probabilites, draw_last_cba
         fig.colorbar(ch[0], ax=ax[-2], cax=ax[-1])
 
 
-noise_probabilities = np.arange(0, 0.005, 0.001)
-#print(doubly_mitigated_matrices[(0,0)])
-for mats in doubly_mitigated_matrices.values():
-    visualize_kernel_matrices(mats, noise_probabilities, draw_last_cbar=True)
+# +
+
+shots = 0
+
+for key, mats in mitigated_matrices.items():
+#     print(key,mats)
+    show_mats = [mat for k, mat in sorted(list(mats.items()), key=lambda x: x[0][0]) if shots in k]
+    if len(mats)>5:
+        show_mats = show_mats[::len(show_mats)//5]
+    else:
+        show_mats = show_mats
+#     print(show_mats)
+#     show_mats = [mat for mat in show_mats if mat is not None]
+    nk_lib.visualize_kernel_matrices(show_mats, draw_last_cbar=True)
 
 # +
-np.set_printoptions(precision=5)
-distances = np.zeros((len(doubly_mitigated_matrices), len(kernel_matrices)))
-violation = np.zeros((len(doubly_mitigated_matrices), len(kernel_matrices)))
+# np.set_printoptions(precision=5)
+# distances = np.zeros((len(doubly_mitigated_matrices), len(kernel_matrices)))
+# violation = np.zeros((len(doubly_mitigated_matrices), len(kernel_matrices)))
+# alignment = np.zeros((len(doubly_mitigated_matrices), len(kernel_matrices)))
+# # for j, mat in enumerate(kernel_matrices):
+# #     distances[0,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
+# #     violation[0,j] = np.linalg.eigvalsh(mat)[0]
+# norm0 = np.linalg.norm(kernel_matrices[0], 'fro')
+# for i, (key, mats) in enumerate(mitigated_matrices.items()):
+#     for j, mat in enumerate(mats):
+#         if mat is None:
+#             continue
+#         distances[i,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
+# #         violation[i,j] = np.linalg.eigvalsh(mat)[0]
+#         alignment[i,j] = qml.kernels.cost_functions._matrix_inner_product(mat, kernel_matrices[0])/np.linalg.norm(mat, 'fro')/ norm0
+# print(distances)
+# print(violation)
 
-# for j, mat in enumerate(kernel_matrices):
-#     distances[0,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
-#     violation[0,j] = np.linalg.eigvalsh(mat)[0]
-for i, (key, mats) in enumerate(doubly_mitigated_matrices.items()):
-    for j, mat in enumerate(mats):
-        distances[i,j] = np.linalg.norm(mat-kernel_matrices[0], 'fro')
-        violation[i,j] = np.linalg.eigvalsh(mat)[0]
-print(distances)
-print(violation)
+# +
+# df
+
+# +
+# # %matplotlib notebook
+# fig = formatter.figure()
+# print(formatter.fontsize)
+# noise_probabilities = np.arange(0, 0.05, 0.002)
+# def trafo(p):
+#     return p
+
+# labels = ['No mitigation', 'Single diagonal element', 'Average of diagonal', 'Split channel']
+# markers = ['x', 'o', '.', 'd']
+# for i in range(4):
+#     probs = noise_probabilities if i==0 else trafo(noise_probabilities)
+#     plt.plot(probs[:len(alignment[i])], alignment[i], marker=markers[i], label=labels[i], ls='', ms=5)
+# plt.legend(loc='lower left', framealpha=0.8)
+# plt.xlabel('Base noise rate $\lambda_0$')
+# plt.ylabel('Alignment with exact matrix')
+# plt.tight_layout()
+# plt.savefig('../plots_and_data/device_noise_mitigation_analytic.pdf')
+# +
+# %matplotlib notebook
+figsize = (9, 3*len(pipelines))
+fig, ax = plt.subplots(len(pipelines), 1, figsize=figsize)
+titles = {
+    'None': "No Postprocessing",
+    'sdp': "Best Regularization",
+    'single': "Single Rate Mitigation (Single)",
+    'avg': "Single Rate Mitigation (Average)",
+    'avg_sdp': "Single Rate Mitigation (Average) and Regularization",
+    'displace_avg_sdp': "Displacing, Single Rate Mitigation (Average) and Regularization",
+    'displace_avg': "Displacing and Single Rate Mitigation (Average)",
+    'split': "Feature-dependent Rate Mitigation",
+    'split_sdp': "Feature-dependent Rate Mitigation and Regularization",
+    'displace_split_sdp': "Displacing, Feature-dependent Rate Mitigation and Regularization",
+}
+
+print(f"Worst performances:")
+for i, pipeline_name in enumerate(pipelines.keys()):
+    subdf = df.loc[df['pipeline']==pipeline_name]
+    subdf_pivot = subdf.pivot('shots_sort', 'base_noise_rate', 'alignment')
+    nc_df = subdf[subdf['alignment'].abs()>0.0001]
+    min_not_crashed = np.min(nc_df['alignment'])
+    mnc_df = nc_df.loc[[nc_df['alignment'].idxmin()]]
+
+    plot = sns.heatmap(data=subdf_pivot,
+                vmin=-1,
+                vmax=1,
+                cbar=True,
+                ax=ax[i],
+                linewidth=0.2,
+#                 xticklabels=list(df['base_noise_rate'].unique()[::5]),
+#                 xticks=list(df['base_noise_rate'].unique()[::5]),
+                yticklabels=list(np.round(df['shots_sort'].astype(int).unique()[:-1],0))+['analytic'],
+               )
+    if i<len(pipelines)-1:
+        ax[i].set_xticks([])
+        ax[i].set_xlabel('')
+    else:
+        ax[i].set_xticks(ax[i].get_xticks()[::5])
+        plt.setp( ax[i].xaxis.get_majorticklabels(), rotation=0 )
+        ax[i].set_xlabel('Base noise rate $\\lambda_0$')
+    plt.setp( ax[i].yaxis.get_majorticklabels(), rotation=0 )
+    ax[i].set_ylabel('# Measurements')
+    ax[i].set_title(titles[pipeline_name])
+    cbar = ax[i].collections[0].colorbar
+    tick_col = 'k' if min_not_crashed > 0.2 else '1'
+    cbar.ax.hlines(min_not_crashed, -1.2, 1.2, color=tick_col)
+    cbar.ax.text(-1.5, min_not_crashed, f"{min_not_crashed:.2f}", horizontalalignment='right', verticalalignment='center')
+    shot_coord = np.log10(mnc_df['shots_sort'].item()) if mnc_df['shots_sort'].item() <1e6 else 5
+    ax[i].plot((mnc_df['base_noise_rate'].item()/0.002)+0.5, shot_coord-0.5, marker='x', color=tick_col)
+#     ax[i].text(0.0, 4.5, f'Minimal alignment: {min_not_crashed:.3f}')
+
+    print(f"{titles[pipeline_name]} - {min_not_crashed}")
+plt.tight_layout()
+plt.savefig('2d_sweep_mitigation_and_regularization.pdf')
 # -
 
-plt.plot(noise_probabilities, distances[0])
-plt.plot(noise_probabilities, distances[1])
-plt.plot(noise_probabilities, distances[2])
-plt.plot(noise_probabilities, distances[3])
+
+a = ax[i]
+print(a.collections[0].__dict__)
+
+# +
+# mitigated_matrices = {
+#     (strategy, use_entries): 
+#     [
+#     nk_lib.mitigate_global_depolarization(K, num_wires=num_wires, strategy=strategy, use_entries=use_entries)[0] 
+#         for K in kernel_matrices
+# ]
+#     for strategy, use_entries in [(None, None), ('average', (0,)), ('average', None), ('split_channel', None)]
+# }
+
+# def wrap_mitigation(mat, fun=qml.kernels.displace_matrix, **kwargs):
+#     try:
+#         return fun(mat, **kwargs)
+#     except:
+#         return None
+
+# fun = nk_lib.closest_psd_matrix    
+    
+# doubly_mitigated_matrices = {
+#     (strategy, use_entries): 
+#     [
+#     wrap_mitigation(
+#         nk_lib.mitigate_global_depolarization(K, num_wires=num_wires, strategy=strategy, use_entries=use_entries)[0],
+#         fun=fun,
+#         fix_diag=True,
+#     ) 
+#         for K in kernel_matrices
+# ]
+#     for strategy, use_entries in [(None, None), ('average', (0,)), ('average', None), ('split_channel', None)]
+# }
+# -
+
+
 
 

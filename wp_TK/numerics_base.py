@@ -160,32 +160,13 @@ k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
 ## choose random params for the kernel, which will be our ideal parameters
 ideal_params = random_params(width, depth) 
 
-
-# +
-#X, y = make_dataset(lambda x,y: k(x,y,ideal_params), (features,), N1 = 2*samples, N2=2*samples, lower_interval=(0., 0.45), upper_interval=(0.55,1.))
-#X_test, y_test = make_dataset(lambda x,y: k(x,y,ideal_params), (samples,), seed=X_train[0], N1 = samples, N2 = samples)
 # -
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-c_0[:,0]
-
-
-
 # +
-samples = 20 # number of samples to X_train[np.where(y=-1)], so total = 4*samples
-data = datasets.make_moons(n_samples=4*samples, shuffle=False, random_state=2)
+samples = 40 # number of samples to X_train[np.where(y=-1)], so total = 4*samples
+data = datasets.make_moons(n_samples=4*samples, shuffle=False, random_state=42, noise=0.15)
 X = data[0]
 X = X + np.abs(np.min(X))
 X = X / np.max(X)
@@ -213,21 +194,11 @@ plt.xlim([0, 1])
 plt.legend()
 # -
 
-
-
-
-
-
-
-
-
-
-
-
-
+acc_log = []
+params_log = []
+# evaluate the performance with random parameters for the kernel
+## choose random params for the kernel
 for i in range(5):
-    # evaluate the performance with random parameters for the kernel
-    ## choose random params for the kernel
     params = random_params(width, depth)
     print(params)
     ## fit the SVM on the training data
@@ -235,10 +206,53 @@ for i in range(5):
     ## evaluate on the test set
     untrained_accuracy = accuracy(svm_untrained_kernel, X_test, y_test)
     print("without kernel training accuracy", untrained_accuracy)
+    acc_log.append(untrained_accuracy)
+    params_log.append(params)
+print("going with", acc_log[np.argmin(np.asarray(acc_log))])
+params = params_log[np.argmin(np.asarray(acc_log))]
 
+params = params_log[np.argmin(np.asarray(acc_log))]
+
+acc_log
+
+# +
+precision = 30 # higher is preciser and more compute time
+
+# create a dummy dataset that uniformly spans the input space
+X_dummy = []
+for i in range(0,precision+1):
+    for j in range(0,precision+1):
+        X_dummy.append([i/precision,j/precision])
+X_dummy = np.asarray(X_dummy)
+print(len(X_dummy))
+
+# predict (about a minute on my laptop)
+y_dummy = svm_untrained_kernel.predict(X_dummy)
+
+# plot in order to observe the decision boundary
+plt.scatter(X_dummy[np.where(y_dummy == 1)[0],0], X_dummy[np.where(y_dummy == 1)[0],1], color="b", marker=".",label="dummy, 1")
+plt.scatter(X_dummy[np.where(y_dummy == -1)[0],0], X_dummy[np.where(y_dummy == -1)[0],1], color="r", marker=".",label="dummy, -1")
+plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", marker="+", label="train, 1")
+plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", marker="+", label="train, -1")
+plt.scatter(X_test[np.where(y_train == 1)[0],0], X_test[np.where(y_train == 1)[0],1], color="b", marker="x", label="test, 1")
+plt.scatter(X_test[np.where(y_train == -1)[0],0], X_test[np.where(y_train == -1)[0],1], color="r", marker="x", label="test, -1")
+plt.ylim([0, 1])
+plt.xlim([0, 1])
+plt.legend()
+
+
+# +
 # evaluate the performance with trained parameters for the kernel
 ## train the kernel
 opt = qml.GradientDescentOptimizer(2)
+for i in range(1000):
+    subset = np.random.choice(list(range(len(X_train))), 4)
+    params = opt.step(lambda _params: -k.target_alignment(X_train[subset], y_train[subset], _params), params)
+    
+    if (i+1) % 50 == 0:
+        print("Step {} - Alignment on train = {:.3f}".format(i+1, k.target_alignment(X_train, y_train, params)))
+        
+opt = qml.GradientDescentOptimizer(1)
 for i in range(1000):
     subset = np.random.choice(list(range(len(X_train))), 4)
     params = opt.step(lambda _params: -k.target_alignment(X_train[subset], y_train[subset], _params), params)
@@ -251,30 +265,68 @@ svm_trained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).
 ## evaluate the accuracy on the test set
 trained_accuracy = accuracy(svm_trained_kernel, X_test, y_test)
 print("with kernel training accuracy on test", trained_accuracy)
-
-
-
-
-
 # +
-precision = 5 # higher is preciser and more compute time
-    
+precision = 30 # higher is preciser and more compute time
+
 # create a dummy dataset that uniformly spans the input space
 X_dummy = []
-for i in range(-precision,precision):
-    for j in range(-precision,precision):
-        X_dummy.append([np.pi*i/precision,np.pi*j/precision])
+for i in range(0,precision+1):
+    for j in range(0,precision+1):
+        X_dummy.append([i/precision,j/precision])
 X_dummy = np.asarray(X_dummy)
 print(len(X_dummy))
 
 # predict (about a minute on my laptop)
-y_dummy = svm_trained_kernel.predict(X_dummy)
+y_dummy = svm_untrained_kernel.predict(X_dummy)
 
 # plot in order to observe the decision boundary
-plt.scatter(X_dummy[np.where(y_dummy == 1)[0],0], X_dummy[np.where(y_dummy == 1)[0],1], color="b")
-plt.scatter(X_dummy[np.where(y_dummy == -1)[0],0], X_dummy[np.where(y_dummy == -1)[0],1], color="r")
+plt.scatter(X_dummy[np.where(y_dummy == 1)[0],0], X_dummy[np.where(y_dummy == 1)[0],1], color="b", marker=".",label="dummy, 1")
+plt.scatter(X_dummy[np.where(y_dummy == -1)[0],0], X_dummy[np.where(y_dummy == -1)[0],1], color="r", marker=".",label="dummy, -1")
+plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", marker="+", label="train, 1")
+plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", marker="+", label="train, -1")
+plt.scatter(X_test[np.where(y_train == 1)[0],0], X_test[np.where(y_train == 1)[0],1], color="b", marker="x", label="test, 1")
+plt.scatter(X_test[np.where(y_train == -1)[0],0], X_test[np.where(y_train == -1)[0],1], color="r", marker="x", label="test, -1")
+plt.ylim([0, 1])
+plt.xlim([0, 1])
+plt.legend()
 
 # -
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
