@@ -26,7 +26,7 @@ import pennylane as qml
 from pennylane import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from sklearn.svm import SVC, SVR
+from sklearn.svm import SVC
 from sklearn import datasets
 
 np.random.seed(21) # sorry, 42 did not build a nice dataset
@@ -232,14 +232,15 @@ for i in range(num):
         X_dummy.append([startx + i*incx,starty + j*incy])
 # -
 
-svr_trained_kernel = SVR(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
-y_dummy = svr_trained_kernel.predict(X_dummy)
+y_dummy = svm_trained_kernel.decision_function(X_dummy)
 
-X_dummy = np.asarray(X_dummy)
-y_dummy = np.asarray(y_dummy)
+# +
+#X_dummy = np.asarray(X_dummy)
+#y_dummy = np.asarray(y_dummy)
+# -
 
-plt.scatter(X_dummy[np.where(y_dummy == 1)[0],0], X_dummy[np.where(y_dummy == 1)[0],1], color="b", marker=".",label="dummy, 1")
-plt.scatter(X_dummy[np.where(y_dummy == -1)[0],0], X_dummy[np.where(y_dummy == -1)[0],1], color="r", marker=".",label="dummy, -1")
+#plt.scatter(X_dummy[np.where(y_dummy == 1)[0],0], X_dummy[np.where(y_dummy == 1)[0],1], color="b", marker=".",label="dummy, 1")
+#plt.scatter(X_dummy[np.where(y_dummy == -1)[0],0], X_dummy[np.where(y_dummy == -1)[0],1], color="r", marker=".",label="dummy, -1")
 plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", marker="+", label="train, 1")
 plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", marker="+", label="train, -1")
 plt.scatter(X_test[np.where(y_test == 1)[0],0], X_test[np.where(y_test == 1)[0],1], color="b", marker="x", label="test, 1")
@@ -247,7 +248,22 @@ plt.scatter(X_test[np.where(y_test == -1)[0],0], X_test[np.where(y_test == -1)[0
 plt.ylim([-1, 1])
 plt.xlim([-2, 2])
 plt.legend()
-plt.scatter(X_dummy[:,0], X_dummy[:,1],marker='s', s=70, c= y_dummy, alpha=1)
+
+plt.scatter(X_dummy[:,0], X_dummy[:,1],marker='s', s=140, c= y_dummy, alpha=0.5)
 plt.colorbar()
+
+svm_trained_kernel.get_params()
+
+coef = svm_trained_kernel.dual_coef_
+
+intercept = svm_trained_kernel.intercept_
+
+support = svm_trained_kernel.support_
+
+print(len(coef[0]), len(support))
+
+coef
+
+intercept
 
 
