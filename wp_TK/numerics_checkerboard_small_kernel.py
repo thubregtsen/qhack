@@ -63,7 +63,7 @@ def accuracy(classifier, X, Y_target):
 # +
 features = 2
 width = 4
-depth = 7
+depth = 6
 
 
 dev = qml.device("default.qubit", wires=width)
@@ -160,8 +160,6 @@ params = params_log[np.argmin(np.asarray(acc_log))]
 
 print("Untrained accuracies on train:", acc_log)
 
-params = params_log[np.argmin(np.asarray(acc_log))]
-
 
 
 plotting =  True
@@ -193,6 +191,8 @@ if plotting:
     plt.xlim([0, 1])
     plt.legend()
 
+
+y_random = y_dummy
 
 # evaluate the performance with trained parameters for the kernel
 ## train the kernel
@@ -242,29 +242,36 @@ if plotting:
 
 # -
 y_dummy_real = svm_trained_kernel.decision_function(X_dummy)
-
 plt.scatter(X_dummy[:,0], X_dummy[:,1], s=50, c = y_dummy_real, alpha=1, marker='s')
 
-# filename = "dataset_checkerboard_4_7.npy"
+# filename = "dataset_checkerboard.npy"
 # with open(filename, 'wb') as f:
 #     np.save(f, X_dummy)
 #     np.save(f, y_dummy)
 #     np.save(f, y_dummy_real)
+#     # np.save(f, y_dummy_random)
+#     # np.save(f, y_dummy_random_real)
 #     np.save(f, X_train)
 #     np.save(f, y_train)
 #     np.save(f, X_test)
 #     np.save(f, y_test)
 
 
-# +
-#with open(filename, 'rb') as f:
-#    X_dummy_c = np.load(f)
-#    y_dummy_c = np.load(f)
-#    X_train_c = np.load(f)
-#    y_train_c = np.load(f)
-#    X_test_c = np.load(f)
-#    y_test_c = np.load(f)
-# -
+# filename = "parameters_checkerboard_4_6_1.npy"
+# with open(filename, 'wb') as f:
+#     np.save(f, params)
+
+# with open(filename, 'rb') as f:
+#     X_dummy_c = np.load(f)
+#     y_dummy_c = np.load(f)
+#     # y_dummy_real_c = np.load(f)
+#     X_train_c = np.load(f)
+#     y_train_c = np.load(f)
+#     X_test_c = np.load(f)
+#     y_test_c = np.load(f)
+# with open(filename, 'rb') as f:
+#     params_c = np.load(f)
+
 # width = 3, depth = 1, accuracy on train and test = 0.47. Straight cut
 #
 # width = 3, depth = 2, accuracy on train: 0.583 to 0.6, accuracy on test: 0.43 to 0.45. Half ellipse/parable cut.
@@ -298,5 +305,17 @@ plt.scatter(X_dummy[:,0], X_dummy[:,1], s=50, c = y_dummy_real, alpha=1, marker=
 # width = 4, depth = 6 continuation. Accuracy on train to 0.97, accuracy on test to 0.95, alignment to 0.135. Diagonal stripes (exactly what we wanted)
 #
 # width = 4, depth = 7, accuracy on train: 0.63 to 1.0, accuracy on test: 0.483 to 0.97, Alignment: 0.019 to 0.263. Diagonal stripes (exactly what we wanted).
-
+#
+# width = 5, depth = 2, accuracy on train: 0.583 to 0.63, accuracy on test: 0.43 to 0.483, Alignment: 0.005 to 0.017. Half ellipse.
+#
+# width = 5, depth = 3, accuracy on train: 0.583 to 0.67, accuracy on test: 0.43 to 0.51, Alignment: 0.013 to 0.031. 1/4 of an ellipse.
+#
+# width = 5, depth = 4, accuracy on train: 0.63 to 0.67, accuracy on test: 0.5 to 0.53, Alignment: 0.016 to 0.036. Deformed conic curve, like a ? sign.
+#
+# width = 5, depth = 5, accuracy on train: 0.63 to 0.67, accuracy on test: 0.5 to 0.53, Alignment: 0.02 to 0.04. Deformed conic curve, like a ? sign.
+#
+# width = 5, depth = 6, accuracy on train: 0.63 to 0.783, accuracy on test: 0.5 to 0.7, Alignment: 0.02 to 0.076. Diagonal stripes, some missing, I think it didn't converge; let's try further.
+#
+# width = 5, depth = 6 continuation. Accuracy on train to 0.95, accuracy on test to 0.93, alignment to 0.203. Diagonal stripes (exactly what we wanted)
+#
 
