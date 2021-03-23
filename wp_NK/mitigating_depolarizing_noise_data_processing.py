@@ -120,7 +120,7 @@ class AnyObjectHandler(object):
 
 # +
 filename = f'data/kernel_matrices_DoubleCake_untrained.dill'
-filename = 'data/kernel_matrices_Checkerboard_untrained.dill'
+filename = 'data/kernel_matrices_Checkerboard_trained.dill'
 
 num_wires = 5
 
@@ -466,13 +466,10 @@ plt.savefig('mitigation_plots/best_postprocessing_Checkerboard_trained.pdf')
 # +
 # %matplotlib notebook
 plot_pipelines = ['', 'thresh']
-if plot_all_pipelines:
-    figsize = (9, 2.5*len(plot_pipelines))
-    fig, ax = plt.subplots(len(plot_pipelines), 1, figsize=figsize)
-else:
-    figsize = (10, 5)
-    fig, ax = plt.subplots(1, 1, figsize=figsize)
-    ax = [ax]
+
+figsize = (9, 2.5*len(plot_pipelines))
+fig, ax = plt.subplots(len(plot_pipelines), 1, figsize=figsize)
+
 
 titles = {k:k for k in pipelines.keys()}
 #     'None': "No Postprocessing",
@@ -537,7 +534,7 @@ for i, pipeline_name in enumerate(plot_pipelines):
 
     
 plt.tight_layout()
-plt.savefig('mitigation_plots/improvement_postprocessing_Checkerboard_untrained.pdf')
+plt.savefig('mitigation_plots/improvement_postprocessing_Checkerboard_trained.pdf')
 # -
 
 best_df.loc[(df['base_noise_rate']==0.088) & (df['shots_sort']==int(1e10))]
