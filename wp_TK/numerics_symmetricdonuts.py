@@ -183,7 +183,31 @@ for i in range(5):
     acc_log.append(untrained_accuracy_test)
     params_log.append(params)
 print("going with", acc_log[np.argmin(np.asarray(acc_log))])
+
+# make various runs with random parameters to see what range the results can be in
+acc_log = []
+params_log = []
+test_predict_log = []
+train_predict_log = []
+for i in range(5):
+    ## choose random params for the kernel
+    params = random_params(width, depth)
+    #print(params)
+    ## fit the SVM on the training data
+    svm_untrained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
+    ## evaluate on the test set
+    test_predict_log.append(svm_untrained_kernel.predict(X_test))
+    train_predict_log.append(svm_untrained_kernel.predict(X_train))
+    untrained_accuracy_test = accuracy_predict(test_predict_log[-1], y_test)
+    untrained_accuracy_train = accuracy_predict(train_predict_log[-1], y_train)
+    print("without kernel training accuracy on test", untrained_accuracy_test)
+    print("without kernel training accuracy on train", untrained_accuracy_train)
+    acc_log.append(untrained_accuracy_test)
+    params_log.append(params)
+print("going with", acc_log[np.argmin(np.asarray(acc_log))])
 params = params_log[np.argmin(np.asarray(acc_log))]
+
+params_random = params_log[np.argmin(np.asarray(acc_log))]
 
 print("Untrained accuracies:", acc_log)
 
@@ -253,6 +277,25 @@ plt.legend()
 plt.scatter(X_dummy[:,0], X_dummy[:,1],marker='s', s=140, c= y_dummy, alpha=0.9)
 plt.colorbar()
 
+y_dummy_random = svm_untrained_kernel.decision_function(X_dummy)
+
+# +
+y_dummy_random_label = np.sign(y_dummy_random)
+
+plt.scatter(X_dummy[np.where(y_dummy_label == 1)[0],0], X_dummy[np.where(y_dummy_label == 1)[0],1], color="b", marker=".",label="dummy, 1")
+plt.scatter(X_dummy[np.where(y_dummy_label == -1)[0],0], X_dummy[np.where(y_dummy_label == -1)[0],1], color="r", marker=".",label="dummy, -1")
+plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", marker="+", label="train, 1")
+plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", marker="+", label="train, -1")
+plt.scatter(X_test[np.where(y_test == 1)[0],0], X_test[np.where(y_test == 1)[0],1], color="b", marker="x", label="test, 1")
+plt.scatter(X_test[np.where(y_test == -1)[0],0], X_test[np.where(y_test == -1)[0],1], color="r", marker="x", label="test, -1")
+plt.ylim([-1, 1])
+plt.xlim([-2, 2])
+plt.legend()
+# -
+
+plt.scatter(X_dummy[:,0], X_dummy[:,1],marker='s', s=140, c= y_dummy_random, alpha=0.9)
+plt.colorbar()
+
 # filename = "dataset_symmetricdonuts.npy"
 
 # with open(filename, 'wb') as f:
@@ -287,9 +330,11 @@ plt.colorbar()
 
 # with open(filename, 'wb') as f:
 #     np.save(f, params)
+#     np.save(f, params_random)
 
 # with open(filename, 'rb') as f:
 #     params_c = np.load(f)
+#     params_random_c = np.load(f)
 
 # coef = svm_trained_kernel.dual_coef_
 
@@ -305,6 +350,8 @@ plt.colorbar()
 
 # (width,depth)
 #
-# (3,3): acc_train 0.65 to 0.85, acc_test 0.583 to 0.77, alignment to 0.06
+# (3,3): acc_train 0.65 to 0.85, acc_test 0.583 to 0.77, alignment 0.02 to 0.06
+#
+# (3,4): acc_train 0.7 to 0.93, acc_test 0.583 to 0.87, alignment 0.037 to 0.088
 
 
