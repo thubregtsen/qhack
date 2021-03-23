@@ -249,6 +249,8 @@ plt.scatter(X_dummy[:,0], X_dummy[:,1], s=50, c = y_dummy_real, alpha=1, marker=
 #     np.save(f, X_dummy)
 #     np.save(f, y_dummy)
 #     np.save(f, y_dummy_real)
+#     
+#     # only used in checkerboard_4_6_0
 #     # np.save(f, y_dummy_random)
 #     # np.save(f, y_dummy_random_real)
 #     np.save(f, X_train)
@@ -264,7 +266,12 @@ plt.scatter(X_dummy[:,0], X_dummy[:,1], s=50, c = y_dummy_real, alpha=1, marker=
 # with open(filename, 'rb') as f:
 #     X_dummy_c = np.load(f)
 #     y_dummy_c = np.load(f)
-#     # y_dummy_real_c = np.load(f)
+#     y_dummy_real_c = np.load(f)
+#     
+#     # Only for checkerboard_4_6_0
+#     # y_dummy_random_c = np.load(f)
+#     # y_dummy_random_real_c = np.load(f)
+#     
 #     X_train_c = np.load(f)
 #     y_train_c = np.load(f)
 #     X_test_c = np.load(f)
