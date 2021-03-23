@@ -120,7 +120,7 @@ class AnyObjectHandler(object):
 
 # +
 filename = f'data/kernel_matrices_DoubleCake_untrained.dill'
-filename = 'data/kernel_matrices_Checkerboard_trained.dill'
+filename = 'data/kernel_matrices_Checkerboard_untrained.dill'
 
 num_wires = 5
 
@@ -460,7 +460,7 @@ ax[i].legend(
 )
     
 plt.tight_layout()
-plt.savefig('mitigation_plots/best_postprocessing_Checkerboard_trained.pdf')
+plt.savefig('mitigation_plots/best_postprocessing_Checkerboard_untrained.pdf')
 
 
 # +
@@ -503,14 +503,13 @@ for i, pipeline_name in enumerate(plot_pipelines):
                 cbar=True,
                 ax=ax[i],
                 linewidth=0.2,
-#                 linecolor='k',
-#                 xticklabels=list(df['base_noise_rate'].unique()[::5]),
-#                 xticks=list(df['base_noise_rate'].unique()[::5]),
                 yticklabels=list(np.round(df['shots_sort'].astype(int).unique()[:-1],0))+['analytic'],
                )
-    ax[i].set_xticks([])
-    ax[i].set_xlabel('')
+    if i<len(plot_pipelines)-1:
+        ax[i].set_xticks([])
+        ax[i].set_xlabel('')
     plt.setp( ax[i].yaxis.get_majorticklabels(), rotation=0 )
+
     ax[i].set_ylabel('# Measurements')
 #     ax[i].set_title(titles[pipeline_name])
 
@@ -531,12 +530,18 @@ for i, pipeline_name in enumerate(plot_pipelines):
 
 #         print(f"{titles[pipeline_name]} - {min_alignment}")
 
+ax[1].set_xticklabels([ticklabel.get_text()[:4] for ticklabel in ax[i].get_xticklabels()])
+ax[1].set_xticks(ax[i].get_xticks()[::5])
+plt.setp( ax[1].xaxis.get_majorticklabels(), rotation=0 )
+ax[1].set_xlabel('Base noise rate $\\lambda_0$')
 
     
 plt.tight_layout()
-plt.savefig('mitigation_plots/improvement_postprocessing_Checkerboard_trained.pdf')
+plt.savefig('mitigation_plots/improvement_postprocessing_Checkerboard_untrained.pdf')
 # -
 
 best_df.loc[(df['base_noise_rate']==0.088) & (df['shots_sort']==int(1e10))]
+
+len(pipelines)
 
 
