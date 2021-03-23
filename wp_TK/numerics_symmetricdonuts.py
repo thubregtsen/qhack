@@ -61,7 +61,7 @@ def accuracy_predict(Y_predict, Y_target):
 # +
 features = 2
 width = 3
-depth = 3
+depth = 4
 
 # init device
 dev = qml.device("default.qubit", wires=width)
@@ -254,6 +254,7 @@ plt.scatter(X_dummy[:,0], X_dummy[:,1],marker='s', s=140, c= y_dummy, alpha=0.9)
 plt.colorbar()
 
 # filename = "dataset_symmetricdonuts.npy"
+
 # with open(filename, 'wb') as f:
 #     np.save(f, X_dummy)
 #     np.save(f, y_dummy_label)
@@ -272,23 +273,38 @@ plt.colorbar()
 #     X_test_c = np.load(f)
 #     y_test_c = np.load(f)
 
-filename = "parameters_symmetricdonuts.npy"
-with open(filename, 'wb') as f:
-    np.save(f, params)
+# plt.scatter(X_dummy_c[np.where(y_dummy_label_c == 1)[0],0], X_dummy_c[np.where(y_dummy_label_c == 1)[0],1], color="b", marker=".",label="dummy, 1")
+# plt.scatter(X_dummy_c[np.where(y_dummy_label_c == -1)[0],0], X_dummy_c[np.where(y_dummy_label_c == -1)[0],1], color="r", marker=".",label="dummy, -1")
+# plt.scatter(X_train_c[np.where(y_train_c == 1)[0],0], X_train_c[np.where(y_train_c == 1)[0],1], color="b", marker="+", label="train, 1")
+# plt.scatter(X_train_c[np.where(y_train_c == -1)[0],0], X_train_c[np.where(y_train_c == -1)[0],1], color="r", marker="+", label="train, -1")
+# plt.scatter(X_test_c[np.where(y_test_c == 1)[0],0], X_test_c[np.where(y_test_c == 1)[0],1], color="b", marker="x", label="test, 1")
+# plt.scatter(X_test_c[np.where(y_test_c == -1)[0],0], X_test_c[np.where(y_test_c == -1)[0],1], color="r", marker="x", label="test, -1")
+# plt.ylim([-1, 1])
+# plt.xlim([-2, 2])
+# plt.legend()
+
+# filename = "parameters_symmetricdonuts.npy"
+
+# with open(filename, 'wb') as f:
+#     np.save(f, params)
 
 # with open(filename, 'rb') as f:
 #     params_c = np.load(f)
 
-coef = svm_trained_kernel.dual_coef_
+# coef = svm_trained_kernel.dual_coef_
 
-intercept = svm_trained_kernel.intercept_
+# intercept = svm_trained_kernel.intercept_
 
-support = svm_trained_kernel.support_
+# support = svm_trained_kernel.support_
 
-print(len(coef[0]), len(support))
+# print(len(coef[0]), len(support))
 
-coef
+# coef
 
-intercept
+# intercept
+
+# (width,depth)
+#
+# (3,3): acc_train 0.65 to 0.85, acc_test 0.583 to 0.77, alignment to 0.06
 
 

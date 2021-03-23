@@ -59,8 +59,8 @@ def plot_classification(ax, X_dummy, y_dummy_label, y_dummy, X_train, y_train, X
     ax.contourf(xx, yy, np.clip(zz, -clip, clip), cmap=linmap, alpha=0.5)
     ax.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="C0", facecolors=None, marker=marker, s=markersize, label="Train")
     ax.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="C1", facecolors=None, marker=marker, s=markersize, label="Train")
-    ax.scatter(X_test[np.where(y_train == 1)[0],0], X_test[np.where(y_train == 1)[0],1], color="C0", facecolors="none", marker=marker, s=markersize, label="Test")
-    ax.scatter(X_test[np.where(y_train == -1)[0],0], X_test[np.where(y_train == -1)[0],1], color="C1", facecolors="none", marker=marker, s=markersize, label="Test")
+    ax.scatter(X_test[np.where(y_test == 1)[0],0], X_test[np.where(y_test == 1)[0],1], color="C0", facecolors="none", marker=marker, s=markersize, label="Test")
+    ax.scatter(X_test[np.where(y_test == -1)[0],0], X_test[np.where(y_test == -1)[0],1], color="C1", facecolors="none", marker=marker, s=markersize, label="Test")
     # ax.set_ylim([0, 1])
     # ax.set_xlim([0, 1])
     ax.set_xticks([])
@@ -91,6 +91,5 @@ plot_classification(plt.gca(), *load_data_tom("dataset_checkerboard.npy"))
 
 plt.tight_layout()
 # -
-
 glob.glob("*.npy")
 
