@@ -74,7 +74,6 @@ k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
 
 
 
-# -
 
 
 # +
