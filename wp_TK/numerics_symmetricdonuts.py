@@ -26,10 +26,10 @@ import pennylane as qml
 from pennylane import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from sklearn.svm import SVC, SVR
+from sklearn.svm import SVC
 from sklearn import datasets
 
-np.random.seed(21) # sorry, 42 did not build a nice dataset
+np.random.seed(42) # sorry, 42 did not build a nice dataset
 
 
 # +
@@ -139,7 +139,7 @@ def datagen (n_train, n_test):
     return X,y, X_,y_
 
 
-X_train ,y_train, X_test, y_test = datagen(40,100)
+X_train ,y_train, X_test, y_test = datagen(60,60)
 
 X_train = np.asarray(X_train)
 y_train = np.asarray(y_train)
@@ -232,14 +232,16 @@ for i in range(num):
         X_dummy.append([startx + i*incx,starty + j*incy])
 # -
 
-svr_trained_kernel = SVR(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
-y_dummy = svr_trained_kernel.predict(X_dummy)
+y_dummy = svm_trained_kernel.decision_function(X_dummy)
 
 X_dummy = np.asarray(X_dummy)
 y_dummy = np.asarray(y_dummy)
 
-plt.scatter(X_dummy[np.where(y_dummy == 1)[0],0], X_dummy[np.where(y_dummy == 1)[0],1], color="b", marker=".",label="dummy, 1")
-plt.scatter(X_dummy[np.where(y_dummy == -1)[0],0], X_dummy[np.where(y_dummy == -1)[0],1], color="r", marker=".",label="dummy, -1")
+# +
+y_dummy_label = np.sign(y_dummy)
+
+plt.scatter(X_dummy[np.where(y_dummy_label == 1)[0],0], X_dummy[np.where(y_dummy_label == 1)[0],1], color="b", marker=".",label="dummy, 1")
+plt.scatter(X_dummy[np.where(y_dummy_label == -1)[0],0], X_dummy[np.where(y_dummy_label == -1)[0],1], color="r", marker=".",label="dummy, -1")
 plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", marker="+", label="train, 1")
 plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", marker="+", label="train, -1")
 plt.scatter(X_test[np.where(y_test == 1)[0],0], X_test[np.where(y_test == 1)[0],1], color="b", marker="x", label="test, 1")
@@ -247,7 +249,46 @@ plt.scatter(X_test[np.where(y_test == -1)[0],0], X_test[np.where(y_test == -1)[0
 plt.ylim([-1, 1])
 plt.xlim([-2, 2])
 plt.legend()
-plt.scatter(X_dummy[:,0], X_dummy[:,1],marker='s', s=70, c= y_dummy, alpha=1)
+# -
+plt.scatter(X_dummy[:,0], X_dummy[:,1],marker='s', s=140, c= y_dummy, alpha=0.9)
 plt.colorbar()
+
+# filename = "dataset_symmetricdonuts.npy"
+# with open(filename, 'wb') as f:
+#     np.save(f, X_dummy)
+#     np.save(f, y_dummy_label)
+#     np.save(f, y_dummy)
+#     np.save(f, X_train)
+#     np.save(f, y_train)
+#     np.save(f, X_test)
+#     np.save(f, y_test)
+
+# with open(filename, 'rb') as f:
+#     X_dummy_c = np.load(f)
+#     y_dummy_label_c = np.load(f)
+#     y_dummy_c = np.load(f)
+#     X_train_c = np.load(f)
+#     y_train_c = np.load(f)
+#     X_test_c = np.load(f)
+#     y_test_c = np.load(f)
+
+filename = "parameters_symmetricdonuts.npy"
+with open(filename, 'wb') as f:
+    np.save(f, params)
+
+# with open(filename, 'rb') as f:
+#     params_c = np.load(f)
+
+coef = svm_trained_kernel.dual_coef_
+
+intercept = svm_trained_kernel.intercept_
+
+support = svm_trained_kernel.support_
+
+print(len(coef[0]), len(support))
+
+coef
+
+intercept
 
 
