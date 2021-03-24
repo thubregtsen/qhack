@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 from sklearn import datasets
 
-np.random.seed(42) # sorry, 42 did not build a nice dataset
+np.random.seed(42)
 
 
 # +
