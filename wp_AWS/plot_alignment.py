@@ -9,6 +9,26 @@ module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
 
+noiseless_kernel_matrix = np.load('noiseless_kernel_matrix.npy')
+
+
+def calc_alignment(A, B):
+    AB = _matrix_inner_product(A, B)
+    AA = _matrix_inner_product(A, A)
+    BB = _matrix_inner_product(B, B)
+    return(BB/(AA**0.5 * BB ** 0.5))
+
+
+def _matrix_inner_product(A, B):
+    """Frobenius/Hilbert-Schmidt inner product between two matrices
+    Args:
+        A (array[float]): First matrix, assumed to be a square array.
+        B (array[float]): Second matrix, assumed to be a square array.
+    Returns:
+        float: Inner product of A and B
+    """
+    return np.trace(np.dot(np.transpose(A), B))
+
 
 def sample_from_measurement_distribution(distribution, shots):
     values = list(distribution.keys())
@@ -33,9 +53,7 @@ def translate_folder(module_path, n_shots):
     data_dict = {'timestamp': [], 'measurement_result': []}
     for dirs, subdir, files in os.walk(module_path):
 
-        # print(subdir)
         for file in files:
-            # print(dirs + '/' + file)
             if file == 'results.json':
                 with open(dirs + '/' + file) as myfile:
                     data = myfile.read()
@@ -115,9 +133,11 @@ if __name__ == "__main__":
             for j in range(i, N_datapoints):
                 kernel_matrix[i, j] = kernel_array[index]
                 kernel_matrix[j, i] = kernel_matrix[i, j]
-                # print(index)
                 index += 1
         kernel_matrix = np.reshape(kernel_matrix, (60, 60))
-        kernel_matrices.append(kernel_matrix)
+        alignment = calc_alignment(
+            kernel_matrix, noiseless_kernel_matrix)
+        print(alignment, 'alignment')
+     #   kernel_matrices.append(kernel_matrix)
 
-    visualize_kernel_matrices(kernel_matrices)
+    # visualize_kernel_matrices(kernel_matrices)
