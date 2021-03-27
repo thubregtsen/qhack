@@ -150,11 +150,13 @@ def mitigate_global_depolarization(kernel_matrix, num_wires, strategy='average',
     Args:
       kernel_matrix (ndarray): Noisy kernel matrix.
       num_wires (int): Number of wires/qubits that was used to compute the kernel matrix.
-      strategy='average' ('average'|'split_channel'|None): Details of the noise model and strategy for mitigation.
+      strategy='average' ('single'|'average'|'split_channel'|None): Details of the noise model and strategy for mitigation.
+        'single': An alias for 'average' with len(use_entries)=1.
         'average': Compute the noise rate based on the diagonal entries in use_entries, average if applicable.
         'split_channel': Assume a distinct effective noise rate for the embedding circuit of each feature vector.
         None: Don't do anything.
-      use_entries=None (list<int>): Indices of diagonal entries to use if strategy=='average'. Set to all if None.
+      use_entries=None (list<int>): Indices of diagonal entries to use if strategy in ['single', 'average'].
+        If None, it is set to (0,) for 'single' and to range(len(kernel_matrix)) for 'average' (full diagonal).
       return_noise_estimates=False (bool): Whether or not to return the estimated noise rate(s).
     Returns:
       mitigated_matrix (ndarray): Mitigated kernel matrix.
@@ -166,8 +168,16 @@ def mitigate_global_depolarization(kernel_matrix, num_wires, strategy='average',
     dim = 2**num_wires
 
     if strategy is None:
-        return kernel_matrix, None
-
+        if return_noise_estimates:
+            return kernel_matrix, None
+        else:
+            return kernel_matrix
+    elif strategy=='single':
+        if use_entries is None:
+            use_entries = (0,)
+        return mitigate_global_depolarization(
+                kernel_matrix, num_wires, 'average', use_entries, return_noise_estimates
+                )
     elif strategy=='average':
         if use_entries is None:
             diagonal_elements = np.diag(kernel_matrix)
