@@ -194,13 +194,18 @@ plotting =  True
 
 # evaluate the performance with trained parameters for the kernel
 ## train the kernel
+alignment = k.target_alignment(X_train, y_train, params)
+alignment_log = [alignment]
+print("Step 0 - Alignment on train = {:.3f}".format(alignment))
 opt = qml.GradientDescentOptimizer(1)
 for i in range(1000):
     subset = np.random.choice(list(range(len(X_train))), 4)
     params = opt.step(lambda _params: -k.target_alignment(X_train[subset], y_train[subset], _params), params)
     
     if (i+1) % 50 == 0:
-        print("Step {} - Alignment on train = {:.3f}".format(i+1, k.target_alignment(X_train, y_train, params)))
+        alignment = k.target_alignment(X_train, y_train, params)
+        alignment_log.append(alignment)
+        print("Step {} - Alignment on train = {:.3f}".format(i+1, alignment))
 # ### Train SVM
 # +
 ## fit the SVM on the train set
@@ -271,7 +276,6 @@ plt.scatter(X_dummy[:,0], X_dummy[:,1],marker='s', s=140, c= y_dummy_random, alp
 plt.colorbar()
 
 # filename = "dataset_symmetricdonuts.npy"
-
 # with open(filename, 'wb') as f:
 #     np.save(f, X_dummy)
 #     np.save(f, y_dummy_label)
@@ -295,7 +299,6 @@ plt.colorbar()
 #     y_test_c = np.load(f)
 
 # filename = "parameters_symmetricdonuts.npy"
-
 # with open(filename, 'wb') as f:
 #     np.save(f, params)
 #     np.save(f, params_random)
@@ -303,6 +306,10 @@ plt.colorbar()
 # with open(filename, 'rb') as f:
 #     params_c = np.load(f)
 #     params_random_c = np.load(f)
+
+# filename = "alignment_symmetricdonuts.npy"
+# with open(filename, 'wb') as f:
+#     np.save(f, alignment_log)
 
 # coef = svm_trained_kernel.dual_coef_
 
