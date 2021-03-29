@@ -16,8 +16,7 @@
 # +
 import itertools
 import numpy as np
-from nk_lib import mitigate_global_depolarization, kernel_alignment
-from pennylane.kernels.postprocessing import threshold_matrix, displace_matrix, closest_psd_matrix
+import pennylane as qml
 
 # Plotting
 import seaborn as sns
@@ -38,20 +37,20 @@ from mitigation_demo_data import noisy_kernel_matrix, exact_kernel_matrix
 # # Post-processing functions: regularization and mitigation
 # Let us now collect the post-processing methods presented in the paper. We consider three regularization and mitigation methods respectively.
 #
-# Tikhonov regularization and thresholding are currently implemented in our contribution to PennyLane, the `qml.kernels` module, whereas the semi-definite program (SDP) for thresholding while fixing the diagonal to be one is provided in the library `nk_lib.py`.
+# All three regularization methods are implemented in our contribution to PennyLane, the `qml.kernels` module.method
 #
-# As for the mitigation methods, `mitigate_global_depolarization` from `nk_lib.py` is used with three different `strategy` keyword arguments corresponding to the three concepts from the paper.
+# As for the mitigation methods, `mitigate_depolarizing_noise` from `qml.kernels` is used with three different `method` keyword arguments corresponding to the three concepts from the paper.
 #
 # We also define a "do-nothing" function `Id` to skip steps in the pipelines below.
 
 # +
-r_Tikhonov = displace_matrix
-r_thresh = threshold_matrix
-r_SDP = closest_psd_matrix
+r_Tikhonov = qml.kernels.displace_matrix
+r_thresh = qml.kernels.threshold_matrix
+r_SDP = qml.kernels.closest_psd_matrix
 
-m_single = lambda mat: mitigate_global_depolarization(mat, num_wires, strategy='single')
-m_mean = lambda mat: mitigate_global_depolarization(mat, num_wires, strategy='average')
-m_split = lambda mat: mitigate_global_depolarization(mat, num_wires, strategy='split_channel')
+m_single = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='single')
+m_mean = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='average')
+m_split = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='split_channel')
 
 Id = lambda mat: mat
 # -
@@ -59,7 +58,7 @@ Id = lambda mat: mat
 # ## Setting up post-processing pipelines
 # Now we combine the methods above into pipelines with three steps. We will use the ordering _regularize_-_mitigate_-_regularize_ and allow to skip any of these steps by including `Id` as an option. 
 #
-# We also define a simple function `apply_pipeline` that applies all functions from a list to an input matrix successively. In case of instabilities in the SDP (in `r_SDP`) or input matrices for which our noise rate estimation (in `mitigate_global_depolarization`) is not well-defined, we make sure the function exits properly.
+# We also define a simple function `apply_pipeline` that applies all functions from a list to an input matrix successively. In case of instabilities in the SDP (in `r_SDP`) or input matrices for which our noise rate estimation (in `mitigate_depolarizing_noise`) is not well-defined, we make sure the function exits properly.
 
 # +
 regularizations = [Id, r_Tikhonov, r_thresh, r_SDP]
@@ -134,13 +133,13 @@ unique_matrices = np.unique([np.round(mat, 8) for mat in mitigated_kernel_matric
 print(f"# Unique matrices: {len(unique_matrices)}")
 
 # ## Evaluating the results
-# We can use the `kernel_alignment` function from `nk_lib.py` to compute the alignment between the exact, noiseless matrix and the various mitigated matrices (including the pipeline `Id`-`Id`-`Id`, i.e. the original noisy matrix)
+# We can use the `matrix_inner_product` function from `qml.kernels` with the option `normalize=True` to compute the alignment between the exact, noiseless matrix and the various mitigated matrices (including the pipeline `Id`-`Id`-`Id`, i.e. the original noisy matrix)
 
 # %matplotlib notebook
 sorted_keys = sorted(list(mitigated_kernel_matrices.keys()))
 sorted_matrices = [mitigated_kernel_matrices[key] for key in sorted_keys]
 alignments = [
-    (kernel_alignment(exact_kernel_matrix, mitigated) if mitigated is not None else None)
+    (qml.kernels.matrix_inner_product(exact_kernel_matrix, mitigated, normalize=True) if mitigated is not None else None)
     for mitigated in sorted_matrices
 ]
 df = pd.DataFrame({

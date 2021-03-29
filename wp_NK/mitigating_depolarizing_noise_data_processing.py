@@ -249,7 +249,7 @@ except FileNotFoundError:
     for pipeline_name, pipeline in tqdm.notebook.tqdm(pipelines.items()):
         for key, mat in kernel_matrices.items():
             K = np.copy(mat)
-            for fun, kwargs in pipeline
+            for fun, kwargs in pipeline:
                 try:
                     fun_start = time.process_time()
                     K = fun(K, **kwargs)
@@ -389,21 +389,16 @@ def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
         ch = plot.get_children()
         fig.colorbar(ch[0], ax=ax[-2], cax=ax[-1])
         
+fun_names = {
+    'displace': '$r_\\mathrm{Tikhonov}$',
+    'thresh': '$r_\\mathrm{thresh}$',
+    'SDP': '$r_\\mathrm{SDP}$',
+    'single': '$\\mathit{m}_\\mathrm{single}$',
+    'mean': '$\\mathit{m}_\\mathrm{mean}$',
+    'split': '$\\mathit{m}_\\mathrm{split}$',
+}
 def prettify_pipeline(pipe):
-    names = pipe.split("_")
-    new_names = []
-    for name in names:
-        if name=='sdp':
-            new_names.append("SDP")
-        elif name=='displace':
-            new_names.append('Tikhonov')
-        elif name=='avg':
-            new_names.append('Mean')
-        elif name in ['single', 'split']:
-            new_names.append(name.capitalize())
-        else:
-            new_names.append(name.capitalize())
-    return ', '.join(new_names)
+    return ', '.join([fun_names[name] for name in pipe.split("_")])
 
 
 # +
@@ -611,7 +606,7 @@ legend_entries = sorted(list(set(legend_entries)), key=lambda x: x[0])
 handles = [AnyObject(han) for han, lab in legend_entries]
 ax[i].legend(
     handles, 
-    [(prettify_pipeline(lab) if lab!='' else 'No postprocessing') for han, lab in legend_entries],    
+    [(prettify_pipeline(lab) if lab!='' else 'No post-processing') for han, lab in legend_entries],    
     handler_map={han:AnyObjectHandler() for han in handles},
     ncol=5,
     bbox_to_anchor=[0.0,1.],
