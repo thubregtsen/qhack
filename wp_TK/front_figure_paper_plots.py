@@ -81,7 +81,7 @@ fmt = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revt
 # +
 fig = fmt.figure(aspect_ratio=0.8)
 
-X_dummy, y_dummy_label, y_dummy, X_train, y_train, X_test, y_test, y_dummy_random_label, y_dummy_random = load_data_elies("dataset_symmetricdonuts.npy")
+X_dummy, y_dummy_label, y_dummy, X_train, y_train, X_test, y_test, y_dummy_random_label, y_dummy_random = load_data_elies("dataset_checkerboard.npy")
 
 plot_classification(plt.gca(), X_dummy, y_dummy_label, y_dummy, X_train, y_train, X_test, y_test, clip=0.8, no_test=True)
 plt.gca().get_legend().remove()
@@ -92,7 +92,7 @@ plt.savefig("after.pdf")
 # +
 fig = fmt.figure(aspect_ratio=0.8)
 
-X_dummy, y_dummy_label, y_dummy, X_train, y_train, X_test, y_test, y_dummy_random_label, y_dummy_random = load_data_elies("dataset_symmetricdonuts.npy")
+X_dummy, y_dummy_label, y_dummy, X_train, y_train, X_test, y_test, y_dummy_random_label, y_dummy_random = load_data_elies("dataset_checkerboard.npy")
 
 plot_classification(plt.gca(), X_dummy, y_dummy_random_label, y_dummy_random, X_train, y_train, X_test, y_test, clip=0.8, no_test=True)
 plt.gca().get_legend().remove()
@@ -123,6 +123,25 @@ for i in range(400):
 
     
 plt.plot(a, lw=2.0, color="#8288B9")
+
+ax = plt.gca()
+
+ax.set_xticks([])
+ax.set_yticks([])
+ax.axis("off")
+plt.savefig("ta_graph.pdf")
+# -
+with open("alignment_checkerboard.npy", 'rb') as f:
+    alignment = np.load(f)
+
+
+plt.plot(alignment)
+
+# +
+fig=fmt.figure(aspect_ratio=1/5.0)
+
+    
+plt.plot(alignment, lw=2.0, color="#8288B9")
 
 ax = plt.gca()
 
