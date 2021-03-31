@@ -56,6 +56,8 @@ def translate_folder(module_path, n_shots):
                 data_dict['timestamp'].append(time_for_sorting)
                 data_dict['measurement_result'].append(measurement_result)
                 index += 1
+            else:
+                print('not json')
     df = pd.DataFrame(data_dict, columns=['timestamp', 'measurement_result'])
     df = df.sort_values(by=['timestamp'])
     return(df['measurement_result'])
@@ -91,26 +93,36 @@ if __name__ == "__main__":
     kernel_matrices = []
     for n_shots in n_shots_array:
         kernel_array = [0] * 1830
+        
         module_path = os.path.abspath(
-            os.path.join('./ionq_kernel_matrix_0_680/'))
+            os.path.join('./ionq_kernel_matrix_0_679/'))
         kernel_array[:679] = translate_folder(module_path, n_shots)
-
+        module_path = os.path.abspath(
+            os.path.join('./ionq_kernel_matrix_679_680/'))
+        kernel_array[679:681] = translate_folder(module_path, n_shots)
+        
         module_path = os.path.abspath(
             os.path.join('./ionq_kernel_matrix_681_929'))
         kernel_array[681:681+248] = translate_folder(module_path, n_shots)
-
+    
         module_path = os.path.abspath(
             os.path.join('./ionq_kernel_matrix_929_1229'))
-        kernel_array[929:929+300] = translate_folder(module_path, n_shots)
-
+        kernel_array[929:1229] = translate_folder(module_path, n_shots)
+        
         module_path = os.path.abspath(
             os.path.join('./ionq_kernel_matrix_1229_1529'))
         kernel_array[1229:1529] = translate_folder(module_path, n_shots)
 
         module_path = os.path.abspath(
+            os.path.join('./ionq_kernel_matrix_1529'))
+        kernel_array[1529] = translate_folder(module_path, n_shots)
+        
+        
+        module_path = os.path.abspath(
             os.path.join('./ionq_kernel_matrix_1529_1829'))
         kernel_array[1530:1830] = translate_folder(module_path, n_shots)
-
+        
+        #print(kernel_array[1829])
         N_datapoints = 60
         kernel_matrix = np.zeros((60, 60))
         index = 0
@@ -176,15 +188,20 @@ def apply_pipeline(pipeline, mat):
 
 # +
 # Apply pipelines
-recompute_pipelines = False
-filter = True
+recompute_pipelines = True
+actually_recompute_pipelines = False
+filter = False
+
+
 
 if not recompute_pipelines:
     try:
         df = pd.read_pickle('mitigated_hardware_matrices.pkl')
+        print(df)
         actually_recompute_pipelines = False
     except FileNotFoundError:
         actually_recompute_pipelines = True
+
 if actually_recompute_pipelines or recompute_pipelines:
     for n_shots in tqdm.notebook.tqdm(n_shots_array):
         noisy_kernel_matrix = df.loc[(df.n_shots==n_shots) & (df.pipeline=='No post-processing')].kernel_matrix.item()
@@ -203,7 +220,6 @@ if actually_recompute_pipelines or recompute_pipelines:
                     continue
             else:
                 key = ', '.join([function_names[function] for function in pipeline])
-            print(n_shots, key)
             mitigated_kernel_matrix = apply_pipeline(pipeline, noisy_kernel_matrix)
             if mitigated_kernel_matrix is None:
                 alignment = None
@@ -258,6 +274,7 @@ fs = 14
 ms = 50
 lw = 2
 
+#print(best_df)
 sns.scatterplot(data=best_df, x='n_shots', y='alignment', hue='pretty_pipeline',
                 style='pretty_pipeline', markers=['o', 'X'], s=ms
                 )
@@ -283,6 +300,7 @@ ax.legend(handles[::-1], labels[::-1], loc='lower right', fontsize=fs)
 ax.tick_params(labelsize=fs*5/6)
 plt.tight_layout()
 plt.savefig('../wp_NK/mitigation_plots/ionq_mitigation.pdf')
+plt.show()
 # -
 
 df.reset_index(level=0, inplace=True, drop=True)
