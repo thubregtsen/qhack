@@ -392,9 +392,9 @@ def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
 fun_names = {
     'displace': '$r_\\mathrm{Tikhonov}$',
     'thresh': '$r_\\mathrm{thresh}$',
-    'SDP': '$r_\\mathrm{SDP}$',
+    'sdp': '$r_\\mathrm{SDP}$',
     'single': '$\\mathit{m}_\\mathrm{single}$',
-    'mean': '$\\mathit{m}_\\mathrm{mean}$',
+    'avg': '$\\mathit{m}_\\mathrm{mean}$',
     'split': '$\\mathit{m}_\\mathrm{split}$',
 }
 def prettify_pipeline(pipe):
