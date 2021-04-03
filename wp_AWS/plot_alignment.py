@@ -188,7 +188,7 @@ def apply_pipeline(pipeline, mat):
 
 # +
 # Apply pipelines
-recompute_pipelines = True
+recompute_pipelines = False
 actually_recompute_pipelines = False
 filter = False
 
@@ -254,6 +254,7 @@ def prettify_pipelines(x):
     return ', '.join(new_funs)
 
 def fit_fun(M, a, b, c):
+    print(fit_fun)
     return c-np.exp(-np.sqrt(M)*a+b)
 
 def top_pipelines(n_shots):    
@@ -265,8 +266,12 @@ for n_shots in tqdm.notebook.tqdm(n_shots_array):
     best_df = pd.concat([best_df, top_pipelines(n_shots)])
 best_df['pretty_pipeline'] = best_df.apply(prettify_pipelines, axis=1)
 
+print(noisy_df.alignment.to_numpy())
+print(fit_fun)
+print(n_shots_array)
 p_noisy, pcov_noisy = sp.optimize.curve_fit(fit_fun, n_shots_array, noisy_df.alignment.to_numpy(), p0=[1, 0, 1])
 p_best, pcov_best = sp.optimize.curve_fit(fit_fun, n_shots_array, best_df.alignment.to_numpy(), p0=[1, 0, 1])
+
 
 # +
 # %matplotlib notebook
