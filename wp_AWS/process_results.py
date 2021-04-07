@@ -45,7 +45,7 @@ def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
     width_ratios = [1]*num_mat+[0.2]*int(draw_last_cbar)
     fig, ax = plt.subplots(1, num_mat+draw_last_cbar, figsize=(num_mat *
                                                                5+draw_last_cbar, 5), gridspec_kw={'width_ratios': width_ratios})
-#    sns.set()
+    sns.set()
     for i, kernel_matrix in enumerate(kernel_matrices):
         plot = sns.heatmap(
             kernel_matrix,
@@ -53,9 +53,9 @@ def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
             vmax=1,
             xticklabels='',
             yticklabels='',
-            ax=ax,  # [i],
+            ax=ax[i],  # [i],
             cmap='Spectral',
-            cbar=True
+            cbar=False
         )
     if draw_last_cbar:
         ch = plot.get_children()
@@ -64,40 +64,67 @@ def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
 
 
 if __name__ == "__main__":
+    n_shots=175
     kernel_array = [0] * 1830
-    print(len(kernel_array), 'length')
-    module_path = os.path.abspath(os.path.join('./ionq_kernel_matrix/'))
-    array_679 = translate_folder(module_path)
-    print(len(array_679), '679')
+
+    module_path = os.path.abspath(
+        os.path.join('./ionq_kernel_matrix_0_679/'))
     kernel_array[:679] = translate_folder(module_path)
-    print(kernel_array[0])
-    module_path = os.path.abspath(os.path.join('./ionq_kernel_matrix_681_929'))
+    module_path = os.path.abspath(
+        os.path.join('./ionq_kernel_matrix_679_680/'))
+    kernel_array[679:681] = translate_folder(module_path)
+
+    module_path = os.path.abspath(
+        os.path.join('./ionq_kernel_matrix_681_929'))
     kernel_array[681:681+248] = translate_folder(module_path)
-    array_680_165 = translate_folder(module_path)
-    print(len(array_680_165), 'len')
-    print(len(kernel_array), 'k')
+
     module_path = os.path.abspath(
         os.path.join('./ionq_kernel_matrix_929_1229'))
-    kernel_array[929:929+300] = translate_folder(module_path)
+    kernel_array[929:1229] = translate_folder(module_path)
 
     module_path = os.path.abspath(
         os.path.join('./ionq_kernel_matrix_1229_1529'))
     kernel_array[1229:1529] = translate_folder(module_path)
-    print(len(kernel_array), 'k')
+
+    module_path = os.path.abspath(
+        os.path.join('./ionq_kernel_matrix_1529'))
+    kernel_array[1529] = translate_folder(module_path)
+
+
     module_path = os.path.abspath(
         os.path.join('./ionq_kernel_matrix_1529_1829'))
     kernel_array[1530:1830] = translate_folder(module_path)
-    print(len(kernel_array), 'k')
+    index=0
     N_datapoints = 60
+    
     kernel_matrix = np.zeros((60, 60))
-    index = 0
+
+    #print(kernel_array[1529])
 
     for i in range(N_datapoints):
         for j in range(i, N_datapoints):
             kernel_matrix[i, j] = kernel_array[index]
             kernel_matrix[j, i] = kernel_matrix[i, j]
-
             index += 1
     kernel_matrix = np.reshape(kernel_matrix, (60, 60))
     np.save('ionq_hardware_kernel_matrix', kernel_matrix)
     visualize_kernel_matrices([kernel_matrix])
+    print(kernel_matrix)
+
+noiseless_kernel_matrix = np.load('../wp_NK/testing_ionq_classical.npy')
+print(noiseless_kernel_matrix)
+
+# +
+unpickled_df = pd.read_pickle('mitigated_hardware_matrices.pkl')
+print(unpickled_df)
+
+mitigated_kernel_matrix = unpickled_df['kernel_matrix'][519]
+print(unpickled_df['alignment'][519])
+print(mitigated_kernel_matrix)
+# -
+
+visualize_kernel_matrices([kernel_matrix, mitigated_kernel_matrix, noiseless_kernel_matrix])
+
+
+
+

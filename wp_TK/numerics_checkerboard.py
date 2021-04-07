@@ -102,13 +102,6 @@ for i in range(dim):
                 true = np.vstack([true, data])
 print(false.shape)
 print(true.shape)
-# -
-
-
-
-
-
-
 # +
 samples = 30 # number of samples to X_train[np.where(y=-1)], so total = 4*samples
 #data = datasets.make_moons(n_samples=4*samples, shuffle=False, random_state=42, noise=0.2)
@@ -143,7 +136,7 @@ acc_log = []
 params_log = []
 # evaluate the performance with random parameters for the kernel
 ## choose random params for the kernel
-for i in range(5):
+for i in range(1):
     params = random_params(width, depth)
     #print(params)
     ## fit the SVM on the training data
