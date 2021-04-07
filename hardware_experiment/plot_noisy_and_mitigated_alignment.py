@@ -24,7 +24,7 @@ df = pd.read_pickle('mitigated_hardware_matrices.pkl')
 noisy_df = df.loc[df.pipeline == 'No post-processing']
 mitigated_df = df.loc[df.pipeline != 'No post-processing']
 num_top_pipelines = 1
-
+n_shots_array = [15, 25, 50, 75, 100, 125, 150, 175]
 
 def prettify_pipelines(x):
     funs = x.pipeline.split(', ')
