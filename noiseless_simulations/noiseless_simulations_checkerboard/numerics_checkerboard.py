@@ -30,6 +30,10 @@ from sklearn import datasets
 np.random.seed(42+1) # sorry, 42 did not build a nice dataset
 
 
+# -
+
+# # Define quantum circuit
+
 # +
 def layer(x, params, wires, i0=0, inc=1):
     """Building block of the embedding Ansatz"""
@@ -50,14 +54,11 @@ def ansatz(x, params, wires):
         
 def random_params(num_wires, num_layers):
     return np.random.uniform(0, 2*np.pi, (num_layers, 2, num_wires))
+
+
 # -
-
-
-
 def accuracy(classifier, X, Y_target):
     return 1 - np.count_nonzero(classifier.predict(X) - Y_target) / len(Y_target)
-
-
 
 
 # +
@@ -102,17 +103,12 @@ for i in range(dim):
                 true = np.vstack([true, data])
 print(false.shape)
 print(true.shape)
+# -
+# # Define dataset
+
 # +
 samples = 30 # number of samples to X_train[np.where(y=-1)], so total = 4*samples
-#data = datasets.make_moons(n_samples=4*samples, shuffle=False, random_state=42, noise=0.2)
-#X = data[0]
-#X = X + np.abs(np.min(X))
-#X = X / np.max(X)
-#y = data[1]
 
-
-#false = c_0
-#true = c_1
 np.random.shuffle(false)
 np.random.shuffle(true)
 
@@ -132,11 +128,15 @@ plt.xlim([0, 1])
 plt.legend()
 # -
 
+# # Untrained Kernels
+
+# Loop that tests the accuracy on test set for an SVM
+
 acc_log = []
 params_log = []
 # evaluate the performance with random parameters for the kernel
 ## choose random params for the kernel
-for i in range(1):
+for i in range(3):
     params = random_params(width, depth)
     #print(params)
     ## fit the SVM on the training data
@@ -152,8 +152,6 @@ params = params_log[np.argmin(np.asarray(acc_log))]
 print("Untrained accuracies:", acc_log)
 
 params = params_log[np.argmin(np.asarray(acc_log))]
-
-
 
 # +
 precision = 20 # higher is preciser and more compute time
@@ -191,6 +189,21 @@ if plotting:
 
 if plotting:
     plt.scatter(X_dummy[:,0], X_dummy[:,1], s=50, c = y_dummy_random_real, alpha=1, marker='s')
+
+# ## save data
+
+filename = "dataset_checkerboard_random.npy"
+with open(filename, 'wb') as f:
+    np.save(f, X_dummy)
+    np.save(f, y_dummy_random)
+    np.save(f, y_dummy_random_real)
+#    np.save(f, y_dummy)
+#    np.save(f, y_dummy_real)
+    np.save(f, X_train)
+    np.save(f, y_train)
+    np.save(f, X_test)
+    np.save(f, y_test)
+print('test')
 
 # evaluate the performance with trained parameters for the kernel
 ## train the kernel
