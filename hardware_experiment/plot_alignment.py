@@ -299,7 +299,7 @@ fig, axs = plt.subplots(2, 1, figsize=(6, 6), gridspec_kw={'height_ratios':[1, 5
 sns.barplot(ax=axs[0], data=barplot_df, x='n_shots', y='q', hue='pretty_pipeline',palette=palette,
             dodge=True, hue_order=hue_order,
            )
-axs[0].set_ylabel('$q$', fontsize=fs)
+axs[0].set_ylabel('$q$', fontsize=fs, labelpad=10)
 axs[0].get_legend().remove()
 axs[0].set_xticks([])
 axs[0].set_xlim((-1.75, 20.75))
@@ -331,6 +331,7 @@ leg = axs[1].legend(handles[::-1], labels[::-1], loc='lower right', fontsize=fs)
 
 axs[0].tick_params(labelsize=fs*5/6)
 axs[1].tick_params(labelsize=fs*5/6)
+
 plt.tight_layout()
 plt.savefig('../wp_NK/mitigation_plots/ionq_mitigation.pdf')
 plt.show()
