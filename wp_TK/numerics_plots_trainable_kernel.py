@@ -72,12 +72,13 @@ def plot_classification(ax, X_dummy, y_dummy_label, y_dummy, X_train, y_train, X
     # ax.set_xlim([0, 1])
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.legend(
-        handles=[
-            mpl.lines.Line2D([0], [0], color="w", markeredgecolor="black", markerfacecolor="black", marker=marker, markersize=np.sqrt(markersize), label='Train'),
-            mpl.lines.Line2D([0], [0], color="w", markeredgecolor="black", marker=marker, markersize=np.sqrt(markersize), label='Test'),],  
-        bbox_to_anchor=[0.5, 0.96], 
-        loc='lower center', ncol=2, frameon=False)
+    #ax.legend(
+    #    handles=[
+    #        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="black", markerfacecolor="black", marker=marker, markersize=np.sqrt(markersize), label='Train')], 
+    #        #mpl.lines.Line2D([0], [0], color="w", markeredgecolor="black", markerfacecolor="black", marker=marker, markersize=np.sqrt(markersize), label='Train'),
+    #        #mpl.lines.Line2D([0], [0], color="w", markeredgecolor="black", marker=marker, markersize=np.sqrt(markersize), label='Test'),],  
+    #    bbox_to_anchor=[0.5, 0.96], 
+    #    loc='lower center', ncol=2, frameon=False)
 # -
 
 
@@ -91,50 +92,46 @@ fig = fmt.figure(width_ratio=1., aspect_ratio=1.6)
 
 counter = 421
 
+markersize=15
+marker="o"
+clip=1
+legend_offset = -.64
+
 # checkerboard
 ## untrained
 X_dummy_c, y_dummy__random_c, y_dummy_random_real_c, y_dummy_c, y_dummy_real_c, X_train_c, y_train_c, X_test_c, y_test_c = load_data_elies("dataset_checkerboard.npy")
 ax = fig.add_subplot(counter)
 plot_classification(ax, X_dummy_c, y_dummy__random_c, y_dummy_random_real_c, X_train_c, y_train_c, X_test_c, y_test_c)
-ax.set_xlabel("untrained")
 ax.set_ylabel("checkerboard")
 counter += 1
 ## trained
 ax = fig.add_subplot(counter)
 plot_classification(ax, X_dummy_c, y_dummy_c, y_dummy_real_c, X_train_c, y_train_c, X_test_c, y_test_c)
-ax.set_xlabel("trained")
-ax.get_legend().remove()
+#ax.get_legend().remove()
+#ax.get_legend().show()
 counter += 1
 
 # donuts
 ## untrained
-X_dummy_c, y_dummy__random_c, y_dummy_random_real_c, y_dummy_c, y_dummy_real_c, X_train_c, y_train_c, X_test_c, y_test_c = load_data_elies("dataset_symmetricdonuts.npy")
+X_dummy_c, y_dummy_c, y_dummy_real_c, y_dummy__random_c, y_dummy_random_real_c, X_train_c, y_train_c, X_test_c, y_test_c = load_data_elies("dataset_symmetricdonuts.npy")
 ax = fig.add_subplot(counter)
 plot_classification(ax, X_dummy_c, y_dummy__random_c, y_dummy_random_real_c, X_train_c, y_train_c, X_test_c, y_test_c)
-ax.set_xlabel("untrained")
 ax.set_ylabel("donuts")
-ax.get_legend().remove()
 counter += 1
 ## trained
 ax = fig.add_subplot(counter)
 plot_classification(ax, X_dummy_c, y_dummy_c, y_dummy_real_c, X_train_c, y_train_c, X_test_c, y_test_c)
-ax.set_xlabel("trained")
-ax.get_legend().remove()
 counter += 1
 
 # zero vs non-zero
 ## untrained
 ax = fig.add_subplot(counter)
 plot_classification(ax, *load_data_tom("dataset_MNIST_23_zero_untrained.npy"))
-ax.set_xlabel("untrained")
 ax.set_ylabel("zero vs non-zero")
-ax.get_legend().remove()
 counter += 1
 ## trained
 ax = fig.add_subplot(counter)
 plot_classification(ax, *load_data_tom("dataset_MNIST_23_zero_trained.npy"))
-ax.set_xlabel("trained")
-ax.get_legend().remove()
 counter += 1
 
 # one vs one-zero
@@ -143,13 +140,30 @@ ax = fig.add_subplot(counter)
 plot_classification(ax, *load_data_tom("dataset_MNIST_23_one_untrained.npy"))
 ax.set_xlabel("untrained")
 ax.set_ylabel("one vs non-one")
-ax.get_legend().remove()
+ax.legend(
+    handles=[
+        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C0", markerfacecolor=None, marker=marker, markersize=np.sqrt(markersize), label='Train 0'),
+        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C1", markerfacecolor=None, marker=marker, markersize=np.sqrt(markersize), label='Test 0'),
+        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C0", markerfacecolor="C0", marker=marker, markersize=np.sqrt(markersize), label='Train 1'),  
+        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C1", markerfacecolor="C1", marker=marker, markersize=np.sqrt(markersize), label='Test 1'),],  
+    bbox_to_anchor=[0.48, legend_offset], 
+    loc='lower center', ncol=2, frameon=False, handletextpad=0.00, columnspacing=0.0, borderpad=0.05) # borderpad=0
 counter += 1
 # trained
 ax = fig.add_subplot(counter)
 plot_classification(ax, *load_data_tom("dataset_MNIST_23_one_trained.npy"))
 ax.set_xlabel("trained")
-ax.get_legend().remove()
+#ax.legend(
+#    handles=[
+#        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C0", markerfacecolor=None, marker=marker, markersize=np.sqrt(markersize), label='Train 0'),
+#        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C1", markerfacecolor=None, marker=marker, markersize=np.sqrt(markersize), label='Test 0'),
+#        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C0", markerfacecolor="C0", marker=marker, markersize=np.sqrt(markersize), label='Train 1'),  
+#        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C1", markerfacecolor="C0", marker=marker, markersize=np.sqrt(markersize), label='Test 1'),],  
+#    bbox_to_anchor=[0.48, legend_offset], 
+#    loc='lower center', ncol=2, frameon=False, handletextpad=0.00, columnspacing=0.0, borderpad=0.05) # borderpad=0
+#ax.get_legend().get_frame().set_linewidth(0.3)
+#ax.get_legend().get_frame().set_edgecolor('black')
+
 counter += 1
 
 plt.tight_layout()
