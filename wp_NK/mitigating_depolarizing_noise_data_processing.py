@@ -40,11 +40,20 @@ formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib
 
 # +
 # Helper functions for cell plotting
-def get_cells(vert, horz, iterations=20):
+def get_cells(vert, horz, iterations=None):
+    """Given boolean boundary matrices, obtain cells via spreading iterations
+    Args:
+        vert (ndarray<bool>, shape=(m,n-1)): Vertical boundaries
+        horz (ndarray<bool>, shape=(m-1,n)): Horizontal boundaries
+        iterations=None (int): Number of spreading iterations. If None, defaults to max(m, n)
     
-    num_rows = vert.shape[0]
-    num_cols = horz.shape[1]
-    print(num_rows, num_cols)
+    Returns:
+        mat (ndarray<int>, shape=(m,n)): Cells, given as labeling of matrix elements. The labels are contiguous.
+    """
+    num_rows = vert.shape[0] # This is m in the docstring.
+    num_cols = horz.shape[1] # This is n in the docstring.
+    if iterations is None:
+        iterations = max(num_rows, num_cols)
     mat = np.arange(num_rows*num_cols, dtype=int).reshape((num_rows, num_cols))
     for _ in range(iterations):
         for i in range(num_rows):
@@ -59,61 +68,49 @@ def get_cells(vert, horz, iterations=20):
                 if i<num_rows-1 and not horz[i,j]:
                     nghbhood.append((i+1,j))
                 nghb_min = np.min([mat[_i,_j] for _i,_j in nghbhood])
-#                 if i==0:
-#                     print(nghbhood, nghb_min)
                 for _i, _j in nghbhood:
                     mat[_i,_j] = nghb_min
                     
     _map = {val: count for count, val in enumerate(np.unique(mat))}
-#     print(_map)
     for i in range(num_rows):
         for j in range(num_cols):
             mat[i,j] = _map[mat[i,j]]
             
     return mat
 
-def get_cell_centers(cells):
-    ids = np.unique(cells)
-    centers = {}
-    for _id in ids:
-        centers[_id] = np.mean(np.where(cells==_id), axis=1)
-    return centers
+# def get_cell_centers(cells):
+#     """Get average coordinates per cell
+#     Args:
+#         cells (ndarray<int>): Cells as computed by `get_cells`
+#     Returns:
+#         centers (dict): Map from cell labels to mean coordinates of cells
+        
+#     """
+#     centers = {_id: np.mean(np.where(cells==_id), axis=1) for _id in np.unique(cells)}
+#     return centers
 
 def get_cell_label_pos(cells):
-    label_pos = get_cell_centers(cells)
+    """Get proper label position per cell
+    Args:
+        cells (ndarray<int>): Cells as computed by `get_cells`
+    Returns:
+        label_pos (dict): Map from cell labels to label coordinates for cells
+        
+    """
+#     label_pos = get_cell_centers(cells)
     ids = np.unique(cells)
+    label_pos = {_id: np.mean(np.where(cells==_id), axis=1) for _id in ids}
     for _id in ids:
-        prev_pos = [int(np.round(label_pos[_id][0])), int(np.round(label_pos[_id][1]))]
-        if cells[prev_pos[0], prev_pos[1]]!= _id:
+        center = label_pos[_id]
+        x, y = map(int, np.round(center))
+#         prev_pos = [int(np.round(label_pos[_id][0])), int(np.round(label_pos[_id][1]))]
+        if cells[x, y]!= _id:
             where = np.where(cells==_id)
-            center = np.mean(where, axis=1)
             dists = [(coord, np.linalg.norm(center-coord,2)) for coord in zip(where[0], where[1])]
             label_pos[_id] = min(dists, key=lambda x: x[1])[0]
         
     return label_pos
 
-
-
-# +
-# Legend handler artist to allow for Text/numeric handles, adds a circle around text
-
-class AnyObject(object):
-    def __init__(self, num, color='k'):
-        self.my_text = str(num)
-        self.my_color = color
-
-class AnyObjectHandler(object):
-    def legend_artist(self, legend, orig_handle, fontsize, handlebox):
-        x0, y0 = handlebox.xdescent, handlebox.ydescent
-        width, height = handlebox.width, handlebox.height
-        patch = mpl_text.Text(x=0, y=0, text=orig_handle.my_text, color=orig_handle.my_color, verticalalignment=u'baseline', 
-                                horizontalalignment=u'left', multialignment=None, 
-                                fontproperties=None, linespacing=None,
-                                fontsize=9,
-                                bbox=dict(boxstyle="round",ec=(0., 0., 0.),fc=(1., 1., 1.), alpha=0.2),       
-                                rotation_mode=None)
-        handlebox.add_artist(patch)
-        return patch
 
 
 # -
@@ -352,7 +349,6 @@ for i, _shots in enumerate(shot_numbers):
         best_sub_df_target = sub_df.loc[sub_df['target_alignment'].idxmax()]
         best_df_target = best_df_target.append(best_sub_df_target, ignore_index=True)
 
-#         best_alignment[i, j] = best_sub_df[rating_quantity]
         best_pipeline[i, j] = best_sub_df['pipeline']
         best_pipeline_target[i, j] = best_sub_df_target['pipeline']
         if j>0 and best_pipeline[i,j-1]!=best_pipeline[i,j]:
@@ -369,65 +365,181 @@ for i, _shots in enumerate(shot_numbers):
 
 
 # +
-def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
-    num_mat = len(kernel_matrices)
-    width_ratios = [1]*num_mat+[0.2]*int(draw_last_cbar)
-    fig,ax = plt.subplots(1, num_mat+draw_last_cbar, figsize=(num_mat*5+draw_last_cbar, 5), gridspec_kw={'width_ratios': width_ratios})
-#     sns.set()
-    for i, kernel_matrix in enumerate(kernel_matrices):
-        plot = sns.heatmap(
-            kernel_matrix, 
-            vmin=0,
-            vmax=1,
-            xticklabels='',
-            yticklabels='',
-            ax=ax[i],
-            cmap='Spectral',
-            cbar=False
-        )
-    if draw_last_cbar:
-        ch = plot.get_children()
-        fig.colorbar(ch[0], ax=ax[-2], cax=ax[-1])
-        
+# Legend handler artist to allow for Text/numeric handles, adds a round box around text
+
+class AnyObject(object):
+    def __init__(self, num, color='k'):
+        self.my_text = str(num)
+        self.my_color = color
+
+class AnyObjectHandler(object):
+    def legend_artist(self, legend, orig_handle, fontsize, handlebox):
+        x0, y0 = handlebox.xdescent, handlebox.ydescent
+        width, height = handlebox.width, handlebox.height
+        patch = mpl_text.Text(x=0, y=0, text=orig_handle.my_text, color=orig_handle.my_color,
+                                verticalalignment=u'baseline', 
+                                horizontalalignment=u'left', multialignment=None, 
+                                fontproperties=None, linespacing=None,
+                                fontsize=fontsize,
+                                bbox=dict(boxstyle="round",ec=(0., 0., 0.),fc=(1., 1., 1.), alpha=0.2),       
+                                rotation_mode=None)
+        handlebox.add_artist(patch)
+        return patch
+
+
+# -
+
 fun_names = {
     'displace': '$r_\\mathrm{Tikhonov}$',
     'thresh': '$r_\\mathrm{thresh}$',
     'sdp': '$r_\\mathrm{SDP}$',
-    'single': '$\\mathit{m}_\\mathrm{single}$',
-    'avg': '$\\mathit{m}_\\mathrm{mean}$',
-    'split': '$\\mathit{m}_\\mathrm{split}$',
+    'single': '$m_\\mathrm{single}$',
+    'avg': '$m_\\mathrm{mean}$',
+    'split': '$m_\\mathrm{split}$',
 }
 def prettify_pipeline(pipe):
     return ', '.join([fun_names[name] for name in pipe.split("_")])
 
 
 # +
+# Get boundary lines to draw
+shot_coords = {_shots: shot_numbers.index(_shots)+0.5 for _shots in shot_numbers}
+noise_coords = {_lambda: _lambda / (noise_rates[1]-noise_rates[0]) + 0.5 for _lambda in noise_rates}
+boundaries = []
+for i, _shots in enumerate(shot_numbers):
+    for j, _lambda in enumerate(noise_rates):
+        if j<len(noise_rates)-1 and vert[i,j]:
+            _x = [noise_coords[_lambda]+0.5, noise_coords[_lambda]+0.5]
+            _y = [shot_coords[_shots]-0.5, shot_coords[_shots]+0.5]
+        if i<len(shot_numbers)-1 and horz[i,j]:
+            _x = [noise_coords[_lambda]-0.5, noise_coords[_lambda]+0.5]
+            _y = [shot_coords[_shots]+0.5, shot_coords[_shots]+0.5]
+            
+        boundaries.append((_x, _y))
+        
+# Get labels and coordinates and prepare legend entries
+cells = get_cells(vert, horz, None)
+centers = get_cell_label_pos(cells)
+revert_pipeline_ids = {v: k for k,v in pipeline_ids.items()}
+legend_entries = []
+handles = []
+texts = []
+text_coords = []
+for _id, coord in centers.items():
+    x, y = np.round(coord).astype(int)
+    pipe_id = best_pipeline_id[x, y]
+    texts.append(str(pipe_id))
+    text_coords.append([y+0.5, x+0.5])
+    if int(pipe_id) not in handles:
+        legend_entries.append((int(pipe_id), revert_pipeline_ids[int(pipe_id)]))
+        handles.append(int(pipe_id))
+legend_entries = sorted(legend_entries, key=lambda x: x[0])
+handles = [AnyObject(han) for han, _ in legend_entries]
+labels = [(prettify_pipeline(lab) if lab!='' else 'No post-processing') for _, lab in legend_entries]  
+handler_map = {han:AnyObjectHandler() for han in handles}
+
+# +
 # %matplotlib notebook
+# Parameters for boundary drawing
+sep_col = 'k'
+sep_lw = 1.1
+
+# formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
+formatter.set_rcParams()
+fig = formatter.figure(wide=False)
+ax = fig.add_subplot()
+
+best_df_pivot = best_df.pivot('shots_sort', 'base_noise_rate', 'relative')
+best_df_pivot = best_df_pivot.sort_index(axis='rows', ascending=False)
+ticklabel_kwarg_to_heatmap = {
+    'yticklabels': (list(np.round(df['shots_sort'].astype(int).unique()[:-1],0))+['analytic'])[::-1]
+}
+plot = sns.heatmap(data=best_df_pivot,
+            vmin=0-1e-5,
+            vmax=1+1e-5,
+            cbar=True,
+            ax=ax,
+            cmap=mpl.cm.viridis,
+            cbar_kws={'pad': 0.01},
+            **ticklabel_kwarg_to_heatmap,
+           )
+
+for _x, _y in boundaries:
+    ax.plot(_x, _y, color=sep_col, linewidth=sep_lw, zorder=100)
+
+for pipe_id, (x, y) in zip(texts, text_coords):
+    ax.text(x, 
+            y, 
+            pipe_id, 
+            ha='center', 
+            va='center', 
+            bbox={
+               'boxstyle':"round, pad=0.05",
+               'ec':('1' if pipe_id==0 else '0'),
+               'fc':(1., 1., 1.),
+               'alpha':(0.1 if pipe_id==0 else 0.5),
+           },
+           alpha=0.8,
+           color=('1' if pipe_id==0 else '0'),
+          )
+    
+ax.set_xticklabels([ticklabel.get_text()[:4] for ticklabel in ax.get_xticklabels()])
+ax.set_xticks(ax.get_xticks()[::5])
+for axis in (ax.xaxis, ax.yaxis):
+    plt.setp(axis.get_majorticklabels(), rotation=0)
+ax.set_xlabel('Base noise rate $\\lambda_0$')
+ax.set_ylabel('# Measurements')
+formatter.set_rcParams()
+ax.legend(
+    handles, 
+    labels,
+    handler_map=handler_map,
+    ncol=5,
+    bbox_to_anchor=[0.0,1.],
+    loc='lower left',
+    labelspacing=0.75,
+    borderpad=0.5,
+    handletextpad=0.5,
+)
+# print(handles)
+# print(labels)
+# plt.tight_layout()
+# plt.savefig(f'mitigation_plots/best_postprocessing_Checkerboard_{"un" if not trained else ""}trained_relative.pdf', bbox_inches='tight')
+# -
+
+
+
+
+
+
+
+
+
+
+
+
+
+# +
+# %matplotlib notebook
+# formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
+
+sep_col = 'k'
+sep_lw = 1.1
+label_fs = 11
+tick_fs = 11
+
 plot_all_pipelines = False
 if plot_all_pipelines:
     figsize = (9, 3+3*len(pipelines))
     fig, ax = plt.subplots(len(pipelines)+1, 1, figsize=figsize)
+    
 else:
-    figsize = (13, 6)
-    fig, ax = plt.subplots(1, 1, figsize=figsize)
-    ax = [ax]
-#     fig = formatter.figure(wide=True)
-#     ax = fig.add_subplot()
+#     figsize = (13, 6)
+#     fig, ax = plt.subplots(1, 1, figsize=figsize)
 #     ax = [ax]
+    fig = formatter.figure(wide=True)
+    ax = [fig.add_subplot()]
 titles = {k:k for k in pipelines.keys()}
-#     'None': "No Postprocessing",
-#     'sdp': "Best Regularization", # SDP is best of the three regularization methods alone.
-#     'displace': "Displacing", # Worse average than SDP alone
-#     'thresh': "Thresholding", # Worse worst output than SDP alone
-#     'single': "Single Rate Mitigation (Single)",
-#     'avg': "Single Rate Mitigation (Average)",
-#     'avg_sdp': "Single Rate Mitigation (Average) and Regularization",
-#     'displace_avg_sdp': "Displacing, Single Rate Mitigation (Average) and Regularization",
-#     'displace_avg': "Displacing and Single Rate Mitigation (Average)",
-#     'split': "Feature-dependent Rate Mitigation",
-#     'split_sdp': "Feature-dependent Rate Mitigation and Regularization",
-#     'displace_split_sdp': "Displacing, Feature-dependent Rate Mitigation and Regularization",
-# }
 shot_coords = {_shots: shot_numbers.index(_shots)+0.5 for _shots in shot_numbers}
 noise_coords = {_lambda: _lambda / (noise_rates[1]-noise_rates[0]) + 0.5 for _lambda in noise_rates}
 
@@ -447,10 +559,6 @@ if plot_all_pipelines:
                     vmax=1+1e-5,
                     cbar=True,
                     ax=ax[i],
-#                     linewidth=0.2,
-    #                 linecolor='k',
-    #                 xticklabels=list(df['base_noise_rate'].unique()[::5]),
-    #                 xticks=list(df['base_noise_rate'].unique()[::5]),
                     yticklabels=list(np.round(df['shots_sort'].astype(int).unique()[:-1],0))+['analytic'],
                    )
         ax[i].set_xticks([])
@@ -498,7 +606,7 @@ plot = sns.heatmap(data=best_df_pivot,
             cbar=True,
             ax=ax[i],
 #             square=True,
-            cmap='flare',
+            cmap=mpl.cm.turbo,
 #             linewidth=0.5,
 #             annot=best_pipeline_id,
             cbar_kws={'pad': 0.01},
@@ -508,8 +616,8 @@ if transpose:
     ax[i].set_yticklabels([ticklabel.get_text()[:4] for ticklabel in ax[i].get_yticklabels()])
     ax[i].set_yticks(ax[i].get_yticks()[::5])
     plt.setp( ax[i].yaxis.get_majorticklabels(), rotation=0 )
-    ax[i].set_ylabel('Base noise rate $\\lambda_0$', fontsize=11)
-    ax[i].set_xlabel('# Measurements', fontsize=11)
+    ax[i].set_ylabel('Base noise rate $\\lambda_0$')#, fontsize=label_fs)
+    ax[i].set_xlabel('# Measurements')#, fontsize=label_fs)
     
     vert_use = vert.T
     horz_use = horz.T
@@ -517,14 +625,12 @@ else:
     ax[i].set_xticklabels([ticklabel.get_text()[:4] for ticklabel in ax[i].get_xticklabels()])
     ax[i].set_xticks(ax[i].get_xticks()[::5])
     plt.setp( ax[i].xaxis.get_majorticklabels(), rotation=0 )
-    ax[i].set_xlabel('Base noise rate $\\lambda_0$', fontsize=11)
-    ax[i].set_ylabel('# Measurements', fontsize=11)
+    ax[i].set_xlabel('Base noise rate $\\lambda_0$')#, fontsize=label_fs)
+    ax[i].set_ylabel('# Measurements')#, fontsize=label_fs)
     vert_use = vert
     horz_use = horz
 # ax[i].set_title('Best')
 
-sep_col = '0.7'
-sep_lw = 1.1
 if transpose:
     for j1, _shots in enumerate(shot_numbers):
         for i1, _lambda in enumerate(noise_rates):
@@ -562,26 +668,26 @@ for _id, coord in centers.items():
     if transpose:
         indx = indx[::-1]
         pipe_id = best_pipeline_id[indx[0],indx[1]]
-        if pipe_id in [8, 12, 9]:
-            shift = 0.25
-        elif pipe_id in [14, 16, 17]:
-            shift = -0.25
-        elif pipe_id==15:
-            shift = 0.05
-        else:
-            shift = 0
+#         if pipe_id in [8, 12, 9]:
+#             shift = 0.25
+#         elif pipe_id in [14, 16, 17]:
+#             shift = -0.25
+#         elif pipe_id==15:
+#             shift = 0.05
+#         else:
+#             shift = 0
         shift=0
         text_coord = [coord[1]+0.5+shift, coord[0]+0.5]
     else:
         pipe_id = best_pipeline_id[indx[0],indx[1]]
-        if pipe_id in [8, 11, 12, 9]:
-            shift = 0.25
-        elif pipe_id in [14, 16, 17, 0] or coord[1]==2:
-            shift = -0.25
-        elif pipe_id==15:
-            shift = 0.05
-        else:
-            shift = 0
+#         if pipe_id in [8, 11, 12, 9]:
+#             shift = 0.25
+#         elif pipe_id in [14, 16, 17, 0] or coord[1]==2:
+#             shift = -0.25
+#         elif pipe_id==15:
+#             shift = 0.05
+#         else:
+#             shift = 0
         shift=0
         text_coord = [coord[1]+0.5, coord[0]+0.5+shift]
     ax[i].text(*text_coord, 
@@ -589,14 +695,15 @@ for _id, coord in centers.items():
                ha='center', 
                va='center', 
                bbox={
-                   'boxstyle':"round, pad=0.2",
-                   'ec':'1',#('k' if pipe_id in [0,2] else '1'),
+                   'boxstyle':"round, pad=0.05",
+                   'ec':('1' if pipe_id==0 else '0'),
                    'fc':(1., 1., 1.),
-                   'alpha':0.5,
+                   'alpha':(0.1 if pipe_id==0 else 0.5),
                },
                alpha=0.8,
-               color='k',#('k' if pipe_id in [0,2] else '1'),
-               fontsize=9,
+               color=('1' if pipe_id==0 else '0'),
+#                color='k',
+#                fontsize=label_fs,
               )
     if int(pipe_id) not in handles:
         legend_entries.append((int(pipe_id), revert_pipeline_ids[int(pipe_id)]))
@@ -604,22 +711,25 @@ for _id, coord in centers.items():
 plt.setp( ax[i].yaxis.get_majorticklabels(), rotation=0 )
 legend_entries = sorted(list(set(legend_entries)), key=lambda x: x[0])
 handles = [AnyObject(han) for han, lab in legend_entries]
+formatter.set_rcParams()
 ax[i].legend(
     handles, 
     [(prettify_pipeline(lab) if lab!='' else 'No post-processing') for han, lab in legend_entries],    
     handler_map={han:AnyObjectHandler() for han in handles},
-    ncol=5,
+#     ncol=5,
+#     fontsize=label_fs,
     bbox_to_anchor=[0.0,1.],
     loc='lower left',
-    labelspacing=0.75,
-    borderpad=0.5,
+#     labelspacing=0.75,
+#     borderpad=0.5,
+#     handletextpad=0.5,
 )
-ax[i].tick_params(labelsize=10)
+# ax[i].tick_params(labelsize=tick_fs)
 cbar = ax[i].collections[0].colorbar
-cbar.ax.tick_params(labelsize=9)
+# cbar.ax.tick_params(labelsize=tick_fs)
 
 plt.tight_layout()
-plt.savefig(f'mitigation_plots/best_postprocessing_Checkerboard_{"un" if not trained else ""}trained_relative.pdf', bbox_inches='tight')
+# plt.savefig(f'mitigation_plots/best_postprocessing_Checkerboard_{"un" if not trained else ""}trained_relative.pdf', bbox_inches='tight')
 # -
 
 
@@ -627,15 +737,16 @@ plt.savefig(f'mitigation_plots/best_postprocessing_Checkerboard_{"un" if not tra
 # print(best_df.loc[best_df.shots_sort<10000].relative.max())
 print(horz_use.shape)
 
-(best_df.pivot('shots_sort','base_noise_rate', 'alignment').to_numpy()\
--best_df_target.pivot('shots_sort','base_noise_rate', 'alignment').to_numpy())\
-/best_df.pivot('shots_sort','base_noise_rate', 'alignment').to_numpy()
+# +
+# (best_df.pivot('shots_sort','base_noise_rate', 'alignment').to_numpy()\
+# -best_df_target.pivot('shots_sort','base_noise_rate', 'alignment').to_numpy())\
+# /best_df.pivot('shots_sort','base_noise_rate', 'alignment').to_numpy()
 
 # +
 # %matplotlib notebook
 plot_pipelines = ['', 'thresh']
-label_fs = 14
-tick_fs = 10
+label_fs = 16
+tick_fs = 12
 
 figsize = (7, 3.5*len(plot_pipelines))
 fig, ax = plt.subplots(len(plot_pipelines), 1, figsize=figsize)
@@ -720,14 +831,18 @@ plt.tight_layout()
 
 # +
 # %matplotlib notebook
+# formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
+sns.set()
 plot_pipelines = ['thresh']
 label_fs = 14
 tick_fs = 10
 
-figsize = (7, 3.5*len(plot_pipelines))
-fig, ax = plt.subplots(len(plot_pipelines), 1, figsize=figsize)
-if not hasattr(ax, '__getitem__'):
-    ax = [ax]
+# figsize = (7, 3.5*len(plot_pipelines))
+# fig, ax = plt.subplots(len(plot_pipelines), 1, figsize=figsize)
+# if not hasattr(ax, '__getitem__'):
+#     ax = [ax]
+fig = formatter.figure(wide=False)
+ax = [plt.gca()]
 # ax = []
 # fig = formatter.figure()
 # gs = fig.add_gridspec(len(plot_pipelines), 1)
@@ -754,7 +869,7 @@ for i, pipeline_name in enumerate(plot_pipelines):
                 vmax=1+1e-5,
                 cbar=True,
                 ax=ax[i],
-                cmap='flare',
+                cmap=mpl.cm.turbo,
                 linewidth=0.1,
                 yticklabels=(list(np.round(df['shots_sort'].astype(int).unique()[:-1],0))+['analytic'])[::-1],
                )
@@ -788,5 +903,44 @@ plt.savefig(f'mitigation_plots/relative_improvement_postprocessing_Checkerboard_
 # -
 
 subdf.relative[subdf.relative<0]
+
+# +
+# # %matplotlib notebook
+formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
+fig = formatter.figure(wide=False)
+ax = fig.add_subplot()
+
+shot_coords = {_shots: shot_numbers.index(_shots)+0.5 for _shots in shot_numbers}
+noise_coords = {_lambda: _lambda / (noise_rates[1]-noise_rates[0]) + 0.5 for _lambda in noise_rates}
+
+
+subdf = df.loc[df['pipeline']=='thresh']
+subdf.loc[:, 'relative'] = subdf.apply(relative_alignment, axis=1)
+subdf_pivot = subdf.pivot('shots_sort', 'base_noise_rate', 'relative').sort_index(axis='rows', ascending=False)
+max_alignment = np.max(subdf['relative'])
+max_df = subdf.loc[[subdf['relative'].idxmax()]]
+plot = sns.heatmap(data=subdf_pivot,
+            vmin=0-1e-5,
+            vmax=0.5+1e-5,
+            cbar=True,
+            ax=ax,
+            cmap=mpl.cm.viridis,
+            linewidth=0.1,
+            yticklabels=(list(np.round(df['shots_sort'].astype(int).unique()[:-1],0))+['analytic'])[::-1],
+           )
+plt.setp( ax.yaxis.get_majorticklabels(), rotation=0 )
+
+ax.set_ylabel('# Measurements')
+
+ax.set_xticklabels([ticklabel.get_text()[:4] for ticklabel in ax.get_xticklabels()])
+ax.set_xticks(ax.get_xticks()[::5])
+
+plt.setp( ax.xaxis.get_majorticklabels(), rotation=0 )
+ax.set_xlabel('Base noise rate $\\lambda_0$')
+
+formatter.set_rcParams()
+plt.tight_layout()
+plt.savefig(f'mitigation_plots/relative_improvement_postprocessing_Checkerboard_{"un" if not trained else ""}trained.pdf', bbox_inches='tight')
+# -
 
 
