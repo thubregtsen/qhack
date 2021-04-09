@@ -68,17 +68,8 @@ def plot_classification(ax, X_dummy, y_dummy_label, y_dummy, X_train, y_train, X
     ax.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="C1", facecolors=None, marker=marker, s=markersize, label="Train")
     ax.scatter(X_test[np.where(y_test == 1)[0],0], X_test[np.where(y_test == 1)[0],1], color="C0", facecolors="none", marker=marker, s=markersize, label="Test")
     ax.scatter(X_test[np.where(y_test == -1)[0],0], X_test[np.where(y_test == -1)[0],1], color="C1", facecolors="none", marker=marker, s=markersize, label="Test")
-    # ax.set_ylim([0, 1])
-    # ax.set_xlim([0, 1])
     ax.set_xticks([])
     ax.set_yticks([])
-    #ax.legend(
-    #    handles=[
-    #        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="black", markerfacecolor="black", marker=marker, markersize=np.sqrt(markersize), label='Train')], 
-    #        #mpl.lines.Line2D([0], [0], color="w", markeredgecolor="black", markerfacecolor="black", marker=marker, markersize=np.sqrt(markersize), label='Train'),
-    #        #mpl.lines.Line2D([0], [0], color="w", markeredgecolor="black", marker=marker, markersize=np.sqrt(markersize), label='Test'),],  
-    #    bbox_to_anchor=[0.5, 0.96], 
-    #    loc='lower center', ncol=2, frameon=False)
 # -
 
 
@@ -95,7 +86,7 @@ counter = 421
 markersize=15
 marker="o"
 clip=1
-legend_offset = -.64
+legend_offset = -.4
 
 # checkerboard
 ## untrained
@@ -142,27 +133,22 @@ ax.set_xlabel("untrained")
 ax.set_ylabel("one vs non-one")
 ax.legend(
     handles=[
-        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C0", markerfacecolor=None, marker=marker, markersize=np.sqrt(markersize), label='Train 0'),
-        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C1", markerfacecolor=None, marker=marker, markersize=np.sqrt(markersize), label='Test 0'),
-        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C0", markerfacecolor="C0", marker=marker, markersize=np.sqrt(markersize), label='Train 1'),  
-        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C1", markerfacecolor="C1", marker=marker, markersize=np.sqrt(markersize), label='Test 1'),],  
-    bbox_to_anchor=[0.48, legend_offset], 
-    loc='lower center', ncol=2, frameon=False, handletextpad=0.00, columnspacing=0.0, borderpad=0.05) # borderpad=0
+        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C0", markerfacecolor=None, marker=marker, markersize=np.sqrt(markersize), label='train -1'),
+        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C0", markerfacecolor="C0", marker=marker, markersize=np.sqrt(markersize), label='test -1'),], 
+    bbox_to_anchor=[0.465, legend_offset], 
+    loc='lower center', ncol=4, frameon=False, handletextpad=0.00, columnspacing=0.0, borderpad=0.05) # borderpad=0
 counter += 1
 # trained
 ax = fig.add_subplot(counter)
 plot_classification(ax, *load_data_tom("dataset_MNIST_23_one_trained.npy"))
 ax.set_xlabel("trained")
-#ax.legend(
-#    handles=[
-#        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C0", markerfacecolor=None, marker=marker, markersize=np.sqrt(markersize), label='Train 0'),
-#        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C1", markerfacecolor=None, marker=marker, markersize=np.sqrt(markersize), label='Test 0'),
-#        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C0", markerfacecolor="C0", marker=marker, markersize=np.sqrt(markersize), label='Train 1'),  
-#        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C1", markerfacecolor="C0", marker=marker, markersize=np.sqrt(markersize), label='Test 1'),],  
-#    bbox_to_anchor=[0.48, legend_offset], 
-#    loc='lower center', ncol=2, frameon=False, handletextpad=0.00, columnspacing=0.0, borderpad=0.05) # borderpad=0
-#ax.get_legend().get_frame().set_linewidth(0.3)
-#ax.get_legend().get_frame().set_edgecolor('black')
+ax.legend(
+    handles=[
+        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C1", markerfacecolor=None, marker=marker, markersize=np.sqrt(markersize), label='train 1'),
+        mpl.lines.Line2D([0], [0], color="w", markeredgecolor="C1", markerfacecolor="C1", marker=marker, markersize=np.sqrt(markersize), label='test 1'),],  
+    bbox_to_anchor=[0.465, legend_offset], 
+    loc='lower center', ncol=4, frameon=False, handletextpad=0.00, columnspacing=0.0, borderpad=0.05) # borderpad=0
+
 
 counter += 1
 
