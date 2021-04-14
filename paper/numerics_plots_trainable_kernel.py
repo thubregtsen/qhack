@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py
+#     formats: ipynb,py:light
 #     text_representation:
 #       extension: .py
 #       format_name: light
@@ -24,7 +24,7 @@ linmap = mpl.colors.LinearSegmentedColormap.from_list("test", ["C1", "white" ,"C
 
 import rsmf
 ### !!! you need to reference the main.tex !!! ####
-fmt = rsmf.setup("/home/th/qhack/overleaf/7_04/main.tex")
+fmt = rsmf.setup("style/main.tex")
 
 
 # +
@@ -90,7 +90,7 @@ legend_offset = -.4
 
 # checkerboard
 ## untrained
-X_dummy_c, y_dummy__random_c, y_dummy_random_real_c, y_dummy_c, y_dummy_real_c, X_train_c, y_train_c, X_test_c, y_test_c = load_data_elies("dataset_checkerboard.npy")
+X_dummy_c, y_dummy__random_c, y_dummy_random_real_c, y_dummy_c, y_dummy_real_c, X_train_c, y_train_c, X_test_c, y_test_c = load_data_elies("./data/dataset_checkerboard.npy")
 ax = fig.add_subplot(counter)
 plot_classification(ax, X_dummy_c, y_dummy__random_c, y_dummy_random_real_c, X_train_c, y_train_c, X_test_c, y_test_c)
 ax.set_ylabel("checkerboard")
@@ -98,13 +98,11 @@ counter += 1
 ## trained
 ax = fig.add_subplot(counter)
 plot_classification(ax, X_dummy_c, y_dummy_c, y_dummy_real_c, X_train_c, y_train_c, X_test_c, y_test_c)
-#ax.get_legend().remove()
-#ax.get_legend().show()
 counter += 1
 
 # donuts
 ## untrained
-X_dummy_c, y_dummy_c, y_dummy_real_c, y_dummy__random_c, y_dummy_random_real_c, X_train_c, y_train_c, X_test_c, y_test_c = load_data_elies("dataset_symmetricdonuts.npy")
+X_dummy_c, y_dummy_c, y_dummy_real_c, y_dummy__random_c, y_dummy_random_real_c, X_train_c, y_train_c, X_test_c, y_test_c = load_data_elies("./data/dataset_symmetricdonuts.npy")
 ax = fig.add_subplot(counter)
 plot_classification(ax, X_dummy_c, y_dummy__random_c, y_dummy_random_real_c, X_train_c, y_train_c, X_test_c, y_test_c)
 ax.set_ylabel("donuts")
@@ -117,18 +115,18 @@ counter += 1
 # zero vs non-zero
 ## untrained
 ax = fig.add_subplot(counter)
-plot_classification(ax, *load_data_tom("dataset_MNIST_23_zero_untrained.npy"))
+plot_classification(ax, *load_data_tom("./data/dataset_MNIST_23_zero_untrained.npy"))
 ax.set_ylabel("zero vs non-zero")
 counter += 1
 ## trained
 ax = fig.add_subplot(counter)
-plot_classification(ax, *load_data_tom("dataset_MNIST_23_zero_trained.npy"))
+plot_classification(ax, *load_data_tom("./data/dataset_MNIST_23_zero_trained.npy"))
 counter += 1
 
 # one vs one-zero
 ## untrained
 ax = fig.add_subplot(counter)
-plot_classification(ax, *load_data_tom("dataset_MNIST_23_one_untrained.npy"))
+plot_classification(ax, *load_data_tom("./data/dataset_MNIST_23_one_untrained.npy"))
 ax.set_xlabel("untrained")
 ax.set_ylabel("one vs non-one")
 ax.legend(
@@ -140,7 +138,7 @@ ax.legend(
 counter += 1
 # trained
 ax = fig.add_subplot(counter)
-plot_classification(ax, *load_data_tom("dataset_MNIST_23_one_trained.npy"))
+plot_classification(ax, *load_data_tom("./data/dataset_MNIST_23_one_trained.npy"))
 ax.set_xlabel("trained")
 ax.legend(
     handles=[
@@ -154,4 +152,4 @@ counter += 1
 
 plt.tight_layout()
 #plt.show()
-plt.savefig("numerics_plots_trainable_kernel.jpg")
+plt.savefig("./images/numerics_plots_trainable_kernel.jpg")
