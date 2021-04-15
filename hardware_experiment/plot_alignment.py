@@ -15,125 +15,80 @@ if module_path not in sys.path:
     sys.path.append(module_path)
 import scipy as sp
 
-noiseless_kernel_matrix = np.load('noiseless_kernel_matrix.npy')
+noiseless_kernel_matrix = np.load('noiseless_matrix_for_hardware.npy')
 
 
-def sample_from_measurement_distribution(distribution, n_shots):
-    values = list(distribution.keys())
+def resample_from_measurement_distribution(distribution, n_shots):
+    """sample new shots from the sampled distribution of the QPU
+    Args:
+        distribution (dict): Probability distribution with signature str: float.
+        n_shots (int): Number of samples to draw.
+        
+    Returns:
+        kernel_entry (float): The frequency of the state '000' in the resampled distribution.
+    
+    Comments:
+        If the values of distribution do not sum to 1, we distribute the error across all states.
+    """
+    states = list(distribution.keys())
     probabilities = np.array(list(distribution.values()))
     sum_probabilities = np.sum(probabilities)
     if sum_probabilities != 1:
         probabilities += (1-sum_probabilities)/len(probabilities)
 
-    samples = np.random.choice(values, n_shots, p=probabilities)
-    kernel_entry = np.sum(samples=='000')/n_shots
+    samples = np.random.choice(states, n_shots, p=probabilities)
+    kernel_entry = np.mean(samples=='000')
 
     return kernel_entry
 
 
 def translate_folder(module_path, n_shots):
-#     print(n_shots, 'shots')
-    index = 1
-    data_dict = {'timestamp': [], 'measurement_result': []}
-    for dirs, subdir, files in os.walk(module_path):
-
+    data = {'timestamp': [], 'measurement_result': []}
+    for dirs, _, files in os.walk(module_path):
         for file in files:
             if file == 'results.json':
                 with open(dirs + '/' + file) as myfile:
-                    data = myfile.read()
-                obj = json.loads(data)
+                    obj = json.loads(myfile.read())
                 timestamp = obj['taskMetadata']['createdAt']
-                if n_shots == 175:
+#                 print(timestamp)
+                distribution = obj['measurementProbabilities']
+                if n_shots==175:
                     try:
-                        measurement_result = obj['measurementProbabilities']['000']
+                        measurement_result = distribution['000']
                     except KeyError:
                         measurement_result = 0
                 else:
-                    measurement_result = sample_from_measurement_distribution(
-                        obj['measurementProbabilities'], n_shots)
+                    measurement_result = resample_from_measurement_distribution(distribution, n_shots)
                 time_for_sorting = timestamp[8:10] + \
                     timestamp[11:13] + timestamp[14:16] + timestamp[17:19]
-                data_dict['timestamp'].append(time_for_sorting)
-                data_dict['measurement_result'].append(measurement_result)
-                index += 1
+                data['timestamp'].append(time_for_sorting)
+                data['measurement_result'].append(measurement_result)
             else:
                 print('not json')
-    df = pd.DataFrame(data_dict, columns=['timestamp', 'measurement_result'])
+    df = pd.DataFrame(data, columns=['timestamp', 'measurement_result'])
     df = df.sort_values(by=['timestamp'])
     return(df['measurement_result'])
 
 
-def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
-    num_mat = len(kernel_matrices)
-    width_ratios = [1]*num_mat+[0.2]*int(draw_last_cbar)
-    fig, ax = plt.subplots(1, num_mat+draw_last_cbar,
-                           figsize=(num_mat*3+draw_last_cbar, 5),
-                           gridspec_kw={'width_ratios': width_ratios})
-    sns.set()
-    for i, kernel_matrix in enumerate(kernel_matrices):
-        plot = sns.heatmap(
-            kernel_matrix,
-            vmin=0,
-            vmax=1,
-            xticklabels='',
-            yticklabels='',
-            ax=ax[i],
-            cmap='Spectral',
-            cbar=True
-        )
-    if draw_last_cbar:
-        ch = plot.get_children()
-        fig.colorbar(ch[0], ax=ax[-2], cax=ax[-1])
-    plt.show()
-
-
-# +
 df = pd.DataFrame()
 n_shots_array = [15, 25, 50, 75, 100, 125, 150, 175]  # , 200, 500]
 kernel_matrices = []
 for n_shots in n_shots_array:
-    kernel_array = [0] * 1830
-
-    module_path = os.path.abspath(
-        os.path.join('./data/ionq_kernel_matrix_0_679/'))
-    kernel_array[:679] = translate_folder(module_path, n_shots)
-
-    module_path = os.path.abspath(
-        os.path.join('./data/ionq_kernel_matrix_679_680/'))
-    kernel_array[679:681] = translate_folder(module_path, n_shots)
-
-    module_path = os.path.abspath(
-        os.path.join('./data/ionq_kernel_matrix_681_929'))
-    kernel_array[681:681+248] = translate_folder(module_path, n_shots)
-
-    module_path = os.path.abspath(
-        os.path.join('./data/ionq_kernel_matrix_929_1229'))
-    kernel_array[929:1229] = translate_folder(module_path, n_shots)
-
-    module_path = os.path.abspath(
-        os.path.join('./data/ionq_kernel_matrix_1229_1529'))
-    kernel_array[1229:1529] = translate_folder(module_path, n_shots)
-
-    module_path = os.path.abspath(
-        os.path.join('./data/ionq_kernel_matrix_1529'))
-
-    kernel_array[1529] = translate_folder(module_path, n_shots)
-
-
-    module_path = os.path.abspath(
-        os.path.join('./data/ionq_kernel_matrix_1529_1829'))
-    kernel_array[1530:1830] = translate_folder(module_path, n_shots)
-
-    #print(kernel_array[1829])
+    kernel_array = np.zeros(1830)
+    partition = [0, 679, 681, 929, 1229, 1529, 1530, 1830]
+    slices = [(partition[i], partition[i+1]) for i in range(len(partition)-1)]
+    for _slice in slices:
+        data_path = os.path.abspath(os.path.join(f'./data/ionq_kernel_matrix_{_slice[0]}_{_slice[1]}/'))
+        kernel_array[slice(*_slice)] = translate_folder(data_path, n_shots)
     N_datapoints = 60
-    kernel_matrix = np.zeros((60, 60))
+    kernel_matrix = np.zeros((N_datapoints, N_datapoints))
     index = 0
     for i in range(N_datapoints):
         for j in range(i, N_datapoints):
             kernel_matrix[i, j] = kernel_array[index]
             kernel_matrix[j, i] = kernel_matrix[i, j]
             index += 1
-#     kernel_matrix = np.reshape(kernel_matrix, (60, 60))
+
     alignment = qml.kernels.matrix_inner_product(kernel_matrix, noiseless_kernel_matrix, normalize=True)
     print(alignment, 'alignment')
     df = df.append({
@@ -142,9 +97,6 @@ for n_shots in n_shots_array:
         'alignment': alignment,
         'pipeline': 'No post-processing',
     }, ignore_index=True)
-#     kernel_matrices.append(kernel_matrix)
-
-# visualize_kernel_matrices(kernel_matrices)
 
 # +
 # Pipeline definitions
@@ -190,12 +142,12 @@ def apply_pipeline(pipeline, mat):
 # Apply pipelines
 recompute_pipelines = False
 actually_recompute_pipelines = False
-filter = True # Activate this to save redundant computations.
+_filter = True # Activate this to save redundant computations.
 
 if not recompute_pipelines:
     try:
         df = pd.read_pickle('mitigated_hardware_matrices.pkl')
-        print(df)
+        print(len(df))
         actually_recompute_pipelines = False
     except FileNotFoundError:
         actually_recompute_pipelines = True
@@ -206,7 +158,7 @@ if actually_recompute_pipelines or recompute_pipelines:
         used_pipelines = set(['No post-processing'])
         for pipeline in pipelines:
 
-            if filter:
+            if _filter:
                 key = ', '.join([function_names[function] for function in pipeline if function!=Id])
                 if key=='': # Give the Id-Id-Id pipeline a proper name
                     key = 'No post-processing'
@@ -232,6 +184,10 @@ if actually_recompute_pipelines or recompute_pipelines:
                 'pipeline': key,
             }, ignore_index=True)
             used_pipelines.add(key)
+# -
+
+df.reset_index(level=0, inplace=True, drop=True)
+df.to_pickle('mitigated_hardware_matrices.pkl')
 
 # +
 noisy_df = df.loc[df.pipeline=='No post-processing']
@@ -256,11 +212,6 @@ def prettify_pipelines(x):
     funs = [fun_names[fun] for fun in x.pipeline.split(', ')]
     return ', '.join(funs)
 
-def fit_fun(M, a, b, c):
-    return c-np.exp(-np.sqrt(M)*a+b)
-# def fit_fun(M, a, b, c):
-#     return c-np.exp(-M*a+b)
-
 def top_pipelines(n_shots, num_pipelines):    
     indices = mitigated_df.loc[mitigated_df.n_shots==n_shots].alignment.sort_values().index[-num_pipelines:]
     return mitigated_df.loc[indices]
@@ -275,73 +226,48 @@ for n_shots in n_shots_array:
 best_df['pretty_pipeline'] = best_df.apply(prettify_pipelines, axis=1)
 best_df['q'] = best_df.apply(get_q ,axis=1)
 
-best_n_df = pd.DataFrame()
-for n_shots in n_shots_array:
-    best_n_df = pd.concat([best_n_df, top_pipelines(n_shots, num_top_pipelines)])
-best_n_df['pretty_pipeline'] = best_n_df.apply(prettify_pipelines, axis=1)
-best_n_df['q'] = best_n_df.apply(get_q ,axis=1)
-
-# p_noisy, pcov_noisy = sp.optimize.curve_fit(fit_fun, n_shots_array, noisy_df.alignment.to_numpy(), p0=[1, 0, 1])
-# p_best, pcov_best = sp.optimize.curve_fit(fit_fun, n_shots_array, best_df.alignment.to_numpy(), p0=[1, 0, 1])
-# barplot_df = best_n_df.copy()
-# for pseudo_n_shots in range(15, 175,10):
-#     if pseudo_n_shots not in best_df.n_shots.unique():
-#         barplot_df = barplot_df.append({'n_shots': pseudo_n_shots, 'q': 0., 'pretty_pipeline': 'nix'}, ignore_index=True)
+# best_n_df = pd.DataFrame()
+# for n_shots in n_shots_array:
+#     best_n_df = pd.concat([best_n_df, top_pipelines(n_shots, num_top_pipelines)])
+# best_n_df['pretty_pipeline'] = best_n_df.apply(prettify_pipelines, axis=1)
+# best_n_df['q'] = best_n_df.apply(get_q ,axis=1)
 
 # +
-# %matplotlib notebook
-formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
-formatter.set_rcParams()
-fig = formatter.figure(aspect_ratio=0.9, wide=False)
-grid = mpl.gridspec.GridSpec(ncols=1, nrows=2, figure=fig, height_ratios=[1,5], hspace=0.)
-axs = [fig.add_subplot(grid[0,0]), fig.add_subplot(grid[1,0])]
-ms = 30
-lw = 2
-hue_order = list(best_n_df.pretty_pipeline.unique())
-palette = sns.color_palette(n_colors=len(hue_order))
+# # %matplotlib notebook
+# formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
+# formatter.set_rcParams()
+# fig = formatter.figure(aspect_ratio=0.9, wide=False)
+# grid = mpl.gridspec.GridSpec(ncols=1, nrows=2, figure=fig, height_ratios=[1,5], hspace=0.)
+# axs = [fig.add_subplot(grid[0,0]), fig.add_subplot(grid[1,0])]
+# ms = 30
+# lw = 2
+# hue_order = list(best_n_df.pretty_pipeline.unique())
+# palette = sns.color_palette(n_colors=len(hue_order))
 
-sns.barplot(ax=axs[0], data=barplot_df, x='n_shots', y='q', hue='pretty_pipeline',palette=palette,
-            dodge=True, hue_order=hue_order,
-           )
-axs[0].set_ylabel('$q$')#, fontsize=fs, labelpad=10)
-axs[0].get_legend().remove()
-axs[0].set_xticks([])
-axs[0].set_xlim((-1.75, 20.75))
-sns.scatterplot(data=best_df, x='n_shots', y='alignment', hue='pretty_pipeline', hue_order=hue_order,
-                style='pretty_pipeline', markers=['o', 'X'], s=ms, ax=axs[1],
-                palette=palette,
-                )
+# sns.barplot(ax=axs[0], data=barplot_df, x='n_shots', y='q', hue='pretty_pipeline',palette=palette,
+#             dodge=True, hue_order=hue_order,
+#            )
+# axs[0].set_ylabel('$q$')#, fontsize=fs, labelpad=10)
+# axs[0].get_legend().remove()
+# axs[0].set_xticks([])
+# axs[0].set_xlim((-1.75, 20.75))
+# sns.scatterplot(data=best_df, x='n_shots', y='alignment', hue='pretty_pipeline', hue_order=hue_order,
+#                 style='pretty_pipeline', markers=['o', 'X'], s=ms, ax=axs[1],
+#                 palette=palette,
+#                 )
 
-sns.scatterplot(data=noisy_df, x='n_shots', y='alignment', color='k', marker='d', label='No post-processing',
-               s=ms, ax=axs[1],)
-axs[1].set_xlabel(f"Measurements $M$")#, fontsize=fs)
-axs[1].set_ylabel("Alignment A$(\overline{K}_M,K)$")#, fontsize=fs)
-# axs[1].plot([10, 180], [noisy_df.alignment.max()]*2, ls='-', lw=lw/2, color='0.8', zorder=-10)
-# noisy_fit_label = "$"+str(np.round(p_noisy[2],2))+"-"+str(np.round(np.exp(p_noisy[1]),2))+"e^{-"+str(np.round(p_noisy[0],2))+"\\sqrt{M}}$"
-# axs[1].plot(range(10, 181), [fit_fun(n_shots, *p_noisy) for n_shots in range(10, 181)], ls=':', lw=lw,
-#          color='0.6', zorder=-10, label=noisy_fit_label)
+# sns.scatterplot(data=noisy_df, x='n_shots', y='alignment', color='k', marker='d', label='No post-processing',
+#                s=ms, ax=axs[1],)
+# axs[1].set_xlabel(f"Measurements $M$")
+# axs[1].set_ylabel("Alignment A$(\overline{K}_M,K)$")
+# axs[1].set_xticks(n_shots_array)
+# handles, labels = axs[1].get_legend_handles_labels()
 
-# best_fit_label = "$"+str(np.round(p_best[2],2))+"-"+str(np.round(np.exp(p_best[1]),2))+"e^{-"+str(np.round(p_best[0],2))+"\\sqrt{M}}$"
-# axs[1].plot(range(10, 181), [fit_fun(n_shots, *p_best) for n_shots in range(10, 181)], ls='--', lw=lw,
-#          color='0.8', zorder=-10, label=best_fit_label)
-axs[1].set_xticks(n_shots_array)
-handles, labels = axs[1].get_legend_handles_labels()
+# scale = 3
+# leg = axs[1].legend(handles[::-1], labels[::-1], loc='lower right')
+# plt.tight_layout()
+# plt.savefig('../wp_NK/mitigation_plots/ionq_mitigation.pdf')
 
-scale = 3
-# for hand, lab in zip(handles, labels):
-#     if isinstance(hand, mpl.collections.PathCollection) and lab!='No post-processing':
-#         print(hand)
-#         print(hand.get_sizes())
-#         hand.set_sizes([scale*size for size in hand.get_sizes()])
-leg = axs[1].legend(handles[::-1], labels[::-1], loc='lower right')#, fontsize=fs)
-
-# axs[0].tick_params(labelsize=fs*5/6)
-# axs[1].tick_params(labelsize=fs*5/6)
-
-plt.tight_layout()
-plt.savefig('../wp_NK/mitigation_plots/ionq_mitigation.pdf')
-print(axs[0].get_xlim())
-# plt.show()
 
 # +
 # %matplotlib notebook
@@ -352,7 +278,7 @@ grid = mpl.gridspec.GridSpec(ncols=1, nrows=1, figure=fig)
 axs = [fig.add_subplot(grid[0,0])]
 ms = 30
 lw = 2
-hue_order = list(best_n_df.pretty_pipeline.unique())
+hue_order = list(best_df.pretty_pipeline.unique())
 palette = sns.color_palette(n_colors=len(hue_order))
 
 for i in range(2):
@@ -369,30 +295,6 @@ axs[0].set_ylabel("Alignment A$(\overline{K}_M,K)$")#, fontsize=fs)
 axs[0].set_xticks(n_shots_array)
 handles, labels = axs[0].get_legend_handles_labels()
 
-scale = 3
-
-leg = axs[0].legend(handles[::-1], labels[::-1], loc='lower right')#, fontsize=fs)
-
+leg = axs[0].legend(handles[::-1], labels[::-1], loc='lower right')
 plt.tight_layout()
 plt.savefig('../wp_NK/mitigation_plots/ionq_mitigation.pdf')
-# plt.show()
-# -
-
-df.reset_index(level=0, inplace=True, drop=True)
-df.to_pickle('mitigated_hardware_matrices.pkl')
-
-print(barplot_df.loc[barplot_df.q>0].q.mean())
-print(barplot_df.loc[barplot_df.q>0].q.max())
-print(barplot_df.loc[barplot_df.q>0].q.min())
-
-# +
-# n_shots_plot = 25
-# mat1 = noisy_df.loc[noisy_df.n_shots==n_shots_plot].kernel_matrix.item()
-# mat2 = best_df.loc[(best_df.n_shots==n_shots_plot)].kernel_matrix.item()
-# mat3 = noiseless_kernel_matrix
-# visualize_kernel_matrices([mat1, mat2, mat3], draw_last_cbar=False)
-# -
-print(df.pipeline)
-
-
-
