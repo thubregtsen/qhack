@@ -1,7 +1,7 @@
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py
+#     formats: ipynb,py:light
 #     text_representation:
 #       extension: .py
 #       format_name: light
@@ -28,11 +28,12 @@ import cvxopt
 # -
 
 # # A noisy kernel matrix
-# The matrix we import from the appended data file (`noisy_kernel_matrix`) was computed with a simulated depolarizing noise model (base noise rate 0.02; one-qubit depolarizing channel after each gate, including idling gates; depolarizing rate scaled with rotation angle) and a limited shot budget of 1000 shots per kernel matrix entry. As you can see, we computed the diagonal entries although we know their exact value to be 1. This is because we will use them for noise mitigation.
+# The matrix we import from the appended data file (`noisy_kernel_matrix`) was computed with a simulated depolarizing noise model (base noise constant 0.98; one-qubit depolarizing channel after each gate, including idling gates; depolarizing rate scaled with rotation angle) and a limited shot budget of 1000 shots per kernel matrix entry. As you can see, we computed the diagonal entries although we know their exact value to be 1. This is because we will use them for noise mitigation.
 # We also import the simulated noiseless kernel matrix (`exact_kernel_matrix`) to evaluate our results later on.
 
 num_wires = 5
-from mitigation_demo_data import noisy_kernel_matrix, exact_kernel_matrix
+from data.mitigation_demo_data import noisy_kernel_matrix, exact_kernel_matrix
+print(f"We computed the diagonal (would be 1 analytically) for mitigation:\n{np.diag(noisy_kernel_matrix)}")
 
 # # Post-processing functions: regularization and mitigation
 # Let us now collect the post-processing methods presented in the paper. We consider three regularization and mitigation methods respectively.
@@ -155,10 +156,6 @@ plt.ylim((df.alignment.min()-0.05, 1.))
 plt.tight_layout()
 
 # ## Conclusion
-# The plot above shows the alignment of the mitigated matrices and the noiseless matrix, which we show as color-coded plots in our paper. For the specific noise parameters ($\lambda_0=0.02,\;M=1000$) we find the pipeline $[\mathit{m}_\mathrm{mean}, r_\mathrm{SDP}]$ to be best (c.f. Figure 10, label "1"):
+# The plot above shows the alignment of the mitigated matrices and the noiseless matrix, which we show as color-coded plots in our paper. For the specific noise parameters ($1-\lambda_0=0.02,\;M=1000$) we find the pipeline $[\mathit{m}_\mathrm{mean}, r_\mathrm{SDP}]$ to be best (c.f. Figure 10 in the paper, label "4"):
 
 df.loc[df.alignment.idxmax()].pipeline
-
-
-
-

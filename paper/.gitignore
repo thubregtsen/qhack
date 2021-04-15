@@ -1,4 +1,4 @@
 *.ipynb
 .ipynb_checkpoints/**
 floq_key
-__pycache__/**
+**/__pycache__/**

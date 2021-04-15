@@ -1,19 +1,23 @@
-import seaborn as sns
-import pennylane as qml
+# +
+import os
+import sys
+import itertools
+import scipy as sp
+import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 import json
-import itertools
-import tqdm
-import os
-import sys
-import numpy as np
-import rsmf
+import seaborn as sns
+# quantum machine learning. Make sure to install a version that has the kernels module (TBD)
+import pennylane as qml
+import tqdm # progress bars
+import rsmf # right size my figures
+
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
     sys.path.append(module_path)
-import scipy as sp
+
 
 # +
 # Random seed for resampling
@@ -35,17 +39,19 @@ recompute_mitigation = False
 _filter = True
 # -
 
+# Load the perfect kernel matrix for the symmetric donuts dataset and the 3-qubit QEK
 noiseless_kernel_matrix = np.load(filename_noiseless_matrix)
 
 
-def resample_from_measurement_distribution(distribution, n_shots):
+def resample_kernel(distribution, n_shots):
     """sample new shots from the sampled distribution of the QPU
     Args:
-        distribution (dict): Probability distribution with signature str: float.
+        distribution (dict): Probability distribution for kernel entry with signature str: float.
         n_shots (int): Number of samples to draw.
         
     Returns:
-        kernel_entry (float): The frequency of the state '000' in the resampled distribution.
+        kernel_entry (float): The frequency of the state '000' in the resampled distribution. This is
+            the resampled kernel entry.
     
     Comments:
         If the values of distribution do not sum to 1, we distribute the error across all states.
@@ -62,23 +68,31 @@ def resample_from_measurement_distribution(distribution, n_shots):
     return kernel_entry
 
 
-def translate_folder(module_path, n_shots):
+def get_ionq_data(data_path, n_shots):
+    """Retrieve QPU measurements from AWS directory structure
+    Args:
+        data_path (str): Directory to scan for "results.json" files provided by the AWS interface.
+        n_shots (int): How many shots to use in resampling the kernel matrix entries.
+    
+    Returns:
+        kernel_entries (pd.Series): Kernel entries found in the directory, sorted by creation time, resampled.
+    """
     data = {'timestamp': [], 'measurement_result': []}
-    for dirs, _, files in os.walk(module_path):
+    for dirs, _, files in os.walk(data_path):
         for file in files:
             if file == 'results.json':
                 with open(dirs + '/' + file) as myfile:
                     obj = json.loads(myfile.read())
                 timestamp = obj['taskMetadata']['createdAt']
-#                 print(timestamp)
+                n_shots_orig = obj['taskMetadata']['shots']
                 distribution = obj['measurementProbabilities']
-                if n_shots==175:
+                if n_shots==n_shots_orig:
                     try:
                         measurement_result = distribution['000']
                     except KeyError:
                         measurement_result = 0
                 else:
-                    measurement_result = resample_from_measurement_distribution(distribution, n_shots)
+                    measurement_result = resample_kernel(distribution, n_shots)
                 time_for_sorting = timestamp[8:10] + \
                     timestamp[11:13] + timestamp[14:16] + timestamp[17:19]
                 data['timestamp'].append(time_for_sorting)
@@ -86,8 +100,10 @@ def translate_folder(module_path, n_shots):
             else:
                 print('not json')
     df = pd.DataFrame(data, columns=['timestamp', 'measurement_result'])
-    df = df.sort_values(by=['timestamp'])
-    return(df['measurement_result'])
+    df.sort_values(by=['timestamp'], inplace=True)
+    kernel_entries = df['measurement_result']
+
+    return kernel_entries
 
 
 df = pd.DataFrame()
@@ -99,7 +115,7 @@ for n_shots in n_shots_array:
     slices = [(partition[i], partition[i+1]) for i in range(len(partition)-1)]
     for _slice in slices:
         data_path = os.path.abspath(os.path.join(f'{filename_prefix_QPU}{_slice[0]}_{_slice[1]}/'))
-        kernel_array[slice(*_slice)] = translate_folder(data_path, n_shots)
+        kernel_array[slice(*_slice)] = get_ionq_data(data_path, n_shots)
     N_datapoints = 60
     kernel_matrix = np.zeros((N_datapoints, N_datapoints))
     index = 0
@@ -119,20 +135,21 @@ for n_shots in n_shots_array:
     }, ignore_index=True)
 
 # +
-# Pipeline definitions
-num_wires = 3
+# Regularization methods.
 r_Tikhonov = qml.kernels.displace_matrix
 r_thresh = qml.kernels.threshold_matrix
 r_SDP = qml.kernels.closest_psd_matrix
 
+# The embedding circuit uses 3 qubits. This information is required for device noise mitigation.
+num_wires = 3
 m_single = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='single')
 m_mean = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='average')
 m_split = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='split_channel')
 
+# The "do-nothing" post-processing method, i.e. the identity.
 Id = lambda mat: mat
 
-regularizations = [Id, r_Tikhonov, r_thresh, r_SDP]
-mitigations = [Id, m_single, m_mean, m_split]
+# Names for pipeline keys
 function_names = {
     r_Tikhonov: 'r_Tikhonov',
     r_thresh: 'r_thresh',
@@ -142,16 +159,55 @@ function_names = {
     m_split: 'm_split',
     Id: 'Id',
 }
+
+# All combinations of the shape regularize - mitigate - regularize
+regularizations = [Id, r_Tikhonov, r_thresh, r_SDP]
+mitigations = [Id, m_single, m_mean, m_split]
 pipelines = list(itertools.product(regularizations, mitigations, regularizations))
 
+# Get pipeline keys via their names. If _filter is activated (usually True), skip duplicate/unreasonable pipelines.
+filtered_pipelines = {}
+
+if _filter:
+    for pipeline in pipelines:
+        key = ', '.join([function_names[function] for function in pipeline if function!=Id])
+        if key=='': # Give the Id-Id-Id pipeline a proper name
+            key = 'No post-processing'
+            
+        if key in filtered_pipelines: # Skip duplicated keys (the dict would be overwritten anyways)
+            continue
+        if pipeline[0]==r_SDP and (pipeline[1]!=Id or pipeline[2]!=Id): # Skip r_SDP - ~ID - ~Id
+            continue
+        if pipeline[1]==Id and pipeline[2] in [r_Tikhonov, r_thresh]: # Skip regularize - Id - r_Tikhonov/thresh
+            continue
+        filtered_pipelines[key] = pipeline
+        
+else:
+    for pipeline in pipelines:
+        key = ', '.join([function_names[function] for function in pipeline])
+        filtered_pipelines[key] = pipeline
+
+
 def apply_pipeline(pipeline, mat):
+    """Apply a series of post-processing methods to a matrix.
+    Args:
+        pipeline (iterable): Iterable containing the post-processing methods with signature mat_in -> mat_out.
+        mat (ndarray): Matrix to be processed. It is not modified in place.
+        
+    Returns:
+        out (ndarray): Post-processed matrix. None if there was any error during application of the pipeline. 
+    
+    Comments:
+        The function will catch problems in the SDP and problems caused by matrices that are 
+        too noisy for mitigation by printing out the error, but the method will not interrupt.
+    """
     out = np.copy(mat)
     for function in pipeline:
         try:
             out = function(out)
             if np.any(np.isinf(out)):
                 raise ValueError
-        except Exception as e: # Catches problems in the SDP and problems caused by matrices that are too noisy for mitigation
+        except Exception as e: 
             print(e)
             return None
         
@@ -174,20 +230,7 @@ if actually_recompute_mitigation or recompute_mitigation:
     for n_shots in tqdm.notebook.tqdm(n_shots_array):
         noisy_kernel_matrix = df.loc[(df.n_shots==n_shots) & (df.pipeline=='No post-processing')].kernel_matrix.item()
         used_pipelines = set(['No post-processing'])
-        for pipeline in pipelines:
-
-            if _filter:
-                key = ', '.join([function_names[function] for function in pipeline if function!=Id])
-                if key=='': # Give the Id-Id-Id pipeline a proper name
-                    key = 'No post-processing'
-                if key in used_pipelines: # Skip duplicated keys (the dict would be overwritten anyways)
-                    continue
-                if pipeline[0]==r_SDP and (pipeline[1]!=Id or pipeline[2]!=Id): # Skip r_SDP - ~ID - ~Id
-                    continue
-                if pipeline[1]==Id and pipeline[2] in [r_Tikhonov, r_thresh]: # Skip regularize - Id - r_Tikhonov/thresh
-                    continue
-            else:
-                key = ', '.join([function_names[function] for function in pipeline])
+        for key, pipeline in filtered_pipelines.items():
             mitigated_kernel_matrix = apply_pipeline(pipeline, noisy_kernel_matrix)
             if mitigated_kernel_matrix is None:
                 alignment = None
@@ -201,7 +244,7 @@ if actually_recompute_mitigation or recompute_mitigation:
                 'alignment': alignment,
                 'pipeline': key,
             }, ignore_index=True)
-            used_pipelines.add(key)
+
 # -
 
 df.reset_index(level=0, inplace=True, drop=True)
@@ -282,5 +325,3 @@ print(f"The alignment improvement (q) was minimally  {q_min*100:.1f}%"
       f"\n{' '*34}maximally  {q_max*100:.1f}%"
       f"\n{' '*34}on average {q_mean*100:.1f}%"
        "\nfor the two best post-processing strategies.")
-
-
