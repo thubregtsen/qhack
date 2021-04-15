@@ -473,7 +473,6 @@ plot = sns.heatmap(data=best_df_pivot,
 
 for _x, _y in boundaries:
     ax.plot(_x, _y, color=sep_col1, linewidth=sep_lw, zorder=98)
-#     ax.plot(_x, _y, color=sep_col2, linewidth=sep_lw, zorder=100, dashes=[3,3])
 
 for pipe_id, (x, y) in zip(texts, text_coords):
     ax.text(
@@ -484,7 +483,6 @@ for pipe_id, (x, y) in zip(texts, text_coords):
         va='center',
         bbox={
             'boxstyle': f"round, pad={cell_label_pad}",
-#                'ec': cell_label_ec(pipe_id) if callable(cell_label_ec) else cell_label_ec,
             'ec': cell_label_ec,
             'fc': cell_label_fc,
             'alpha': cell_label_falpha,
@@ -520,9 +518,6 @@ ax.legend(
     fontsize=legend_label_fs,
 )
 
-# %%%
-# print(handles)
-# print(labels)
 plt.tight_layout()
 plt.savefig(f'images/best_postprocessing_Checkerboard_{"un" if not trained else ""}trained.pdf', bbox_inches='tight')
 # -
@@ -565,7 +560,6 @@ cbar = ax.collections[0].colorbar
 max_improve = subdf['relative'].max()
 max_df = subdf.loc[[subdf['relative'].idxmax()]]
 cbar.ax.hlines(max_improve, -1.2, 1.2, color=max_tick_c)
-# cbar.ax.text(-1., max_improve, f"{max_improve:.2f}", ha='right', va='center', fontsize=cbar_tick_fs)
 ax.plot(noise_coords[max_df['base_noise_rate'].item()], 
            shot_coords[max_df['shots_sort'].item()], marker='o', markersize=4, color=max_tick_c)
 
@@ -583,7 +577,7 @@ cbar.ax.tick_params(labelsize=cbar_tick_fs)
 
 formatter.set_rcParams()
 plt.tight_layout()
-plt.savefig(f'mitigation_plots/relative_improvement_postprocessing_Checkerboard_{"un" if not trained else ""}trained.pdf', bbox_inches='tight')
+plt.savefig(f'images/relative_improvement_postprocessing_Checkerboard_{"un" if not trained else ""}trained.pdf', bbox_inches='tight')
 # -
 
 
