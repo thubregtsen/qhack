@@ -27,13 +27,16 @@ linmap = mpl.colors.LinearSegmentedColormap.from_list("test", ["C1", "white" ,"C
 def load_data_tom(filename):
     with open(filename, 'rb') as f:
         X_dummy = np.load(f)
-        y_dummy = np.load(f)
+        y_dummy_random = np.load(f)
+        y_dummy_random_real = np.load(f)
+  #      y_dummy = np.load(f)
+  #      y_dummy_real = np.load(f)
         X_train = np.load(f)
         y_train = np.load(f)
         X_test = np.load(f)
         y_test = np.load(f)
         
-    return X_dummy, y_dummy, y_dummy, X_train, y_train, X_test, y_test
+    return X_dummy, y_dummy_random, y_dummy_random_real, X_train, y_train, X_test, y_test
 
 def load_data_elies(filename):
     with open(filename, 'rb') as f:
@@ -76,20 +79,24 @@ def plot_classification(ax, X_dummy, y_dummy_label, y_dummy, X_train, y_train, X
 fmt = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
 
 # +
-fig = fmt.figure()
+#fig = fmt.figure()
 
-plot_classification(plt.gca(), *load_data_elies("dataset_symmetricdonuts.npy"), clip=.8)
+#plot_classification(plt.gca(), *load_data_elies("dataset_.npy"), clip=.8)
 
 
-plt.tight_layout()
+#plt.tight_layout()
 
 # +
 fig = fmt.figure()
 
-plot_classification(plt.gca(), *load_data_tom("dataset_checkerboard.npy"))
+plot_classification(plt.gca(), *load_data_tom("dataset_checkerboard_random.npy"))
 
 
 plt.tight_layout()
+plt.savefig('checkerboard_random.png')
+
 # -
 glob.glob("*.npy")
+
+
 
