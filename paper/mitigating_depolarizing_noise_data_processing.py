@@ -13,6 +13,14 @@
 #     name: python3
 # ---
 
+# # Noisy circuit simulations on Checkerboard dataset: Data Processing
+#
+# Here we process and plot the data from the data generation notebook on this dataset.
+# This results in the heatmap figures in the paper, one in the results section and one in the appendix.
+# You can decide to recompute the mitigated matrices by activating the corresponding flag in cell 2.
+#
+# ### This notebook takes approximately 31 (1) minutes with (without) recomputing the post-processing
+
 # +
 import pennylane as qml
 import numpy as pure_np
@@ -33,12 +41,19 @@ from dill import load, dump
 import matplotlib.text as mpl_text
 
 formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
-# -
 
+# +
+# Deactivate the following flag to recompute the mitigated matrices instead of loading them from repository.
+reuse_mitigated_matrices = True
 # Make sure this matches the setting in the data generation notebook
 use_trained_params = False
 num_wires = 5
+# If activated (default), this skips post-processing pipelines that are redundant/unreasonable
+_filter_pipelines = True
 filename = f'data/noisy_sim/kernel_matrices_Checkerboard_{"" if use_trained_params else "un"}trained.dill'
+
+plot_single_best_filename = f'images/globally_best_postprocessing_Checkerboard_{"" if use_trained_params else "un"}trained.pdf'
+plot_all_best_filename = f'images/locally_best_postprocessing_Checkerboard_{"" if use_trained_params else "un"}trained.pdf'
 
 
 # +
@@ -168,81 +183,86 @@ y_train = np.hstack([-np.ones((samples)), np.ones((samples))])
 # # Set up pipelines for postprocessing
 
 # +
-# Set up all pipelines that make remotely sense
-regularization = {
-    'None': tuple(),
-    'displace': (qml.kernels.displace_matrix, {}),
-    'thresh': (qml.kernels.threshold_matrix, {}),
-    'sdp': (qml.kernels.closest_psd_matrix, {'fix_diagonal': True}),
-}
-mitigation = {
-    'None': tuple(),
-    'avg': (nhf.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'average', 'use_entries': None}),
-    'single': (nhf.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'average', 'use_entries': (0,)}),
-    'split': (nhf.mitigate_global_depolarization, {'num_wires': num_wires, 'strategy': 'split_channel'}), 
+# Regularization methods.
+r_Tikhonov = qml.kernels.displace_matrix
+r_thresh = qml.kernels.threshold_matrix
+r_SDP = qml.kernels.closest_psd_matrix
+
+# Device noise mititgation methods.
+m_single = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='single')
+m_mean = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='average')
+m_split = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='split_channel')
+
+# The "do-nothing" post-processing method, i.e. the identity.
+Id = lambda mat: mat
+
+# Names for pipeline keys
+function_names = {
+    r_Tikhonov: 'r_Tikhonov',
+    r_thresh: 'r_thresh',
+    r_SDP: 'r_SDP',
+    m_single: 'm_single',
+    m_mean: 'm_mean',
+    m_split: 'm_split',
+    Id: 'Id',
 }
 
-num_pipelines = 100
+# All combinations of the shape regularize - mitigate - regularize
+regularizations = [Id, r_Tikhonov, r_thresh, r_SDP]
+mitigations = [Id, m_single, m_mean, m_split]
+pipelines = list(product(regularizations, mitigations, regularizations))
 
-pipelines = {}
-for (k1, v1), (k2, v2), (k3, v3) in product(regularization.items(), mitigation.items(),regularization.items()):
-    if k1=='None':
-        if k2=='None' and k3!='None':
-            # Single regularization is sorted as regul_None_None, not None_None_regul
+filtered_pipelines = {}
+if _filter_pipelines:
+    for pipeline in pipelines:
+        key = ', '.join([function_names[function] for function in pipeline if function!=Id])
+        if key=='': # Give the Id-Id-Id pipeline a proper name
+            key = 'No post-processing'
+            
+        if key in filtered_pipelines: # Skip duplicated keys (the dict would be overwritten anyways)
             continue
-    if k2=='None':
-        if k3!='None':
-            # regul_None_regul does not make sense
+        if pipeline[0]==r_SDP and (pipeline[1]!=Id or pipeline[2]!=Id): # Skip r_SDP - ~ID - ~Id
             continue
-    pipelines['_'.join([k for k in [k1, k2, k3] if k!='None'])] = [v for v in [v1, v2, v3] if v!=()]
-    
-    if len(pipelines) == num_pipelines:
-        break
+        if pipeline[1]==Id and pipeline[2] in [r_Tikhonov, r_thresh]: # Skip regularize - Id - r_Tikhonov/thresh
+            continue
+        filtered_pipelines[key] = pipeline
+        
+else:
+    for pipeline in pipelines:
+        key = ', '.join([function_names[function] for function in pipeline])
+        filtered_pipelines[key] = pipeline
 # -
 
 # # Apply mitigation techniques
 
-try:
-    df = pd.read_pickle(filename[:-5]+'_mitigated.dill')
-except FileNotFoundError:
+# +
+actually_reuse_mitigated_matrices = True
+if reuse_mitigated_matrices:
+    try:
+        df = pd.read_pickle(filename[:-5]+'_mitigated.dill')
+    except FileNotFoundError:
+        actually_reuse_mitigated_matrices = False
+        
+if not (reuse_mitigated_matrices and actually_reuse_mitigated_matrices):
     df = pd.DataFrame()
     exact_matrix = kernel_matrices[(0., 0)]
     target = np.outer(y_train, y_train)
 
-    times_per_fun = {
-        qml.kernels.displace_matrix: 0,
-        (nhf.mitigate_global_depolarization, 'average'): 0,
-        (nhf.mitigate_global_depolarization, 'single'): 0,
-        (nhf.mitigate_global_depolarization, 'split_channel'): 0,
-        qml.kernels.closest_psd_matrix: 0,
-        qml.kernels.threshold_matrix:0 ,
-    }
-    fun_evals = {
-        qml.kernels.displace_matrix: 0,
-        (nhf.mitigate_global_depolarization, 'average'): 0,
-        (nhf.mitigate_global_depolarization, 'single'): 0,
-        (nhf.mitigate_global_depolarization, 'split_channel'): 0,
-        qml.kernels.closest_psd_matrix: 0,
-        qml.kernels.threshold_matrix:0 ,
-    }
+    times_per_fun = {fun :0 for fun in regularizations+mitigations}
+    fun_evals = {fun: 0 for fun in regularizations+mitigations}
 
-    for pipeline_name, pipeline in tqdm.notebook.tqdm(pipelines.items()):
+    for pipeline_name, pipeline in tqdm.notebook.tqdm(filtered_pipelines.items()):
         for key, mat in kernel_matrices.items():
             K = np.copy(mat)
-            for fun, kwargs in pipeline:
+            for fun in pipeline:
                 try:
                     fun_start = time.process_time()
-                    K = fun(K, **kwargs)
-                    strat_str = kwargs.get('strategy', '')
-                    if strat_str == 'average' and kwargs.get('use_entries', [])==(0,):
-                        strat_str = 'single'
-                    fun_key = fun if fun is not nhf.mitigate_global_depolarization else (fun, strat_str)
-                    times_per_fun[fun_key] += time.process_time()-fun_start
-                    fun_evals[fun_key] += 1
+                    K = fun(K)
+                    times_per_fun[fun] += time.process_time()-fun_start
+                    fun_evals[fun] += 1
                     if np.any(np.isinf(K)):
                         raise ValueError
                 except Exception as e:
-    #                 print(e)
                     K = None
                     align = np.nan
                     break
@@ -265,20 +285,21 @@ except FileNotFoundError:
                     }),
                 ignore_index=True,
                 )
+# -
 
 
 df.reset_index(level=0, inplace=True, drop=True)
 df.to_pickle(filename[:-5]+'_mitigated.dill')
 
 # +
-no_pipeline_df = df.loc[df['pipeline']=='']
+no_pipeline_df = df.loc[df['pipeline']=='No post-processing']
 
 def relative_alignment(x):
     no_pipe_A = no_pipeline_df.loc[
         (no_pipeline_df['shots']==x['shots'])
         &(no_pipeline_df['base_noise_rate']==x['base_noise_rate'])
     ]['alignment'].item()
-    
+#     print(no_pipe_A)
     return (x['alignment']-no_pipe_A)/(1-no_pipe_A)
 
 def relative_target_alignment(x):
@@ -286,12 +307,15 @@ def relative_target_alignment(x):
         (no_pipeline_df['shots']==x['shots'])
         &(no_pipeline_df['base_noise_rate']==x['base_noise_rate'])
     ]['target_alignment'].item()
+#     print(no_pipe_A)
     
     return (x['target_alignment']-no_pipe_A)/(1-no_pipe_A)
 
 
 
 # -
+
+print(df.pipeline.unique())
 
 try:
     print(f"Average execution times of postprocessing functions:")
@@ -306,8 +330,12 @@ except:
 # Find best pipeline for each combination of shots and noise_rate
 
 def pipeline_sorting_key(x):
-    reg_or_mit = {'displace':0, 'sdp':0, 'thresh':0, 'single':1, 'split':1, 'avg':1, '': -1}
-    substrings = x.split('_')
+    reg_or_mit = {
+        'No post-processing': -1,
+        **{function_names[fun]: 0 for fun in regularizations},
+        **{function_names[fun]: 1 for fun in mitigations},
+    }
+    substrings = x.split(', ')
     return (len(substrings), reg_or_mit[substrings[0]])
 
 shot_numbers = sorted(list(df['shots_sort'].unique()))[::-1]
@@ -323,7 +351,7 @@ best_pipeline_id_target = np.zeros((len(shot_numbers), len(noise_rates)), dtype=
 
 best_df = pd.DataFrame()
 best_df_target = pd.DataFrame()
-for i, _shots in enumerate(shot_numbers):
+for i, _shots in tqdm.notebook.tqdm(enumerate(shot_numbers)):
     for j, _lambda in enumerate(noise_rates):
         sub_df = df.loc[(df['shots_sort']==_shots)&(df['base_noise_rate']==_lambda)]
         sub_df['relative'] = sub_df.apply(relative_alignment, axis=1)
@@ -374,14 +402,14 @@ class AnyObjectHandler(object):
 
 # +
 fun_reg = {
-    'displace': 'TIK',
-    'thresh': 'THR',
-    'sdp': 'SDP',
+    'r_Tikhonov': 'TIK',
+    'r_thresh': 'THR',
+    'r_SDP': 'SDP',
 }
 fun_mit = {
-    'single': 'SINGLE',
-    'avg': 'MEAN',
-    'split': 'SPLIT',
+    'm_single': 'SINGLE',
+    'm_mean': 'MEAN',
+    'm_split': 'SPLIT',
 }
 fun_names = {
     **{k: f'$\\mathsf{{R}}\\mathrm{{-}}\\mathsf{{{v}}}$' for k, v in fun_reg.items()},
@@ -389,7 +417,7 @@ fun_names = {
 }
 
 def prettify_pipeline(pipe):
-    return ', '.join([fun_names[name] for name in pipe.split("_")])
+    return ', '.join([fun_names[name] for name in pipe.split(", ")])
 
 
 # +
@@ -426,7 +454,7 @@ for _id, coord in centers.items():
         handles.append(int(pipe_id))
 legend_entries = sorted(legend_entries, key=lambda x: x[0])
 handles = [AnyObject(han) for han, _ in legend_entries]
-labels = [(prettify_pipeline(lab) if lab!='' else 'No post-processing') for _, lab in legend_entries]  
+labels = [(prettify_pipeline(lab) if lab!='No post-processing' else lab) for _, lab in legend_entries]  
 handler_map = {han:AnyObjectHandler() for han in handles}
 
 # +
@@ -519,9 +547,18 @@ ax.legend(
 )
 
 plt.tight_layout()
-plt.savefig(f'images/best_postprocessing_Checkerboard_{"un" if not trained else ""}trained.pdf', bbox_inches='tight')
+plt.savefig(plot_all_best_filename, bbox_inches='tight')
+
+min_improve = best_df['relative'].min()
+max_improve_ana = best_df.loc[best_df.shots==0]['relative'].max()
+max_improve_nonana = best_df.loc[best_df.shots!=0]['relative'].max()
+print(f"The locally best pipeline improved the alignment by minimally "
+      f"{np.round(min_improve*100, 1)}% and maximally {np.round(max_improve_nonana*100, 1)}% (without M='analytic') " 
+      f"or {np.round(max_improve_ana*100, 1)}% (for M='analytic').")
 # -
-subdf.relative[subdf.relative<0]
+# We globally rate the post-processing strategy as best which is the best for most noise parameters. 
+rating = {pipeline: np.sum(best_pipeline==pipeline) for pipeline in filtered_pipelines}
+best_rated = max(rating.items(), key=lambda x: x[1])
 
 # +
 
@@ -540,7 +577,7 @@ shot_coords = {_shots: shot_numbers.index(_shots)+0.5 for _shots in shot_numbers
 noise_coords = {_lambda: _lambda / (noise_rates[1]-noise_rates[0]) + 0.5 for _lambda in noise_rates}
 
 
-subdf = df.loc[df['pipeline']=='thresh']
+subdf = df.loc[df['pipeline']==best_rated[0]]
 subdf.loc[:, 'relative'] = subdf.apply(relative_alignment, axis=1)
 subdf_pivot = subdf.pivot('shots_sort', 'base_noise_rate', 'relative').sort_index(axis='rows', ascending=False)
 max_alignment = np.max(subdf['relative'])
@@ -557,7 +594,10 @@ plot = sns.heatmap(data=subdf_pivot,
 cbar = ax.collections[0].colorbar
 
 # Tick for max improvement
+min_improve = subdf['relative'].min()
 max_improve = subdf['relative'].max()
+print(f"The pipeline <{best_rated[0]}> improved the alignment by minimally "
+      f"{np.round(min_improve*100, 1)}% and maximally {np.round(max_improve*100, 1)}%.")
 max_df = subdf.loc[[subdf['relative'].idxmax()]]
 cbar.ax.hlines(max_improve, -1.2, 1.2, color=max_tick_c)
 ax.plot(noise_coords[max_df['base_noise_rate'].item()], 
@@ -577,7 +617,7 @@ cbar.ax.tick_params(labelsize=cbar_tick_fs)
 
 formatter.set_rcParams()
 plt.tight_layout()
-plt.savefig(f'images/relative_improvement_postprocessing_Checkerboard_{"un" if not trained else ""}trained.pdf', bbox_inches='tight')
+plt.savefig(plot_single_best_filename, bbox_inches='tight')
 # -
 
 
