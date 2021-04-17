@@ -240,3 +240,27 @@ class noisy_kernel(qml.kernels.EmbeddingKernel):
             return qml.probs(wires=device.wires)
 
         self.probs_qnode = qml.QNode(circuit, device, **kwargs)
+
+def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
+    num_mat = len(kernel_matrices)
+    width_ratios = [1]*num_mat+[0.2]*int(draw_last_cbar)
+    figsize = (num_mat*5+draw_last_cbar, 5)
+    num_axes = num_mat+draw_last_cbar
+    fig, ax = plt.subplots(1, num_axes, figsize=figsize, gridspec_kw={'width_ratios': width_ratios})
+    if num_axes==1:
+        ax = [ax]
+
+    for i, kernel_matrix in enumerate(kernel_matrices):
+        plot = sns.heatmap(
+            kernel_matrix,
+            vmin=0,
+            vmax=1,
+            xticklabels='',
+            yticklabels='',
+            ax=ax[i],
+            cmap='Spectral',
+            cbar=False
+        )
+    if draw_last_cbar:
+        ch = plot.get_children()
+        fig.colorbar(ch[0], ax=ax[-2], cax=ax[-1])
