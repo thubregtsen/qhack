@@ -15,7 +15,7 @@
 
 # # Noisy circuit simulations on Checkerboard dataset: Data Generation
 # This notebook simulates a noisy device with the noise model described in the appendix.
-# Here we only compute the kernel matrices for the different base noise constants and numbers of measurements,
+# Here we compute the kernel matrices for the different base noise constants and numbers of measurements,
 # the processing can be found in a separate notebook. 
 #
 # ### Note that this notebook takes a signficant amount of time to run (hours)
@@ -26,9 +26,10 @@ import pennylane as qml
 import numpy as pure_np
 from pennylane import numpy as np
 from pennylane_cirq.ops import Depolarize
-import noisy_helper_functions
 from dill import dump, load
 import multiprocessing
+import src.kernel_helper_functions as khf
+from src.datasets import checkerboard
 
 
 # # Some global variables (used below!)
@@ -44,42 +45,8 @@ filename = f'data/noisy_sim/kernel_matrices_Checkerboard_{"" if use_trained_para
 # # Checkerboard dataset
 
 # +
-np.random.seed(42+1)
-dim = 4
-
-init_false = False
-init_true = False
-for i in range(dim):
-    for j in range(dim):
-        pos_x = i
-        pos_y = j
-        data = (np.random.random((40,2))-0.5)/(2*dim)
-        data[:,0] += (2*pos_x+1)/(2*dim)
-        data[:,1] += (2*pos_y+1)/(2*dim)
-        if (i%2 == 0 and j%2 == 0) or (i%2 == 1 and j%2 == 1):
-            if init_false == False:
-                false = data
-                init_false = True
-            else:
-                false = np.vstack([false, data])
-        else:
-            if init_true == False:
-                true = data
-                init_true = True
-            else:
-                true = np.vstack([true, data])
-print(false.shape)
-print(true.shape)
-
-samples = 15 # number of samples to X_train[np.where(y=-1)], so total = 4*samples
-
-np.random.shuffle(false)
-np.random.shuffle(true)
-
-X_train = np.vstack([false[:samples], true[:samples]])
-y_train = np.hstack([-np.ones((samples)), np.ones((samples))])
-X_test = np.vstack([false[samples:2*samples], true[samples:2*samples]])
-y_test = np.hstack([-np.ones((samples)), np.ones((samples))])
+np.random.seed(43)
+X_train, y_train, X_test, y_test = checkerboard(30, 30, 4, 4)
 
 print("The training data is as follows:")
 plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", marker=".", label="train, 1")
@@ -92,7 +59,6 @@ plt.xlim([0, 1])
 plt.legend()
 
 X = X_train
-print(X.shape)
 
 opt_param = np.tensor([[[ 6.22961793,  6.1909463 ,  6.24821366,  1.88800397,  1.6515437 ],
                         [-3.50578116,  2.87429701, -0.55558014, -2.97461847,  4.3646466 ]],
@@ -180,7 +146,6 @@ def noise_channel(base_p, data=None, wires=None):
 rigetti_ansatz_mapped = lambda x, params: rigetti_ansatz(x, params, range(num_wires))
 
 shot_numbers = [10, 30, 100, 300, 1000, 3000, 0]
-# shot_numbers = [10]
 noise_probabilities = np.arange(0.0, 0.1, 0.002)
     
 start = time.time()
@@ -193,7 +158,7 @@ def run(shots):
         shots_device = 1 if shots==0 else shots # shots=0 raises an error...
 
         dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
-        k = noisy_helper_functions.noisy_kernel(
+        k = khf.noisy_kernel(
             rigetti_ansatz_mapped,
             dev,
             noise_channel=noise_channel,

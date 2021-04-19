@@ -11,8 +11,8 @@ import json
 import seaborn as sns
 # quantum machine learning. Make sure to install a version that has the kernels module (TBD)
 import pennylane as qml
-import tqdm  # progress bars
-import rsmf  # right size my figures
+import tqdm # progress bars
+import rsmf # right size my figures
 
 module_path = os.path.abspath(os.path.join('..'))
 if module_path not in sys.path:
@@ -63,7 +63,7 @@ def resample_kernel(distribution, n_shots):
         probabilities += (1-sum_probabilities)/len(probabilities)
 
     samples = np.random.choice(states, n_shots, p=probabilities)
-    kernel_entry = np.mean(samples == '000')
+    kernel_entry = np.mean(samples=='000')
 
     return kernel_entry
 
@@ -86,7 +86,7 @@ def get_ionq_data(data_path, n_shots):
                 timestamp = obj['taskMetadata']['createdAt']
                 n_shots_orig = obj['taskMetadata']['shots']
                 distribution = obj['measurementProbabilities']
-                if n_shots == n_shots_orig:
+                if n_shots==n_shots_orig:
                     try:
                         measurement_result = distribution['000']
                     except KeyError:
@@ -144,22 +144,12 @@ r_SDP = qml.kernels.closest_psd_matrix
 
 # The embedding circuit uses 3 qubits. This information is required for device noise mitigation.
 num_wires = 3
-
-
-def m_single(mat): return qml.kernels.mitigate_depolarizing_noise(
-    mat, num_wires, method='single')
-
-
-def m_mean(mat): return qml.kernels.mitigate_depolarizing_noise(
-    mat, num_wires, method='average')
-def m_split(mat): return qml.kernels.mitigate_depolarizing_noise(
-    mat, num_wires, method='split_channel')
+m_single = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='single')
+m_mean = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='average')
+m_split = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='split_channel')
 
 # The "do-nothing" post-processing method, i.e. the identity.
-
-
-def Id(mat): return mat
-
+Id = lambda mat: mat
 
 # Names for pipeline keys
 function_names = {
@@ -245,12 +235,15 @@ if not recompute_mitigation:
 
 if actually_recompute_mitigation or recompute_mitigation:
     for n_shots in tqdm.notebook.tqdm(n_shots_array):
-        noisy_kernel_matrix = df.loc[(df.n_shots == n_shots) & (
-            df.pipeline == 'No post-processing')].kernel_matrix.item()
+        noisy_kernel_matrix = df.loc[
+                (df.n_shots==n_shots)
+                &(df.pipeline=='No post-processing')
+                ].kernel_matrix.item()
         used_pipelines = set(['No post-processing'])
         for key, pipeline in filtered_pipelines.items():
             mitigated_kernel_matrix = apply_pipeline(
-                pipeline, noisy_kernel_matrix)
+                pipeline, noisy_kernel_matrix
+            )
             if mitigated_kernel_matrix is None:
                 alignment = None
             else:
@@ -270,10 +263,9 @@ df.reset_index(level=0, inplace=True, drop=True)
 df.to_pickle(filename_mitigated_matrices)
 
 # +
-noisy_df = df.loc[df.pipeline == 'No post-processing']
-mitigated_df = plot_df = df.loc[df.pipeline != 'No post-processing']
+noisy_df = df.loc[df.pipeline=='No post-processing']
+mitigated_df = plot_df = df.loc[df.pipeline!='No post-processing']
 num_top_pipelines = 2
-
 
 def prettify_pipelines(x):
     fun_reg = {
@@ -293,18 +285,15 @@ def prettify_pipelines(x):
     funs = [fun_names[fun] for fun in x.pipeline.split(', ')]
     return ', '.join(funs)
 
-
-def top_pipelines(n_shots, num_pipelines):
-    indices = mitigated_df.loc[mitigated_df.n_shots ==
-                               n_shots].alignment.sort_values().index[-num_pipelines:]
+def top_pipelines(n_shots, num_pipelines):    
+    indices = mitigated_df.loc[
+            mitigated_df.n_shots==n_shots
+            ].alignment.sort_values().index[-num_pipelines:]
     return mitigated_df.loc[indices]
-
-
 def get_q(x):
     align = x.alignment
-    raw_align = noisy_df.loc[noisy_df.n_shots == x.n_shots].alignment.item()
+    raw_align = noisy_df.loc[noisy_df.n_shots==x.n_shots].alignment.item()
     return (align-raw_align)/(1-raw_align)
-
 
 best_df = pd.DataFrame()
 for n_shots in n_shots_array:
@@ -315,7 +304,8 @@ best_df['q'] = best_df.apply(get_q, axis=1)
 # +
 # %matplotlib notebook
 formatter = rsmf.setup(
-    r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
+    r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}"
+)
 formatter.set_rcParams()
 fig = formatter.figure(aspect_ratio=0.75, wide=False)
 grid = mpl.gridspec.GridSpec(ncols=1, nrows=1, figure=fig)
@@ -327,7 +317,7 @@ palette = sns.color_palette(n_colors=len(hue_order))
 
 for i in range(2):
     marker = mpl.markers.MarkerStyle('o', fillstyle=['left', 'right'][i])
-    df_i = best_df.loc[(best_df.pretty_pipeline == hue_order[i])]
+    df_i = best_df.loc[(best_df.pretty_pipeline==hue_order[i])]
     axs[0].scatter(df_i.n_shots, df_i.alignment, label=hue_order[i], color=palette[i],
                    marker=marker, s=ms, ec='1.', lw=0.2)
 
@@ -351,3 +341,5 @@ print(f"The alignment improvement (q) was minimally  {q_min*100:.1f}%"
       f"\n{' '*34}maximally  {q_max*100:.1f}%"
       f"\n{' '*34}on average {q_mean*100:.1f}%"
       "\nfor the two best post-processing strategies.")
+
+

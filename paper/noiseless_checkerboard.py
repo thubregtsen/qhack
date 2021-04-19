@@ -14,20 +14,13 @@
 #     name: python3
 # ---
 
-# **To be able to run this notebook you need to install the modified PennyLane version that contains the `qml.kernels` module via**
-# ```
-# pip install git+https://www.github.com/johannesjmeyer/pennylane@kernel_module --upgrade
-# ```
-
-# +
 import pennylane as qml
 from pennylane import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
-from sklearn import datasets
-
-np.random.seed(43) # I can stand that 42 is not prime
+from src.datasets import checkerboard
+np.random.seed(43) # I can't stand that 42 is not prime
 
 
 # +
@@ -73,49 +66,10 @@ k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
 
 
 # +
-# Create the clusters
-dim = 4
+X_train, y_train, X_test, y_test = checkerboard(60, 60, num_grid_row=4, num_grid_col=4)
 
-# creating negative (-1) and positive (+1) samples
-init_negative = False
-init_positive = False
-for i in range(dim):
-    for j in range(dim):
-        pos_x = i
-        pos_y = j
-        data = (np.random.random((40,2))-0.5)/(2*dim)
-        data[:,0] += (2*pos_x+1)/(2*dim)
-        data[:,1] += (2*pos_y+1)/(2*dim)
-        if (i%2 == 0 and j%2 == 0) or (i%2 == 1 and j%2 == 1):
-            if init_negative == False:
-                negative = data 
-                init_negative = True
-            else:
-                negative = np.vstack([negative, data])
-        else:
-            if init_positive == False:
-                positive = data
-                init_positive = True
-            else:
-                positive = np.vstack([positive, data])
-print(negative.shape)
-print(positive.shape)
-# +
-# split the data and visualize
-samples = 30 # number of samples to X_train[np.where(y=-1)], so total = 4*samples
-
-np.random.shuffle(negative)
-np.random.shuffle(positive)
-
-X_train = np.vstack([negative[:samples], positive[:samples]])
-y_train = np.hstack([-np.ones((samples)), np.ones((samples))])
-X_test = np.vstack([negative[samples:2*samples], positive[samples:2*samples]])
-y_test = np.hstack([-np.ones((samples)), np.ones((samples))])
-
-print("The training data is as follows:")
 plt.scatter(X_train[np.where(y_train == 1)[0],0], X_train[np.where(y_train == 1)[0],1], color="b", marker=".", label="train, 1")
 plt.scatter(X_train[np.where(y_train == -1)[0],0], X_train[np.where(y_train == -1)[0],1], color="r", marker=".", label="train, -1")
-print("The test data is as follows:")
 plt.scatter(X_test[np.where(y_train == 1)[0],0], X_test[np.where(y_train == 1)[0],1], color="b", marker="x", label="test, 1")
 plt.scatter(X_test[np.where(y_train == -1)[0],0], X_test[np.where(y_train == -1)[0],1], color="r", marker="x", label="test, -1")
 plt.ylim([0, 1])

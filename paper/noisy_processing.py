@@ -23,22 +23,21 @@
 
 # +
 import pennylane as qml
-import numpy as pure_np
 from pennylane import numpy as np
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import tqdm
+from tqdm.notebook import tqdm
 import pandas as pd
 import time
 import seaborn as sns
 
 from pennylane_cirq import ops as cirq_ops
-import noisy_helper_functions as nhf
 from itertools import product
 import rsmf
 from dill import load, dump
-import matplotlib.text as mpl_text
+import src.kernel_helper_functions as khf
+from src.datasets import checkerboard
 
 formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
 
@@ -124,7 +123,6 @@ def get_cell_label_pos(cells):
         center = label_pos[_id]
         x, y = map(int, np.round(center))
         if cells[x, y]!= _id:
-            print('moved')
             where = np.where(cells==_id)
             dists = [(coord, np.linalg.norm(center-coord,2)) for coord in zip(where[0], where[1])]
             label_pos[_id] = min(dists, key=lambda x: x[1])[0]
@@ -144,40 +142,8 @@ kernel_matrices = load(open(filename, 'rb+'))
 
 # # Get target matrix from training labels of Checkerboard dataset
 
-# +
 np.random.seed(43)
-dim = 4
-
-init_false = False
-init_true = False
-for i in range(dim):
-    for j in range(dim):
-        pos_x = i
-        pos_y = j
-        data = (np.random.random((40,2))-0.5)/(2*dim)
-        data[:,0] += (2*pos_x+1)/(2*dim)
-        data[:,1] += (2*pos_y+1)/(2*dim)
-        if (i%2 == 0 and j%2 == 0) or (i%2 == 1 and j%2 == 1):
-            if init_false == False:
-                false = data
-                init_false = True
-            else:
-                false = np.vstack([false, data])
-        else:
-            if init_true == False:
-                true = data
-                init_true = True
-            else:
-                true = np.vstack([true, data])
-
-samples = 15 # number of samples to X_train[np.where(y=-1)], so total = 4*samples
-
-np.random.shuffle(false)
-np.random.shuffle(true)
-
-X_train = np.vstack([false[:samples], true[:samples]])
-y_train = np.hstack([-np.ones((samples)), np.ones((samples))])
-# -
+_, y_train, _, _ = checkerboard(30, 30, 4, 4)
 
 
 # # Set up pipelines for postprocessing
@@ -351,7 +317,7 @@ best_pipeline_id_target = np.zeros((len(shot_numbers), len(noise_rates)), dtype=
 
 best_df = pd.DataFrame()
 best_df_target = pd.DataFrame()
-for i, _shots in tqdm.notebook.tqdm(enumerate(shot_numbers)):
+for i, _shots in tqdm(enumerate(shot_numbers)):
     for j, _lambda in enumerate(noise_rates):
         sub_df = df.loc[(df['shots_sort']==_shots)&(df['base_noise_rate']==_lambda)]
         sub_df['relative'] = sub_df.apply(relative_alignment, axis=1)
@@ -389,7 +355,7 @@ class AnyObjectHandler(object):
     def legend_artist(self, legend, orig_handle, fontsize, handlebox):
         x0, y0 = handlebox.xdescent, handlebox.ydescent
         width, height = handlebox.width, handlebox.height
-        patch = mpl_text.Text(x=0, y=0, text=orig_handle.my_text, color=orig_handle.my_color,
+        patch = mpl.text.Text(x=0, y=0, text=orig_handle.my_text, color=orig_handle.my_color,
                                 verticalalignment=u'baseline', 
                                 horizontalalignment=u'left', multialignment=None, 
                                 fontproperties=None, linespacing=None,
@@ -618,6 +584,3 @@ cbar.ax.tick_params(labelsize=cbar_tick_fs)
 formatter.set_rcParams()
 plt.tight_layout()
 plt.savefig(plot_single_best_filename, bbox_inches='tight')
-# -
-
-

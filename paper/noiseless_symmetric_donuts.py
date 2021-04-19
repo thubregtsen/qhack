@@ -14,21 +14,16 @@
 #     name: python3
 # ---
 
-# **To be able to run this notebook you need to install the modified PennyLane version that contains the `qml.kernels` module via**
-# ```
-# pip install git+https://www.github.com/johannesjmeyer/pennylane@kernel_module --upgrade
-# ```
-
 # ### Initialization and circuit definitions
 
-# +
 import pennylane as qml
 from pennylane import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 from sklearn import datasets
-
+from src.datasets import symmetric_donuts
+from tqdm.notebook import tqdm
 np.random.seed(42)
 
 
@@ -82,79 +77,7 @@ k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
 # Two pairs of concenctric circles centered at +/- 1 and small radius $1/2$, big radius $1/\sqrt{2}$.
 # Classes are inverted right and left
 
-# generate data
-def datagen (n_train, n_test):
-    # generate data in two circles
-    # the radii are chosen so that data is balanced
-    n_part = int(n_train/2)
-    n_test = int(n_test/2)
-    i = 0
-    X = []
-    X_ = []
-    y = []
-    y_ = []
-
-    # training set, right circle
-    while (i<n_part):
-        # sample uniformly from a square
-        x1 = np.random.uniform(-.707,.707) # 0.707... = 0.5*\sqrt(2)
-        x2 = np.random.uniform(-.707,.707)
-        if((x1)*(x1) + x2*x2 < .5): # discard points outside of big radius
-            i+=1
-            X.append([1+x1,x2]) # center at (1,0)
-            if(x1*x1 + x2*x2 < .25): # inner circle class 1
-                y.append(1)
-            else:
-                y.append(-1) # outer circle class -1
-    
-    # training set, left circle
-    i=0
-    while(i<n_part):
-        # sample uniformly from a square
-        x1 = np.random.uniform(-.707,.707)
-        x2 = np.random.uniform(-.707,.707)
-        if(x1*x1 + x2*x2 <.5): # discard points outside of big radius
-            i+=1
-            # opposite than first iteration
-            X.append([x1-1,x2]) # center at (-1,0)
-            if(x1*x1 + x2*x2 < .25): # inner circle class -1
-                y.append(-1)
-            else:
-                y.append(1) # outer circle class 1
-    
-    # test set, right circle
-    i = 0
-    while (i<n_test):
-        # sample uniformly from a square
-        x1 = np.random.uniform(-.707,.707) # 0.707... = 0.5*\sqrt(2)
-        x2 = np.random.uniform(-.707,.707)
-        if((x1)*(x1) + x2*x2 < .5): # discard points outside of big radius
-            i+=1
-            X.append([1+x1,x2]) # center at (1,0)
-            if(x1*x1 + x2*x2 < .25): # inner circle class 1
-                y.append(1)
-            else:
-                y.append(-1) # outer circle class -1
-    
-    # test set, left circle
-    i=0
-    while(i<n_test):
-        # sample uniformly from a square
-        x1 = np.random.uniform(-.707,.707)
-        x2 = np.random.uniform(-.707,.707)
-        if(x1*x1 + x2*x2 <.5): # discard points outside of big radius
-            i+=1
-            # opposite than first iteration
-            X.append([x1-1,x2]) # center at (-1,0)
-            if(x1*x1 + x2*x2 < .25): # inner circle class -1
-                y.append(-1)
-            else:
-                y.append(1) # outer circle class 1
-            
-    return X,y, X_,y_
-
-
-X_train, y_train, X_test, y_test = datagen(60,60)
+X_train, y_train, X_test, y_test = symmetric_donuts(60,60)
 
 #justnumpythings
 X_train = np.asarray(X_train)
@@ -184,7 +107,7 @@ acc_log = []
 params_log = []
 test_predict_log = []
 train_predict_log = []
-for i in range(5):
+for i in tqdm(range(5)):
     ## choose random params for the kernel
     params = random_params(width, depth)
     ## fit the SVM on the training data
@@ -206,7 +129,7 @@ params_random = params_log[np.argmin(np.asarray(acc_log))]
 print("Untrained accuracies:", acc_log)
 
 # plotting takes place at the end, but still
-plotting =  True
+plotting = True
 
 # ### Gradient Ascent Alignment
 

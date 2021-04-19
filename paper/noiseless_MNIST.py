@@ -14,21 +14,13 @@
 #     name: python3
 # ---
 
-# **To be able to run this notebook you need to install the modified PennyLane version that contains the `qml.kernels` module via**
-# ```
-# pip install git+https://www.github.com/johannesjmeyer/pennylane@kernel_module --upgrade
-# ```
-
-# +
 import pennylane as qml
 from pennylane import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
-from sklearn import datasets
 import matplotlib as mpl
 from keras.datasets import mnist
-
 np.random.seed(23) # to make sure we have deterministic code
 
 

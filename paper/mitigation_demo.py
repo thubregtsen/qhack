@@ -22,9 +22,6 @@ import pennylane as qml
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
-# The following packages are used implicitly in `closest_psd_matrix`
-import cvxpy
-import cvxopt
 # -
 
 # # A noisy kernel matrix
@@ -159,3 +156,5 @@ plt.tight_layout()
 # The plot above shows the alignment of the mitigated matrices and the noiseless matrix, which we show as color-coded plots in our paper. For the specific noise parameters ($1-\lambda_0=0.02,\;M=1000$) we find the pipeline $[\mathit{m}_\mathrm{mean}, r_\mathrm{SDP}]$ to be best (c.f. Figure 10 in the paper, label "4"):
 
 df.loc[df.alignment.idxmax()].pipeline
+
+

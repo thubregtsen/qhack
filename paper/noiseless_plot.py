@@ -70,14 +70,6 @@ def plot_classification(ax, X_dummy, y_dummy_label, y_dummy, X_train, y_train, X
     ax.scatter(X_test[np.where(y_test == -1)[0],0], X_test[np.where(y_test == -1)[0],1], color="C1", facecolors="none", marker=marker, s=markersize, label="Test")
     ax.set_xticks([])
     ax.set_yticks([])
-# -
-
-
-
-
-
-
-
 # +
 fig = fmt.figure(width_ratio=1., aspect_ratio=1.6)
 
@@ -152,4 +144,7 @@ counter += 1
 
 plt.tight_layout()
 #plt.show()
-plt.savefig("./images/numerics_plots_trainable_kernel.jpg")
+plt.savefig("./images/decision_boundaries.pdf")
+# -
+
+

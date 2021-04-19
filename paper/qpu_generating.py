@@ -21,7 +21,8 @@
 import pennylane as qml
 from pennylane import numpy as np
 import matplotlib.pyplot as plt
-import noisy_helper_functions as nhf
+import src.kernel_helper_functions as khf
+from src.datasets import symmetric_donuts
 
 # #  Gobal variables (used below)
 
@@ -32,67 +33,9 @@ depth = 3
 # File containing pretrained QEK parameters
 filename_opt_param = "data/parameters_symmetricdonuts_3_3.npy"
 
-
 # # Define dataset
 
-def datagen (n_train, n_test):
-    """generate data in two circles, with flipped label regions
-    Args:
-        n_train (int): Number of train datapoints
-        n_test (int): Number of test datapoints
-    Returns:
-        X_train (ndarray): Training datapoints
-        y_train (ndarray): Training labels
-        X_test (ndarray): Testing datapoints
-        y_test (ndarray): Testing labels
-    """
-    # 
-    # the radii are chosen so that data is balanced
-    inv_sqrt2 = 1/np.sqrt(2)
-    
-    X_train = []
-    X_test = []
-    y_train = []
-    y_test = []
-    
-    # Generate the training dataset
-    x_donut = 1
-    i = 0
-    while (i<n_train):
-        x = np.random.uniform(-inv_sqrt2,inv_sqrt2, 2)
-        r_squared = np.linalg.norm(x, 2)**2
-        if r_squared < 0.5:
-            i += 1
-            X_train.append([x_donut+x[0],x[1]])
-            if r_squared < .25:
-                y_train.append(x_donut)
-            else:
-                y_train.append(-x_donut)
-            # Move over to second donut 
-            if i==n_train//2:
-                x_donut = -1
-    
-    # Generate the testing dataset
-    x_donut = 1
-    i = 0
-    while (i<n_test):
-        x = np.random.uniform(-inv_sqrt2,inv_sqrt2, 2)
-        r_squared = np.linalg.norm(x, 2)**2
-        if r_squared < 0.5:
-            i += 1
-            X_test.append([x_donut+x[0],x[1]])
-            if r_squared < .25:
-                y_test.append(x_donut)
-            else:
-                y_test.append(-x_donut)
-            # Move over to second donut 
-            if i==n_test//2:
-                x_donut = -1
-            
-    return np.array(X_train), np.array(y_train), np.array(X_test), np.array(y_test)
-
-
-X_train ,y_train, X_test, y_test = datagen(60, 60)
+X_train ,y_train, X_test, y_test = symmetric_donuts(60, 60)
 
 X_train.shape, X_test.shape
 
@@ -158,7 +101,7 @@ dev = qml.device("default.qubit", wires=len(wires), shots=175)
 k = qml.kernels.EmbeddingKernel(lambda x, params: ionq_ansatz(x, params, wires), dev)
 simulated_kernel_matrix = k.square_kernel_matrix(X_train, params)
 
-nhf.visualize_kernel_matrices([simulated_kernel_matrix])
+khf.visualize_kernel_matrices([simulated_kernel_matrix])
 print(simulated_kernel_matrix)
 
 # # Computation on ionq device
@@ -179,7 +122,7 @@ except:
     ionq_device_kernel_matrix = simulated_kernel_matrix
     hardware_ran = False
     
-nhf.visualize_kernel_matrices([ionq_device_kernel_matrix])
+khf.visualize_kernel_matrices([ionq_device_kernel_matrix])
 # -
 
 
