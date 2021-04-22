@@ -3,8 +3,8 @@ import numpy as np
 def symmetric_donuts(num_train, num_test):
     """generate data in two circles, with flipped label regions
     Args:
-        n_train (int): Number of train datapoints
-        n_test (int): Number of test datapoints
+        num_train (int): Number of train datapoints
+        num_test (int): Number of test datapoints
     Returns:
         X_train (ndarray): Training datapoints
         y_train (ndarray): Training labels
@@ -22,7 +22,7 @@ def symmetric_donuts(num_train, num_test):
     # Generate the training dataset
     x_donut = 1
     i = 0
-    while (i<n_train):
+    while (i<num_train):
         x = np.random.uniform(-inv_sqrt2,inv_sqrt2, 2)
         r_squared = np.linalg.norm(x, 2)**2
         if r_squared < 0.5:
@@ -33,13 +33,13 @@ def symmetric_donuts(num_train, num_test):
             else:
                 y_train.append(-x_donut)
             # Move over to second donut
-            if i==n_train//2:
+            if i==num_train//2:
                 x_donut = -1
 
     # Generate the testing dataset
     x_donut = 1
     i = 0
-    while (i<n_test):
+    while (i<num_test):
         x = np.random.uniform(-inv_sqrt2,inv_sqrt2, 2)
         r_squared = np.linalg.norm(x, 2)**2
         if r_squared < 0.5:
@@ -50,7 +50,7 @@ def symmetric_donuts(num_train, num_test):
             else:
                 y_test.append(-x_donut)
             # Move over to second donut
-            if i==n_test//2:
+            if i==num_test//2:
                 x_donut = -1
 
     return np.array(X_train), np.array(y_train), np.array(X_test), np.array(y_test)

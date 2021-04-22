@@ -23,7 +23,6 @@ import rsmf
 linmap = mpl.colors.LinearSegmentedColormap.from_list("test", ["C1", "white" ,"C0"], N=1024)# mpl.colors.ListedColormap(["C1", "C0"])
 
 import rsmf
-### !!! you need to reference the main.tex !!! ####
 fmt = rsmf.setup("style/main.tex")
 
 
@@ -42,7 +41,7 @@ def load_data_tom(filename):
 def load_data_elies(filename):
     with open(filename, 'rb') as f:
         X_dummy_c = np.load(f)
-        y_dummy__random_c = np.load(f)
+        y_dummy_random_c = np.load(f)
         y_dummy_random_real_c = np.load(f)
         y_dummy_c = np.load(f)
         y_dummy_real_c = np.load(f)
@@ -51,7 +50,7 @@ def load_data_elies(filename):
         X_test_c = np.load(f)
         y_test_c = np.load(f)
         
-    return X_dummy_c, y_dummy__random_c, y_dummy_random_real_c, y_dummy_c, y_dummy_real_c, X_train_c, y_train_c, X_test_c, y_test_c
+    return X_dummy_c, y_dummy_random_c, y_dummy_random_real_c, y_dummy_c, y_dummy_real_c, X_train_c, y_train_c, X_test_c, y_test_c
 
     
 def plot_classification(ax, X_dummy, y_dummy_label, y_dummy, X_train, y_train, X_test, y_test, markersize=15, marker="o", clip=1):
