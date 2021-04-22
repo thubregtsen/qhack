@@ -20,8 +20,7 @@ For the hardware experiment we included a surrogate simulation of the experiment
 
 ### Structure
 The first numeric experiment is about noiseless simulations of the QEKs and training them via kernel target alignment. These experiments can be found in the files
-* `noiseless_checkerboard.py`
-* `noiseless_symmetric_donuts.py`
+* `noiseless_checkerboard_and_donuts.py`
 * `noiseless_MNIST.py`
 and the decision boundary plots are generated in
 * `noiseless_plot.py`
@@ -40,4 +39,5 @@ The third experiment is about evaluation and mitigation of a QEK on a real QPU. 
 Finally there are directories
 * `data/` for data (no, really!)
 * `images/` for the images that are produced by the notebooks in the home directory.
-* `src/` for some source code like helper functions
+* `src/` for some source code like helper functions, dataset generation etc.
+* `style/` for reference files to be used in calls to the python package [RSMF](https://github.com/johannesjmeyer/rsmf)
