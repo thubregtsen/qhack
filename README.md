@@ -2,7 +2,7 @@
 
 Here we share code to run the numeric experiments and generate the figures for our paper on [trainable quantum embedding kernels (QEKs)](https://arxiv.org/).
 
-_All following descriptions refer to the `paper/` subdirectory._ In the subdirectory `submission/` you can find our hackathon submission to qhack 2021.
+_All following descriptions refer to the _`paper/`_ subdirectory._ In the subdirectory `qhack2021/` you can find our hackathon submission to [qhack 2021](https://pennylane.ai/blog/2021/03/qhack-the-quantum-machine-learning-hackathon/).
 
 ### How to use this repository
 Install the `requirements.txt` using pip in order to execute all notebooks:
