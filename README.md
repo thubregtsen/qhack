@@ -30,7 +30,7 @@ and the decision boundary plots are generated in
 The second experiment is about device noise mitigation and regularization of the kernel matrix. The data is generated and processed in
 * `noisy_generating.py`
 * `noisy_processing.py`
-respectively. A small demo on how to use the mitigation and regularization methods introduced in our `qml.kernels` patch to [PennyLane](https://github.com/PennyLaneAI/pennylane) and on the combinations
+respectively. A small demo on how to use the mitigation and regularization methods introduced in our [`qml.kernels`](https://pennylane.readthedocs.io/en/stable/code/qml_kernels.html) patch to [PennyLane](https://github.com/PennyLaneAI/pennylane) and on the combinations
 of these methods we looked at can be found in
 * `post_processing_demo.py`
 
