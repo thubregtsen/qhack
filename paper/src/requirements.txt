@@ -18,7 +18,7 @@ sklearn==0.0
 sympy==1.7.1
 tqdm==4.57.0
 widgetsnbextension==3.5.1
-git+https://github.com/dwierichs/pennylane_jjm@kernel_module
+pennylane==0.16.0
 pennylane-cirq==0.14.0
 keras==2.4.3
 tensorflow==2.4.1
