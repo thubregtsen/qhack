@@ -97,9 +97,19 @@ def ionq_ansatz(x, params, wires):
 
 # # Calculate kernel matrix via classical simulation
 
+# +
+# This simulation cell takes about 1 minute.
+
 dev = qml.device("default.qubit", wires=len(wires), shots=175)
-k = qml.kernels.EmbeddingKernel(lambda x, params: ionq_ansatz(x, params, wires), dev)
-simulated_kernel_matrix = k.square_kernel_matrix(X_train, params)
+@qml.qnode(dev)
+def kernel_circuit(x1, x2, params):
+    ionq_ansatz(x1, params, dev.wires)
+    qml.adjoint(ionq_ansatz)(x2, params, dev.wires)
+    return qml.probs(wires=dev.wires)
+kernel = lambda x1, x2: kernel_circuit(x1, x2, params)[0]
+
+simulated_kernel_matrix = qml.kernels.square_kernel_matrix(X_train, kernel, assume_normalized_kernel=True)
+# -
 
 khf.visualize_kernel_matrices([simulated_kernel_matrix])
 print(simulated_kernel_matrix)
@@ -118,9 +128,11 @@ try:
     k = qml.kernels.EmbeddingKernel(lambda x, params: ionq_ansatz(x, params, wires), dev)
     ionq_device_kernel_matrix = calculate_upper_triangle_including_diagonal(k, X_train, params)
     hardware_ran = True
+    print("Ran the kernel matrix computation on IonQ hardware.")
 except:
     ionq_device_kernel_matrix = simulated_kernel_matrix
     hardware_ran = False
+    print("Running the kernel matrix computation on IonQ hardware failed. Replacing with the simulated matrix...")
     
 khf.visualize_kernel_matrices([ionq_device_kernel_matrix])
 # -

@@ -63,7 +63,13 @@ dev = qml.device("default.qubit", wires=width)
 wires = list(range(width))
 
 # init the embedding kernel
-k = qml.kernels.EmbeddingKernel(lambda x, params: ansatz(x, params, wires), dev)
+@qml.qnode(dev)
+def kernel(x1, x2, params):
+    ansatz(x1, params, wires)
+    qml.adjoint(ansatz)(x2, params, wires)
+    return qml.expval(qml.Projector([0]*width, wires=wires))
+
+
 # -
 # # Data processing
 
@@ -299,7 +305,9 @@ for i in range(3):
     params = random_params(width, depth)
     #print(params)
     ## fit the SVM on the training data
-    svm_untrained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
+    mapped_kernel = lambda X1, X2: kernel(X1, X2, params)
+    mapped_kernel_matrix = lambda X1, X2: qml.kernels.kernel_matrix(X1, X2, mapped_kernel)
+    svm_untrained_kernel = SVC(kernel=mapped_kernel_matrix).fit(X_train, y_train)
     ## evaluate on the test set
     untrained_accuracy = accuracy(svm_untrained_kernel, X_test, y_test)
     print("without kernel training accuracy", untrained_accuracy)
@@ -348,28 +356,110 @@ if plotting:
         np.save(f, y_test)
 
 
+"""
+Currently, the function ``qml.kernels.target_alignment`` is not
+differentiable yet, making it unfit for gradient descent optimization.
+We therefore first define a differentiable version of this function.
+"""
+def target_alignment(
+    X,
+    Y,
+    kernel,
+    assume_normalized_kernel=False,
+    rescale_class_labels=True,
+):
+    """Kernel-target alignment between kernel and labels."""
+
+    K = qml.kernels.square_kernel_matrix(
+        X,
+        kernel,
+        assume_normalized_kernel=assume_normalized_kernel,
+    )
+
+    if rescale_class_labels:
+        nplus = np.count_nonzero(np.array(Y) == 1)
+        nminus = len(Y) - nplus
+        _Y = np.array([y / nplus if y == 1 else y / nminus for y in Y])
+    else:
+        _Y = np.array(Y)
+
+    T = np.outer(_Y, _Y)
+    inner_product = np.sum(K * T)
+    norm = np.sqrt(np.sum(K * K) * np.sum(T * T))
+    inner_product = inner_product / norm
+
+    return inner_product
+
+
 # evaluate the performance with trained parameters for the kernel
 ## train the kernel
 opt = qml.GradientDescentOptimizer(2)
 for i in range(500):
     subset = np.random.choice(list(range(len(X_train))), 4)
-    params = opt.step(lambda _params: -k.target_alignment(X_train[subset], y_train[subset], _params), params)
+    mapped_neg_alignment = lambda par: -target_alignment(
+        X_train[subset],
+        y_train[subset],
+        lambda X1, X2: kernel(X1, X2, par),
+        assume_normalized_kernel=True,
+        rescale_class_labels=True,
+    )
+    params = opt.step(mapped_neg_alignment, params)
     if (i+1) % 50 == 0:
-        print("Step {} - Alignment on train = {:.3f}".format(i+1, k.target_alignment(X_train, y_train, params)))
+        mapped_kernel = lambda X1, X2: kernel(X1, X2, params)
+        alignment = target_alignment(
+            X_train,
+            y_train,
+            mapped_kernel,
+            assume_normalized_kernel=True,
+            rescale_class_labels=True,
+        )
+        print("Step {} - Alignment on train = {:.3f}".format(i+1, alignment))
 opt = qml.GradientDescentOptimizer(1)
 for i in range(500):
     subset = np.random.choice(list(range(len(X_train))), 4)
-    params = opt.step(lambda _params: -k.target_alignment(X_train[subset], y_train[subset], _params), params)
+    mapped_neg_alignment = lambda par: -target_alignment(
+        X_train[subset],
+        y_train[subset],
+        lambda X1, X2: kernel(X1, X2, par),
+        assume_normalized_kernel=True,
+        rescale_class_labels=True,
+    )
+    params = opt.step(mapped_neg_alignment, params)
     if (i+1) % 50 == 0:
-        print("Step {} - Alignment on train = {:.3f}".format(i+1, k.target_alignment(X_train, y_train, params)))
+        mapped_kernel = lambda X1, X2: kernel(X1, X2, params)
+        alignment = target_alignment(
+            X_train,
+            y_train,
+            mapped_kernel,
+            assume_normalized_kernel=True,
+            rescale_class_labels=True,
+        )
+        print("Step {} - Alignment on train = {:.3f}".format(i+1, alignment))
 opt = qml.GradientDescentOptimizer(0.5)
 for i in range(1000):
     subset = np.random.choice(list(range(len(X_train))), 4)
-    params = opt.step(lambda _params: -k.target_alignment(X_train[subset], y_train[subset], _params), params)
+    mapped_neg_alignment = lambda par: -target_alignment(
+        X_train[subset],
+        y_train[subset],
+        lambda X1, X2: kernel(X1, X2, par),
+        assume_normalized_kernel=True,
+        rescale_class_labels=True,
+    )
+    params = opt.step(mapped_neg_alignment, params)
     if (i+1) % 50 == 0:
-        print("Step {} - Alignment on train = {:.3f}".format(i+1, k.target_alignment(X_train, y_train, params)))
+        mapped_kernel = lambda X1, X2: kernel(X1, X2, params)
+        alignment = target_alignment(
+            X_train,
+            y_train,
+            mapped_kernel,
+            assume_normalized_kernel=True,
+            rescale_class_labels=True,
+        )
+        print("Step {} - Alignment on train = {:.3f}".format(i+1, alignment))
 ## fit the SVM on the train set
-svm_trained_kernel = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params)).fit(X_train, y_train)
+mapped_kernel = lambda X1, X2: kernel(X1, X2, params)
+mapped_kernel_matrix = lambda X1, X2: qml.kernels.kernel_matrix(X1, X2, mapped_kernel)
+svm_trained_kernel = SVC(kernel=mapped_kernel_matrix).fit(X_train, y_train)
 ## evaluate the accuracy on the test set
 trained_accuracy = accuracy(svm_trained_kernel, X_test, y_test)
 print("with kernel training accuracy on test", trained_accuracy)
@@ -464,7 +554,9 @@ for i in range(3):
     params_1 = random_params(width, depth)
     #print(params)
     ## fit the SVM on the training data
-    svm_untrained_kernel_1 = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params_1)).fit(X_train_1, y_train_1)
+    mapped_kernel = lambda X1, X2: kernel(X1, X2, params_1)
+    mapped_kernel_matrix = lambda X1, X2: qml.kernels.kernel_matrix(X1, X2, mapped_kernel)
+    svm_untrained_kernel_1 = SVC(kernel=mapped_kernel_matrix).fit(X_train_1, y_train_1)
     ## evaluate on the test set
     untrained_accuracy_1 = accuracy(svm_untrained_kernel_1, X_test_1, y_test_1)
     print("without kernel training accuracy", untrained_accuracy_1)
@@ -512,29 +604,77 @@ if plotting:
         np.save(f, X_test_1)
         np.save(f, y_test_1)
 
+# +
 # evaluate the performance with trained parameters for the kernel
 ## train the kernel
 opt = qml.GradientDescentOptimizer(2)
 for i in range(500):
     subset = np.random.choice(list(range(len(X_train_1))), 4)
-    params_1 = opt.step(lambda _params_1: -k.target_alignment(X_train_1[subset], y_train_1[subset], _params_1), params_1)  
+    mapped_neg_alignment = lambda par: -target_alignment(
+        X_train_1[subset],
+        y_train_1[subset],
+        lambda X1, X2: kernel(X1, X2, par),
+        assume_normalized_kernel=True,
+        rescale_class_labels=True,
+    )
+    params_1 = opt.step(mapped_neg_alignment, params_1)
     if (i+1) % 50 == 0:
-        print("Step {} - Alignment on train = {:.3f}".format(i+1, k.target_alignment(X_train_1, y_train_1, params_1)))
+        mapped_kernel = lambda X1, X2: kernel(X1, X2, params_1)
+        alignment = target_alignment(
+            X_train_1,
+            y_train_1,
+            mapped_kernel,
+            assume_normalized_kernel=True,
+            rescale_class_labels=True,
+        )
+        print("Step {} - Alignment on train = {:.3f}".format(i+1, alignment))
 opt = qml.GradientDescentOptimizer(1)
 for i in range(500):
     subset = np.random.choice(list(range(len(X_train_1))), 4)
-    params_1 = opt.step(lambda _params_1: -k.target_alignment(X_train_1[subset], y_train_1[subset], _params_1), params_1)  
+    mapped_neg_alignment = lambda par: -target_alignment(
+        X_train_1[subset],
+        y_train_1[subset],
+        lambda X1, X2: kernel(X1, X2, par),
+        assume_normalized_kernel=True,
+        rescale_class_labels=True,
+    )
+    params_1 = opt.step(mapped_neg_alignment, params_1)
     if (i+1) % 50 == 0:
-        print("Step {} - Alignment on train = {:.3f}".format(i+1, k.target_alignment(X_train_1, y_train_1, params_1)))
+        mapped_kernel = lambda X1, X2: kernel(X1, X2, params_1)
+        alignment = target_alignment(
+            X_train_1,
+            y_train_1,
+            mapped_kernel,
+            assume_normalized_kernel=True,
+            rescale_class_labels=True,
+        )
+        print("Step {} - Alignment on train = {:.3f}".format(i+1, alignment))
 opt = qml.GradientDescentOptimizer(0.5)
 for i in range(1000):
     subset = np.random.choice(list(range(len(X_train_1))), 4)
-    params_1 = opt.step(lambda _params_1: -k.target_alignment(X_train_1[subset], y_train_1[subset], _params_1), params_1)
-    
+    mapped_neg_alignment = lambda par: -target_alignment(
+        X_train_1[subset],
+        y_train_1[subset],
+        lambda X1, X2: kernel(X1, X2, par),
+        assume_normalized_kernel=True,
+        rescale_class_labels=True,
+    )
+    params_1 = opt.step(mapped_neg_alignment, params_1)
     if (i+1) % 50 == 0:
-        print("Step {} - Alignment on train = {:.3f}".format(i+1, k.target_alignment(X_train_1, y_train_1, params_1)))
+        mapped_kernel = lambda X1, X2: kernel(X1, X2, params_1)
+        alignment = target_alignment(
+            X_train_1,
+            y_train_1,
+            mapped_kernel,
+            assume_normalized_kernel=True,
+            rescale_class_labels=True,
+        )
+        print("Step {} - Alignment on train = {:.3f}".format(i+1, alignment))
+
 ## fit the SVM on the train set
-svm_trained_kernel_1 = SVC(kernel=lambda X1, X2: k.kernel_matrix(X1, X2, params_1)).fit(X_train_1, y_train_1)
+mapped_kernel = lambda X1, X2: kernel(X1, X2, params_1)
+mapped_kernel_matrix = lambda X1, X2: qml.kernels.kernel_matrix(X1, X2, mapped_kernel)
+svm_trained_kernel_1 = SVC(kernel=mapped_kernel_matrix).fit(X_train_1, y_train_1)
 ## evaluate the accuracy on the test set
 trained_accuracy_1 = accuracy(svm_trained_kernel_1, X_test_1, y_test_1)
 print("with kernel training accuracy on test", trained_accuracy)
@@ -572,6 +712,7 @@ if plotting:
         np.save(f, y_train_1)
         np.save(f, X_test_1)
         np.save(f, y_test_1)
+# -
 
 # example how to load data
 filename = "data/dataset_MNIST_23_one_trained.npy"

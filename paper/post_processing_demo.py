@@ -137,7 +137,11 @@ print(f"# Unique matrices: {len(unique_matrices)}")
 sorted_keys = sorted(list(mitigated_kernel_matrices.keys()))
 sorted_matrices = [mitigated_kernel_matrices[key] for key in sorted_keys]
 alignments = [
-    (qml.kernels.matrix_inner_product(exact_kernel_matrix, mitigated, normalize=True) if mitigated is not None else None)
+    (
+        qml.utils.frobenius_inner_product(exact_kernel_matrix, mitigated, normalize=True).item()
+        if mitigated is not None
+        else None
+    )
     for mitigated in sorted_matrices
 ]
 df = pd.DataFrame({

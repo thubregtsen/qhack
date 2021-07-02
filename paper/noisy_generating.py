@@ -155,7 +155,7 @@ def run(shots):
     sub_kernel_matrices = {}
     for noise_p in noise_probabilities:
         analytic_device = (shots==0)
-        shots_device = 1 if shots==0 else shots # shots=0 raises an error...
+        shots_device = None if shots==0 else shots # shots=0 raises an error...
 
         dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
         k = khf.noisy_kernel(
@@ -165,7 +165,7 @@ def run(shots):
             args_noise_channel=(noise_p,),
             noise_application_level='per_gate',
         )
-        k_mapped = lambda x1, x2: k(x1, x2, param)
+        k_mapped = lambda x1, x2: k.circuit(x1, x2, param)
 
         K = qml.kernels.square_kernel_matrix(X, k_mapped, assume_normalized_kernel=False)       
         sub_kernel_matrices[(float(noise_p), shots)] = K
@@ -185,14 +185,14 @@ print(f"{(time.time()-start)/60} minutes")
 
 # +
 # Merge matrix sets
-kernel_matrices = {}
-for shots in shot_numbers:
-    sub_mats = load(open(f"{sub_filename.split('.')[0]}_{shots}.dill", 'rb+'))
-    kernel_matrices.update(sub_mats)
+# kernel_matrices = {}
+# for shots in shot_numbers:
+#     sub_mats = load(open(f"{sub_filename.split('.')[0]}_{shots}.dill", 'rb+'))
+#     kernel_matrices.update(sub_mats)
 
 
-pure_np_kernel_matrices = {key: pure_np.asarray(mat) for key, mat in kernel_matrices.items()}
-dump(pure_np_kernel_matrices, open(filename, 'wb+'))
+# pure_np_kernel_matrices = {key: pure_np.asarray(mat) for key, mat in kernel_matrices.items()}
+# dump(pure_np_kernel_matrices, open(filename, 'wb+'))
 # -
 
 

@@ -164,7 +164,7 @@ def mitigate_global_depolarization(kernel_matrix, num_wires, strategy='average',
         return mitigated_matrix
 
 
-class noisy_kernel(qml.kernels.EmbeddingKernel):
+class noisy_kernel():
     """adds noise to a QEK
     Args:
       ansatz (callable): See qml.kernels.EmbeddingKernel
@@ -209,6 +209,7 @@ class noisy_kernel(qml.kernels.EmbeddingKernel):
         else:
             self.idling_gate_noise_channel = idling_gate_noise_channel
 
+        @qml.qnode(device)
         def circuit(x1, x2, params, **kwargs):
             if self.noise_application_level == 'per_gate':
                 add_noise_channel(
@@ -239,7 +240,7 @@ class noisy_kernel(qml.kernels.EmbeddingKernel):
 
             return qml.probs(wires=device.wires)
 
-        self.probs_qnode = qml.QNode(circuit, device, **kwargs)
+        self.circuit = lambda x1, x2, params, **kwargs: circuit(x1, x2, params, **kwargs)[0]
 
 def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
     num_mat = len(kernel_matrices)
@@ -264,3 +265,5 @@ def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
     if draw_last_cbar:
         ch = plot.get_children()
         fig.colorbar(ch[0], ax=ax[-2], cax=ax[-1])
+
+

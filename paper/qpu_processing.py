@@ -126,9 +126,10 @@ for n_shots in n_shots_array:
             kernel_matrix[j, i] = kernel_matrix[i, j]
             index += 1
 
-    alignment = qml.kernels.matrix_inner_product(
-        kernel_matrix, noiseless_kernel_matrix, normalize=True)
-    print(alignment, 'alignment')
+    alignment = qml.utils.frobenius_inner_product(
+        kernel_matrix, noiseless_kernel_matrix, normalize=True
+    ).item()
+    print('Alignment: ', alignment)
     df = df.append({
         'n_shots': n_shots,
         'kernel_matrix': kernel_matrix,
