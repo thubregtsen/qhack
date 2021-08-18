@@ -1,0 +1,4 @@
+*.ipynb
+.ipynb_checkpoints/**
+floq_key
+**/__pycache__/**
