@@ -21,14 +21,16 @@ import matplotlib as mpl
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn import decomposition
+import time
 
 import matplotlib.pyplot as plt
 
 
-np.random.seed(42)
-
-
+np.random.seed(43)
 # -
+
+start = time.time()
+
 
 # ## Data generation functions
 
@@ -64,6 +66,7 @@ def create_data():
 
     X = data.iloc[:, 0:len(data.columns)-1].to_numpy()
     y = data.iloc[:, len(data.columns)-1].to_numpy()
+    y = (y*2) -1 # [0,1] -> [0,2] -> [-1,1]
     
     return X, y
 
@@ -116,25 +119,65 @@ def plot_decision_boundaries(classifier, ax, N_gridpoints=14):
 
 
 # +
+# take the dataset, and parse it do that all data is in R
 X, Y = create_data()
 
-# randomize
-randomize = np.arange(len(X))
-np.random.shuffle(randomize)
-X = X[randomize]
-Y = Y[randomize]
-
-#limit
-#cut_off = 10
-#X_cut = X[:cut_off]
-#y_cut = Y[:cut_off]
-
-feature_dim = 5
+# define the number of desired dimensions
+feature_dim = 12 # min dim 12 for bank dataset
 X, Y = prep_data(X, Y, feature_dim)
-cut_off = 20
-X = X[0:cut_off]
-Y = Y[0:cut_off]
-X.shape
+# check if we still have unique data after dimensionality reduction
+if not (len(X) == len(np.unique(X, axis=0))):
+    print(len(X), len(np.unique(X, axis=0)))
+    assert False, "DATA NOT UNIQUE, DUPLICATES DETECTED!"
+
+# make sure we have balanced data
+X_neg = []
+X_pos = []
+Y_neg = []
+Y_pos = []
+for i in range(len(Y)):
+    if Y[i] < 0:
+        X_neg.append(X[i])
+        Y_neg.append(Y[i])
+    else:
+        X_pos.append(X[i])
+        Y_pos.append(Y[i])
+X_neg = np.asarray(X_neg)
+X_pos = np.asarray(X_pos)
+Y_neg = np.asarray(Y_neg)
+Y_pos = np.asarray(Y_pos)
+
+# shuffle our data, positive and negative samples seperately
+randomize_neg = np.arange(len(X_neg))
+np.random.shuffle(randomize_neg)
+X_neg = X_neg[randomize_neg]
+Y_neg = Y_neg[randomize_neg]
+randomize_pos = np.arange(len(X_pos))
+np.random.shuffle(randomize_pos)
+X_pos = X_pos[randomize_pos]
+Y_pos = Y_pos[randomize_pos]
+
+# downsize our data         
+cut_off = 10
+# first the stitching and reshufling of the train data
+X_train = np.vstack((X_neg[0:cut_off], X_pos[0:cut_off]))
+Y_train = np.hstack((Y_neg[0:cut_off], Y_pos[0:cut_off]))
+randomize_all = np.arange(len(X_train))
+np.random.shuffle(randomize_all)
+X_train = X_train[randomize_all]
+Y_train = Y_train[randomize_all]
+# then the stitching and reshufling of the validation data
+X_val = np.vstack((X_neg[cut_off: 2*cut_off], X_pos[cut_off: 2*cut_off]))
+Y_val = np.hstack((Y_neg[cut_off: 2*cut_off], Y_pos[cut_off: 2*cut_off]))
+randomize_val = np.arange(len(X_val))
+np.random.shuffle(randomize_val)
+X_val = X_val[randomize_val]
+Y_val = Y_val[randomize_val]
+
+print("X_train", X_train)
+print("Y_train", Y_train)
+print("X_val", X_val)
+print("Y_val", Y_val)
 
 # -
 
@@ -178,7 +221,7 @@ def kernel(x1, x2, params):
 
 
 
-# ## Init network
+# ## Init QEK
 
 # +
 dev = qml.device("default.qubit", wires=5, shots=None)
@@ -199,7 +242,7 @@ init_params = random_params(num_wires=5, num_layers=6)
 
 # calculate kernel matrix
 init_kernel = lambda x1, x2: kernel(x1, x2, init_params)
-K_init = qml.kernels.square_kernel_matrix(X, init_kernel, assume_normalized_kernel=True)
+K_init = qml.kernels.square_kernel_matrix(X_train, init_kernel, assume_normalized_kernel=True)
 
 with np.printoptions(precision=3, suppress=True):
     print(K_init)
@@ -209,12 +252,17 @@ with np.printoptions(precision=3, suppress=True):
 
 from sklearn.svm import SVC
 
+
+
 # +
 # train alpha and beta
-svm = SVC(kernel=lambda X1, X2: qml.kernels.kernel_matrix(X1, X2, init_kernel)).fit(X, Y)
+svm = SVC(kernel=lambda X1, X2: qml.kernels.kernel_matrix(X1, X2, init_kernel)).fit(X_train, Y_train)
 
 # check the performance
-print(f"The accuracy of the kernel with random parameters is {accuracy(svm, X, Y):.3f}")
+random_on_train = accuracy(svm, X_train, Y_train)
+random_on_val = accuracy(svm, X_val, Y_val)
+print(f"Random parameter accuracy on train {random_on_train:.3f}")
+print(f"Random parameter accuracy on validate {random_on_val:.3f}")
 #init_plot_data = plot_decision_boundaries(svm, plt.gca())
 # -
 
@@ -223,7 +271,7 @@ print(f"The accuracy of the kernel with random parameters is {accuracy(svm, X, Y
 # ## Train the QEK
 
 # init and evaluate QEK
-kta_init = qml.kernels.target_alignment(X, Y, init_kernel, assume_normalized_kernel=True)
+kta_init = qml.kernels.target_alignment(X_train, Y_train, init_kernel, assume_normalized_kernel=True)
 print(f"The kernel-target alignment for our dataset and random parameters is {kta_init:.3f}")
 
 
@@ -252,27 +300,28 @@ def target_alignment(
     T = np.outer(_Y, _Y)
     inner_product = np.sum(K * T)
     norm = np.sqrt(np.sum(K * K) * np.sum(T * T))
-    print("K", K)
-    print("norm", norm)
+    #print("K", K)
+    #print("norm", norm)
     inner_product = inner_product / norm
 
     return inner_product
 
 
-Y
 
 # +
 params = init_params
 opt = qml.GradientDescentOptimizer(0.2)
 
+start_opt = time.time()
+
 for i in range(500):
     # Choose subset of datapoints to compute the KTA on.
-    subset = np.random.choice(list(range(len(X))), 4)
-    print(subset)
+    subset = np.random.choice(list(range(len(X_train))), 4)
+    #print(subset)
     # Define the cost function for optimization
     cost = lambda _params: -target_alignment(
-        X[subset],
-        Y[subset],
+        X_train[subset],
+        Y_train[subset],
         lambda x1, x2: kernel(x1, x2, _params),
         assume_normalized_kernel=True,
     )
@@ -282,12 +331,14 @@ for i in range(500):
     # Report the alignment on the full dataset every 50 steps.
     if (i + 1) % 50 == 0:
         current_alignment = target_alignment(
-            X,
-            Y,
+            X_train,
+            Y_train,
             lambda x1, x2: kernel(x1, x2, params),
             assume_normalized_kernel=True,
         )
         print(f"Step {i+1} - Alignment = {current_alignment:.3f}")
+        
+end_opt = time.time()
 
 # +
 # First create a kernel with the trained parameters baked into it.
@@ -297,17 +348,22 @@ trained_kernel = lambda x1, x2: kernel(x1, x2, params)
 trained_kernel_matrix = lambda X1, X2: qml.kernels.kernel_matrix(X1, X2, trained_kernel)
 
 # Note that SVC expects the kernel argument to be a kernel matrix function.
-svm_trained = SVC(kernel=trained_kernel_matrix).fit(X, Y)
+svm_trained = SVC(kernel=trained_kernel_matrix).fit(X_train, Y_train)
 # -
 
-accuracy_trained = accuracy(svm_trained, X, Y)
-print(f"The accuracy of a kernel with trained parameters is {accuracy_trained:.3f}")
+opt_on_train = accuracy(svm_trained, X_train, Y_train)
+opt_on_val = accuracy(svm_trained, X_val, Y_val)
+print(f"Trained parameter accuracy on train {opt_on_train:.3f}")
+print(f"Trained parameter accuracy on train {opt_on_val:.3f}")
 
+end = time.time()
 
+total_time = end-start
+opt_time = end_opt-start_opt
+print("total time elapsed", total_time)
+print("optimization time elapsed", opt_time)
 
-
-
-
+print(str(feature_dim) + ";" + str(cut_off) + ";" + str(int(opt_time)) + ";" + str(int(total_time)) + ";" + str(random_on_train)  + ";" + str(random_on_val)  + ";" + str(opt_on_train)  + ";" + str(opt_on_val))
 
 
 
