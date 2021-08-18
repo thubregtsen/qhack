@@ -25,9 +25,34 @@ import time
 
 import matplotlib.pyplot as plt
 
+from sklearn.svm import SVR
+from sklearn import decomposition
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-np.random.seed(43)
+
+
+printing = False
+
+# downsize our data         
+cut_off = 5
+# define the number of desired dimensions
+feature_dim = 12 # min dim 12 for bank dataset
+optimization_iterations = 50
+optimization_samples = 4
+seed = 43
+
+import sys
 # -
+
+if "ipykernel" not in sys.argv[0]:
+    # running in cmd
+    cut_off = int(sys.argv[1])
+    optimization_iterations = int(sys.argv[2])
+    optimization_samples = int(sys.argv[3])
+    seed = int(sys.argv[4])
+    print("cut_off set", cut_off, "optimization_iterations", optimization_iterations, "optimization_samples", optimization_samples, "seed", seed)
+np.random.seed(seed)
 
 start = time.time()
 
@@ -43,15 +68,18 @@ def create_data():
 
     # clean data
     for column_index in range(len(data.columns)):
-        print("column", column_index)
+        if printing == True:
+            print("column", column_index)
         k = data.keys()
         #data[k[-1]]
         unique_entries = data[k[column_index]].unique()
-        print("unique_entries", unique_entries)
+        if printing == True:
+            print("unique_entries", unique_entries)
         for entry_index in range(len(unique_entries)):
             unique_entry = unique_entries[entry_index]
             if str(unique_entry).lstrip('-').isnumeric() == False:
-                print(unique_entry, entry_index)
+                if printing == True:
+                    print(unique_entry, entry_index)
                 data[k[column_index]] = data[k[column_index]].replace(to_replace=unique_entry, value=float(entry_index))
     #print(data[4500:])
 
@@ -113,6 +141,14 @@ def plot_decision_boundaries(classifier, ax, N_gridpoints=14):
     return plot_data
 
 
+def acc(a,b):
+    total_correct = 0
+    for i in range(len(a)):
+        if a[i]*b[i] >= 0:
+            total_correct += 1
+        #else:
+        #    print("incorrect")
+    return (len(a)-total_correct)/len(a)
 
 # ## Init and visualize
 
@@ -121,9 +157,7 @@ def plot_decision_boundaries(classifier, ax, N_gridpoints=14):
 # +
 # take the dataset, and parse it do that all data is in R
 X, Y = create_data()
-
-# define the number of desired dimensions
-feature_dim = 12 # min dim 12 for bank dataset
+# PCA
 X, Y = prep_data(X, Y, feature_dim)
 # check if we still have unique data after dimensionality reduction
 if not (len(X) == len(np.unique(X, axis=0))):
@@ -157,8 +191,7 @@ np.random.shuffle(randomize_pos)
 X_pos = X_pos[randomize_pos]
 Y_pos = Y_pos[randomize_pos]
 
-# downsize our data         
-cut_off = 10
+
 # first the stitching and reshufling of the train data
 X_train = np.vstack((X_neg[0:cut_off], X_pos[0:cut_off]))
 Y_train = np.hstack((Y_neg[0:cut_off], Y_pos[0:cut_off]))
@@ -174,10 +207,11 @@ np.random.shuffle(randomize_val)
 X_val = X_val[randomize_val]
 Y_val = Y_val[randomize_val]
 
-print("X_train", X_train)
-print("Y_train", Y_train)
-print("X_val", X_val)
-print("Y_val", Y_val)
+if printing == True:
+    print("X_train", X_train)
+    print("Y_train", Y_train)
+    print("X_val", X_val)
+    print("Y_val", Y_val)
 
 # -
 
@@ -244,8 +278,9 @@ init_params = random_params(num_wires=5, num_layers=6)
 init_kernel = lambda x1, x2: kernel(x1, x2, init_params)
 K_init = qml.kernels.square_kernel_matrix(X_train, init_kernel, assume_normalized_kernel=True)
 
-with np.printoptions(precision=3, suppress=True):
-    print(K_init)
+if printing == True:
+    with np.printoptions(precision=3, suppress=True):
+        print(K_init)
 # -
 
 # ## Train an SVM
@@ -259,10 +294,17 @@ from sklearn.svm import SVC
 svm = SVC(kernel=lambda X1, X2: qml.kernels.kernel_matrix(X1, X2, init_kernel)).fit(X_train, Y_train)
 
 # check the performance
-random_on_train = accuracy(svm, X_train, Y_train)
-random_on_val = accuracy(svm, X_val, Y_val)
-print(f"Random parameter accuracy on train {random_on_train:.3f}")
-print(f"Random parameter accuracy on validate {random_on_val:.3f}")
+Y_pred = svm.predict(X_train)
+random_on_train = acc(Y_pred, Y_train)
+random_on_train_l1 = np.round(mean_absolute_error(Y_pred, Y_train), 3)
+random_on_train_l2 = np.round(mean_squared_error(Y_pred, Y_train), 3)
+Y_pred = svm.predict(X_val)
+random_on_val = acc(Y_pred, Y_val)
+random_on_val_l1 = np.round(mean_absolute_error(Y_pred, Y_val), 3)
+random_on_val_l2 = np.round(mean_squared_error(Y_pred, Y_val), 3)
+if printing == True:
+    print(f"Random parameter accuracy on train {random_on_train:.3f}")
+    print(f"Random parameter accuracy on validate {random_on_val:.3f}")
 #init_plot_data = plot_decision_boundaries(svm, plt.gca())
 # -
 
@@ -272,7 +314,8 @@ print(f"Random parameter accuracy on validate {random_on_val:.3f}")
 
 # init and evaluate QEK
 kta_init = qml.kernels.target_alignment(X_train, Y_train, init_kernel, assume_normalized_kernel=True)
-print(f"The kernel-target alignment for our dataset and random parameters is {kta_init:.3f}")
+if printing == True:
+    print(f"The kernel-target alignment for our dataset and random parameters is {kta_init:.3f}")
 
 
 def target_alignment(
@@ -313,10 +356,10 @@ params = init_params
 opt = qml.GradientDescentOptimizer(0.2)
 
 start_opt = time.time()
-
-for i in range(500):
+alignment = []
+for i in range(optimization_iterations):
     # Choose subset of datapoints to compute the KTA on.
-    subset = np.random.choice(list(range(len(X_train))), 4)
+    subset = np.random.choice(list(range(len(X_train))), optimization_samples)
     #print(subset)
     # Define the cost function for optimization
     cost = lambda _params: -target_alignment(
@@ -329,13 +372,14 @@ for i in range(500):
     params = opt.step(cost, params)
 
     # Report the alignment on the full dataset every 50 steps.
-    if (i + 1) % 50 == 0:
+    if (i + 1) % 500 == 0:
         current_alignment = target_alignment(
             X_train,
             Y_train,
             lambda x1, x2: kernel(x1, x2, params),
             assume_normalized_kernel=True,
         )
+        alignment.append(current_alignment)
         print(f"Step {i+1} - Alignment = {current_alignment:.3f}")
         
 end_opt = time.time()
@@ -351,25 +395,73 @@ trained_kernel_matrix = lambda X1, X2: qml.kernels.kernel_matrix(X1, X2, trained
 svm_trained = SVC(kernel=trained_kernel_matrix).fit(X_train, Y_train)
 # -
 
-opt_on_train = accuracy(svm_trained, X_train, Y_train)
-opt_on_val = accuracy(svm_trained, X_val, Y_val)
-print(f"Trained parameter accuracy on train {opt_on_train:.3f}")
-print(f"Trained parameter accuracy on train {opt_on_val:.3f}")
+Y_pred = svm_trained.predict(X_train)
+opt_on_train = acc(Y_pred, Y_train)
+opt_on_train_l1 = np.round(mean_absolute_error(Y_pred, Y_train), 3)
+opt_on_train_l2 = np.round(mean_squared_error(Y_pred, Y_train), 3)
+Y_pred = svm_trained.predict(X_val)
+opt_on_val = acc(Y_pred, Y_val)
+opt_on_val_l1 = np.round(mean_absolute_error(Y_pred, Y_val), 3)
+opt_on_val_l2 = np.round(mean_squared_error(Y_pred, Y_val), 3)
+if printing == True:
+    print(f"Trained parameter accuracy on train {opt_on_train:.3f}")
+    print(f"Trained parameter accuracy on train {opt_on_val:.3f}")
 
 end = time.time()
 
 total_time = end-start
 opt_time = end_opt-start_opt
-print("total time elapsed", total_time)
-print("optimization time elapsed", opt_time)
+if printing == True:
+    print("total time elapsed", total_time)
+    print("optimization time elapsed", opt_time)
 
-print(str(feature_dim) + ";" + str(cut_off) + ";" + str(int(opt_time)) + ";" + str(int(total_time)) + ";" + str(random_on_train)  + ";" + str(random_on_val)  + ";" + str(opt_on_train)  + ";" + str(opt_on_val))
-
-
-
+# +
 
 
 
+kernels = ["linear", "sigmoid", "rbf"] # poly takes 50x time so excluded
+loss = {}
+loss["l1"]={}
+loss["l2"]={}
+loss["acc"]={}
+for kernel in kernels:
+    loss["l1"][kernel]={}
+    loss["l2"][kernel]={}
+    loss["acc"][kernel]={}
+longest_name = np.max([len(x) for x in kernels])
+if printing == True:
+    print("kernel;", "l1 loss;""l2 loss;")
+
+predictions = {}
+for kernel in kernels: 
+    classifier = SVR(gamma='auto', kernel=kernel)
+    classifier.fit(X_train, Y_train)
+    predictions[kernel] = classifier.predict(X_val)
+    
+for kernel in kernels:
+    normalized_name = kernel + ' ' * (longest_name-len(kernel)) # for spacing
+    loss["acc"][kernel][feature_dim] = np.round(acc(predictions[kernel], Y_val), 3)
+    loss["l1"][kernel][feature_dim] = np.round(mean_absolute_error(predictions[kernel], Y_val), 3)
+    loss["l2"][kernel][feature_dim] = np.round(mean_squared_error(predictions[kernel], Y_val), 3)
+    if printing == True:
+        print(feature_dim, normalized_name, loss["l1"][kernel][feature_dim], 
+            loss["l2"][kernel][feature_dim])
+if printing == True:
+    print("") # extra newline
+
+# -
+
+
+
+
+
+
+
+print(";".join((str(seed), str(feature_dim), str(cut_off), str(int(opt_time)), str(int(total_time)), str(optimization_iterations), str(optimization_samples), str(random_on_train), str(random_on_train_l1), str(random_on_train_l2), str(random_on_val), str(random_on_val_l1), str(random_on_val_l2), str(opt_on_train), str(opt_on_train_l1), str(opt_on_train_l2), str(opt_on_val), str(opt_on_val_l1), str(opt_on_val_l2), str(loss["acc"]["linear"][feature_dim]), str(loss["l1"]["linear"][feature_dim]), str(loss["l2"]["linear"][feature_dim]), str(loss["acc"]["sigmoid"][feature_dim]), str(loss["l1"]["sigmoid"][feature_dim]), str(loss["l2"]["sigmoid"][feature_dim]), str(loss["acc"]["rbf"][feature_dim]), str(loss["l1"]["rbf"][feature_dim]), str(loss["l2"]["rbf"][feature_dim]))))
+
+
+
+mean_absolute_error([1,-1], [-1,-1])
 
 
 
@@ -389,8 +481,4 @@ print(str(feature_dim) + ";" + str(cut_off) + ";" + str(int(opt_time)) + ";" + s
 
 
 
-
-
-
-
-
+# ## 
