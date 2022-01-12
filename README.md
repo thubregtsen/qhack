@@ -43,3 +43,7 @@ Finally there are directories
 * `images/` for the images that are produced by the notebooks in the home directory.
 * `src/` for some source code like helper functions, dataset generation etc.
 * `style/` for reference files to be used in calls to the python package [RSMF](https://github.com/johannesjmeyer/rsmf)
+
+***
+
+In addition, the code and experimental outcomes of the updated version of the paper can be found in the folder titled revision
