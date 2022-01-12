@@ -1,20 +1,14 @@
-# -*- coding: utf-8 -*-
-# ---
-# jupyter:
-#   jupytext:
-#     formats: ipynb,py
-#     text_representation:
-#       extension: .py
-#       format_name: light
-#       format_version: '1.5'
-#       jupytext_version: 1.11.4
-#   kernelspec:
-#     display_name: Python 3 (ipykernel)
-#     language: python
-#     name: python3
-# ---
+# 
+# This code comes as-is, and without guarantees.
+#
+# Example call: python3 qhack_revision.py 15 2000 6 0
+## Parameters used
+## number of samples (default 15, meaning 15 for every class)
+## optimization iterations used (default 2000)
+## optimization samples used in every iteration (default 6)
+## seed used
+# 
 
-# +
 from pennylane import numpy as np
 import pennylane as qml
 import matplotlib as mpl
@@ -22,9 +16,11 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn import decomposition
 import time
+import sys
 
 import matplotlib.pyplot as plt
 
+from sklearn.svm import SVC
 from sklearn.svm import SVR
 from sklearn import decomposition
 from sklearn.preprocessing import MinMaxScaler
@@ -42,7 +38,6 @@ optimization_iterations = 50
 optimization_samples = 4
 seed = 43
 
-import sys
 # -
 
 if "ipykernel" not in sys.argv[0]:
@@ -63,9 +58,6 @@ def create_data():
     # Load data
     data = pd.read_csv("datasets/bank.csv", sep=";")
 
-    #print(data)
-    #print(data[4500:])
-
     # clean data
     for column_index in range(len(data.columns)):
         if printing == True:
@@ -81,16 +73,13 @@ def create_data():
                 if printing == True:
                     print(unique_entry, entry_index)
                 data[k[column_index]] = data[k[column_index]].replace(to_replace=unique_entry, value=float(entry_index))
-    #print(data[4500:])
 
     # define data
     data = data.astype(float)
-    #print(data)
 
     # Normalize data
     scaler = MinMaxScaler()
     data = pd.DataFrame(data=scaler.fit_transform(data), columns=data.columns)
-    #print(data[4500:])
 
     X = data.iloc[:, 0:len(data.columns)-1].to_numpy()
     y = data.iloc[:, len(data.columns)-1].to_numpy()
@@ -105,14 +94,6 @@ def prep_data(X, y, feature_dim):
     pca.fit(X)
     X_trans = pca.transform(X)
     return X_trans, y
-
-
-
-# ## Plot function
-
-
-
-
 
 # ## Other helper functions
 
@@ -150,11 +131,9 @@ def acc(a,b):
         #    print("incorrect")
     return (len(a)-total_correct)/len(a)
 
+
 # ## Init and visualize
 
-
-
-# +
 # take the dataset, and parse it do that all data is in R
 X, Y = create_data()
 # PCA
@@ -213,13 +192,8 @@ if printing == True:
     print("X_val", X_val)
     print("Y_val", Y_val)
 
-# -
-
-
-
 # ## Ansatz preparation functions
 
-# +
 def layer(x, params, wires, i0=0, inc=1):
     """Building block of the embedding ansatz"""
     i = i0
@@ -244,20 +218,13 @@ def random_params(num_wires, num_layers):
     """Generate random variational parameters in the shape for the ansatz."""
     return np.random.uniform(0, 2 * np.pi, (num_layers, 2, num_wires))    
 
-
-# -
-
 # The kernel function itself is now obtained by looking at the probability 
 # of observing the all-zero state at the end of the kernel circuit – 
 # because of the ordering in qml.probs, this is the first entry:
 def kernel(x1, x2, params):
     return kernel_circuit(x1, x2, params)[0]
 
-
-
 # ## Init QEK
-
-# +
 dev = qml.device("default.qubit", wires=5, shots=None)
 wires = dev.wires.tolist()
 
@@ -266,12 +233,8 @@ def kernel_circuit(x1, x2, params):
     ansatz(x1, params, wires=wires)
     adjoint_ansatz(x2, params, wires=wires)
     return qml.probs(wires=wires)
-# -
 
-
-
-# +
-# init parameters
+# init parameters that will be used for the gates in the quantum circuit
 init_params = random_params(num_wires=5, num_layers=6)
 
 # calculate kernel matrix
@@ -281,11 +244,15 @@ K_init = qml.kernels.square_kernel_matrix(X_train, init_kernel, assume_normalize
 if printing == True:
     with np.printoptions(precision=3, suppress=True):
         print(K_init)
-# -
+
+kernel(X_train[0], X_train[1], init_params)
+
+init_params
+
+K_init
 
 # ## Train an SVM
 
-from sklearn.svm import SVC
 
 
 
@@ -307,8 +274,21 @@ if printing == True:
     print(f"Random parameter accuracy on validate {random_on_val:.3f}")
 #init_plot_data = plot_decision_boundaries(svm, plt.gca())
 # -
+predictions = svm.predict(X_train)
 
 
+svm.support_vectors_
+
+svm.__dict__
+
+for j in range(len(X_train)):
+    to_pred = X_train[j]
+    summation = 0
+    for i in range(len(X_train)):
+        summation += np.inner(svm._BaseLibSVM__Xfit[i],to_pred.T)
+    print(summation, predictions[j])
+
+array([-1.,  1., -1.,  1.,  1., -1.,  1., -1., -1., -1.])
 
 # ## Train the QEK
 
@@ -372,19 +352,19 @@ for i in range(optimization_iterations):
     params = opt.step(cost, params)
 
     # Report the alignment on the full dataset every 50 steps.
-    if (i + 1) % 500 == 0:
-        current_alignment = target_alignment(
-            X_train,
-            Y_train,
-            lambda x1, x2: kernel(x1, x2, params),
-            assume_normalized_kernel=True,
-        )
-        alignment.append(current_alignment)
-        print(f"Step {i+1} - Alignment = {current_alignment:.3f}")
+    if printing == True:
+        if (i + 1) % 500 == 0:
+            current_alignment = target_alignment(
+                X_train,
+                Y_train,
+                lambda x1, x2: kernel(x1, x2, params),
+                assume_normalized_kernel=True,
+            )
+            alignment.append(current_alignment)
+            print(f"Step {i+1} - Alignment = {current_alignment:.3f}")
         
 end_opt = time.time()
 
-# +
 # First create a kernel with the trained parameters baked into it.
 trained_kernel = lambda x1, x2: kernel(x1, x2, params)
 
@@ -393,7 +373,6 @@ trained_kernel_matrix = lambda X1, X2: qml.kernels.kernel_matrix(X1, X2, trained
 
 # Note that SVC expects the kernel argument to be a kernel matrix function.
 svm_trained = SVC(kernel=trained_kernel_matrix).fit(X_train, Y_train)
-# -
 
 Y_pred = svm_trained.predict(X_train)
 opt_on_train = acc(Y_pred, Y_train)
@@ -414,10 +393,6 @@ opt_time = end_opt-start_opt
 if printing == True:
     print("total time elapsed", total_time)
     print("optimization time elapsed", opt_time)
-
-# +
-
-
 
 kernels = ["linear", "sigmoid", "rbf"] # poly takes 50x time so excluded
 loss = {}
@@ -448,14 +423,6 @@ for kernel in kernels:
             loss["l2"][kernel][feature_dim])
 if printing == True:
     print("") # extra newline
-
-# -
-
-
-
-
-
-
 
 print(";".join((str(seed), str(feature_dim), str(cut_off), str(int(opt_time)), str(int(total_time)), str(optimization_iterations), str(optimization_samples), str(random_on_train), str(random_on_train_l1), str(random_on_train_l2), str(random_on_val), str(random_on_val_l1), str(random_on_val_l2), str(opt_on_train), str(opt_on_train_l1), str(opt_on_train_l2), str(opt_on_val), str(opt_on_val_l1), str(opt_on_val_l2), str(loss["acc"]["linear"][feature_dim]), str(loss["l1"]["linear"][feature_dim]), str(loss["l2"]["linear"][feature_dim]), str(loss["acc"]["sigmoid"][feature_dim]), str(loss["l1"]["sigmoid"][feature_dim]), str(loss["l2"]["sigmoid"][feature_dim]), str(loss["acc"]["rbf"][feature_dim]), str(loss["l1"]["rbf"][feature_dim]), str(loss["l2"]["rbf"][feature_dim]))))
 
