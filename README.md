@@ -5,7 +5,7 @@ Here we share code to run the numeric experiments and generate the figures for o
 _All following descriptions refer to the _`paper/`_ subdirectory._ In the subdirectory `qhack2021/` you can find our hackathon submission to [qhack 2021](https://pennylane.ai/blog/2021/03/qhack-the-quantum-machine-learning-hackathon/).
 
 ### How to use this repository
-Install the `requirements.txt` using pip in order to execute all notebooks:
+Install the `requirements.txt` using pip in order to be able to execute all notebooks (assuming you are in the `paper/` subdirectory):
 ```
 pip install -r src/requirements.txt --upgrade
 ```
@@ -30,7 +30,7 @@ and the decision boundary plots are generated in
 The second experiment is about device noise mitigation and regularization of the kernel matrix. The data is generated and processed in
 * `noisy_generating.py`
 * `noisy_processing.py`
-respectively. A small demo on how to use the mitigation and regularization methods introduced in our `qml.kernels` patch to [PennyLane](https://github.com/PennyLaneAI/pennylane) and on the combinations
+respectively. A small demo on how to use the mitigation and regularization methods introduced in our [`qml.kernels`](https://pennylane.readthedocs.io/en/stable/code/qml_kernels.html) patch to [PennyLane](https://github.com/PennyLaneAI/pennylane) and on the combinations
 of these methods we looked at can be found in
 * `post_processing_demo.py`
 
@@ -43,3 +43,7 @@ Finally there are directories
 * `images/` for the images that are produced by the notebooks in the home directory.
 * `src/` for some source code like helper functions, dataset generation etc.
 * `style/` for reference files to be used in calls to the python package [RSMF](https://github.com/johannesjmeyer/rsmf)
+
+***
+
+In addition, the code and experimental outcomes of the updated version of the paper can be found in the folder titled revision
