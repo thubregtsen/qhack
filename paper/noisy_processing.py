@@ -6,9 +6,9 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.10.2
+#       jupytext_version: 1.13.0
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -19,23 +19,25 @@
 # This results in the heatmap figures in the paper, one in the results section and one in the appendix.
 # You can decide to recompute the mitigated matrices by activating the corresponding flag in cell 2.
 #
-# ### This notebook takes approximately 31 (1) minutes with (without) recomputing the post-processing
+# ### This notebook takes approximately two minutes
 
-# +
-import pennylane as qml
-from pennylane import numpy as np
+# + tags=[]
+import time
+from itertools import product
+from functools import partial
+from dill import load, dump
 
+from tqdm.notebook import tqdm
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from tqdm.notebook import tqdm
 import pandas as pd
-import time
 import seaborn as sns
-
-from pennylane_cirq import ops as cirq_ops
-from itertools import product
 import rsmf
-from dill import load, dump
+
+import pennylane as qml
+from pennylane import numpy as np
+from pennylane_cirq import ops as cirq_ops
+
 import src.kernel_helper_functions as khf
 from src.datasets import checkerboard
 
@@ -43,13 +45,23 @@ formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib
 
 # +
 # Deactivate the following flag to recompute the mitigated matrices instead of loading them from repository.
-reuse_mitigated_matrices = True
+reuse_mitigated_matrices = False
 # Make sure this matches the setting in the data generation notebook
 use_trained_params = False
 num_wires = 5
 # If activated (default), this skips post-processing pipelines that are redundant/unreasonable
 _filter_pipelines = True
 filename = f'data/noisy_sim/kernel_matrices_Checkerboard_{"" if use_trained_params else "un"}trained.dill'
+
+# Set the method for rating the post-processing pipelines across all noise settings
+# For our data, the two methods practically yield the same conclusions
+choose_best_by = "number of top placements"
+# choose_best_by = "total score"
+
+# Set the number of decimals to round to when deciding which method is best.
+# Reducing this number will make the analysis less differentiated but will provide more stable
+# recommendations for the best post-processing pipeline across neighbouring noise settings
+num_decimals = 6
 
 plot_single_best_filename = f'images/globally_best_postprocessing_Checkerboard_{"" if use_trained_params else "un"}trained.pdf'
 plot_all_best_filename = f'images/locally_best_postprocessing_Checkerboard_{"" if use_trained_params else "un"}trained.pdf'
@@ -155,9 +167,9 @@ r_thresh = qml.kernels.threshold_matrix
 r_SDP = qml.kernels.closest_psd_matrix
 
 # Device noise mititgation methods.
-m_single = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='single')
-m_mean = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='average')
-m_split = lambda mat: qml.kernels.mitigate_depolarizing_noise(mat, num_wires, method='split_channel')
+m_single = partial(qml.kernels.mitigate_depolarizing_noise, num_wires=num_wires, method="single")
+m_mean = partial(qml.kernels.mitigate_depolarizing_noise, num_wires=num_wires, method="average")
+m_split = partial(qml.kernels.mitigate_depolarizing_noise, num_wires=num_wires, method="split_channel")
 
 # The "do-nothing" post-processing method, i.e. the identity.
 Id = lambda mat: mat
@@ -202,14 +214,16 @@ else:
 # # Apply mitigation techniques
 
 # +
-actually_reuse_mitigated_matrices = True
-if reuse_mitigated_matrices:
+# Do not manually alter the following flag, unless you know what you are doing.
+actually_reuse_mitigated_matrices = reuse_mitigated_matrices
+if actually_reuse_mitigated_matrices:
     try:
         df = pd.read_pickle(filename[:-5]+'_mitigated.dill')
     except FileNotFoundError:
+        # Can not reuse mitigated matrices if the file is not found...
         actually_reuse_mitigated_matrices = False
         
-if not (reuse_mitigated_matrices and actually_reuse_mitigated_matrices):
+if not actually_reuse_mitigated_matrices:
     df = pd.DataFrame()
     exact_matrix = kernel_matrices[(0., 0)]
     target = np.outer(y_train, y_train)
@@ -217,7 +231,7 @@ if not (reuse_mitigated_matrices and actually_reuse_mitigated_matrices):
     times_per_fun = {fun :0 for fun in regularizations+mitigations}
     fun_evals = {fun: 0 for fun in regularizations+mitigations}
 
-    for pipeline_name, pipeline in tqdm.notebook.tqdm(filtered_pipelines.items()):
+    for pipeline_name, pipeline in tqdm(filtered_pipelines.items(), total=len(filtered_pipelines)):
         for key, mat in kernel_matrices.items():
             K = np.copy(mat)
             for fun in pipeline:
@@ -238,8 +252,8 @@ if not (reuse_mitigated_matrices and actually_reuse_mitigated_matrices):
                     align = np.nan
                     target_align = np.nan
                 else:
-                    align = qml.kernels.matrix_inner_product(K, exact_matrix, normalize=True)
-                    target_align = qml.kernels.matrix_inner_product(K, target, normalize=True)
+                    align = qml.math.frobenius_inner_product(K, exact_matrix, normalize=True).numpy()
+                    target_align = qml.math.frobenius_inner_product(K, target, normalize=True).numpy()
             df = df.append(pd.Series(
                 {
                         'base_noise_rate': np.round(key[0], 3),
@@ -265,7 +279,9 @@ def relative_alignment(x):
         (no_pipeline_df['shots']==x['shots'])
         &(no_pipeline_df['base_noise_rate']==x['base_noise_rate'])
     ]['alignment'].item()
-#     print(no_pipe_A)
+    if np.isclose(x['alignment'], 1.) and no_pipe_A==1.:
+        return 0.
+#     print(no_pipe_A, x['alignment'])
     return (x['alignment']-no_pipe_A)/(1-no_pipe_A)
 
 def relative_target_alignment(x):
@@ -278,10 +294,9 @@ def relative_target_alignment(x):
     return (x['target_alignment']-no_pipe_A)/(1-no_pipe_A)
 
 
-
+# +
+# print(df.pipeline.unique())
 # -
-
-print(df.pipeline.unique())
 
 try:
     print(f"Average execution times of postprocessing functions:")
@@ -317,15 +332,20 @@ best_pipeline_id_target = np.zeros((len(shot_numbers), len(noise_rates)), dtype=
 
 best_df = pd.DataFrame()
 best_df_target = pd.DataFrame()
-for i, _shots in tqdm(enumerate(shot_numbers)):
+total_relative_score = {pipe: 0. for pipe in all_pipelines}
+for i, _shots in tqdm(enumerate(shot_numbers), total=len(shot_numbers)):
     for j, _lambda in enumerate(noise_rates):
         sub_df = df.loc[(df['shots_sort']==_shots)&(df['base_noise_rate']==_lambda)]
         sub_df['relative'] = sub_df.apply(relative_alignment, axis=1)
         sub_df['relative_target'] = sub_df.apply(relative_target_alignment, axis=1)
+        for pipe in all_pipelines:
+            val = sub_df[sub_df.pipeline==pipe]['relative'].item()
+            if not np.isnan(val):
+                total_relative_score[pipe] += val
 
-        best_sub_df = sub_df.loc[sub_df['alignment'].idxmax()]
+        best_sub_df = sub_df.loc[sub_df['alignment'].round(num_decimals).idxmax()]
         best_df = best_df.append(best_sub_df, ignore_index=True)
-        best_sub_df_target = sub_df.loc[sub_df['target_alignment'].idxmax()]
+        best_sub_df_target = sub_df.loc[sub_df['target_alignment'].round(num_decimals).idxmax()]
         best_df_target = best_df_target.append(best_sub_df_target, ignore_index=True)
 
         best_pipeline[i, j] = best_sub_df['pipeline']
@@ -523,11 +543,19 @@ print(f"The locally best pipeline improved the alignment by minimally "
       f"or {np.round(max_improve_ana*100, 1)}% (for M='analytic').")
 # -
 # We globally rate the post-processing strategy as best which is the best for most noise parameters. 
-rating = {pipeline: np.sum(best_pipeline==pipeline) for pipeline in filtered_pipelines}
-best_rated = max(rating.items(), key=lambda x: x[1])
+if choose_best_by=="number of top placements":
+    rating = {pipeline: np.sum(best_pipeline==pipeline).item() for pipeline in filtered_pipelines}
+    best_rated = max(rating.items(), key=lambda x: x[1])[0]
+    # Show the ratings for those pipelines that are best at least once:
+    print(*sorted([rating for rating in rating.items() if rating[1]>0], key=lambda x: x[1], reverse=True), sep='\n')
+elif choose_best_by=="total score":
+#     print(total_relative_score)
+    sorted_rating = sorted(total_relative_score.items(), key=lambda x: x[1], reverse=True)
+    best_rated = sorted_rating[0][0]
+    # Show the ratings
+    print(*sorted_rating, sep='\n')
 
 # +
-
 xlabel_fs = 15
 ylabel_fs = xlabel_fs
 cbar_label_fs = xlabel_fs
@@ -543,26 +571,30 @@ shot_coords = {_shots: shot_numbers.index(_shots)+0.5 for _shots in shot_numbers
 noise_coords = {_lambda: _lambda / (noise_rates[1]-noise_rates[0]) + 0.5 for _lambda in noise_rates}
 
 
-subdf = df.loc[df['pipeline']==best_rated[0]]
+subdf = df.loc[df['pipeline']==best_rated]
 subdf.loc[:, 'relative'] = subdf.apply(relative_alignment, axis=1)
 subdf_pivot = subdf.pivot('shots_sort', 'base_noise_rate', 'relative').sort_index(axis='rows', ascending=False)
 max_alignment = np.max(subdf['relative'])
+min_alignment = np.min(subdf['relative'])
 max_df = subdf.loc[[subdf['relative'].idxmax()]]
-plot = sns.heatmap(data=subdf_pivot,
-            vmin=0-1e-5,
-            vmax=0.5+1e-5,
-            cbar=True,
-            ax=ax,
-            cmap=mpl.cm.viridis,
-            linewidth=0.1,
-            yticklabels=(list(np.round(df['shots_sort'].astype(int).unique()[:-1],0))+['analytic'])[::-1],
-           )
+plot = sns.heatmap(
+    data=subdf_pivot,
+    vmin=0-1e-5,
+    vmax=0.5+1e-5,
+#     vmin=min_alignment,
+#     vmax=max_alignment,
+    cbar=True,
+    ax=ax,
+    cmap=mpl.cm.viridis,
+    linewidth=0.1,
+    yticklabels=(list(np.round(df['shots_sort'].astype(int).unique()[:-1],0))+['analytic'])[::-1],
+)
 cbar = ax.collections[0].colorbar
 
 # Tick for max improvement
 min_improve = subdf['relative'].min()
 max_improve = subdf['relative'].max()
-print(f"The pipeline <{best_rated[0]}> improved the alignment by minimally "
+print(f"The pipeline <{best_rated}> improved the alignment by minimally "
       f"{np.round(min_improve*100, 1)}% and maximally {np.round(max_improve*100, 1)}%.")
 max_df = subdf.loc[[subdf['relative'].idxmax()]]
 cbar.ax.hlines(max_improve, -1.2, 1.2, color=max_tick_c)
@@ -584,5 +616,3 @@ cbar.ax.tick_params(labelsize=cbar_tick_fs)
 formatter.set_rcParams()
 plt.tight_layout()
 plt.savefig(plot_single_best_filename, bbox_inches='tight')
-# -
-
