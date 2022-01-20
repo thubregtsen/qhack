@@ -45,7 +45,7 @@ formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib
 
 # +
 # Deactivate the following flag to recompute the mitigated matrices instead of loading them from repository.
-reuse_mitigated_matrices = False
+reuse_mitigated_matrices = True
 # Make sure this matches the setting in the data generation notebook
 use_trained_params = False
 num_wires = 5
@@ -61,7 +61,7 @@ choose_best_by = "number of top placements"
 # Set the number of decimals to round to when deciding which method is best.
 # Reducing this number will make the analysis less differentiated but will provide more stable
 # recommendations for the best post-processing pipeline across neighbouring noise settings
-num_decimals = 6
+num_decimals = 5
 
 plot_single_best_filename = f'images/globally_best_postprocessing_Checkerboard_{"" if use_trained_params else "un"}trained.pdf'
 plot_all_best_filename = f'images/locally_best_postprocessing_Checkerboard_{"" if use_trained_params else "un"}trained.pdf'
@@ -164,7 +164,9 @@ _, y_train, _, _ = checkerboard(30, 30, 4, 4)
 # Regularization methods.
 r_Tikhonov = qml.kernels.displace_matrix
 r_thresh = qml.kernels.threshold_matrix
-r_SDP = qml.kernels.closest_psd_matrix
+# Warning: The results strongly depend on the SDP solver. The MOSEK solver performs significantly
+# better than CVXOPT.
+r_SDP = partial(qml.kernels.closest_psd_matrix, solver="MOSEK", fix_diagonal=True)
 
 # Device noise mititgation methods.
 m_single = partial(qml.kernels.mitigate_depolarizing_noise, num_wires=num_wires, method="single")
@@ -252,15 +254,15 @@ if not actually_reuse_mitigated_matrices:
                     align = np.nan
                     target_align = np.nan
                 else:
-                    align = qml.math.frobenius_inner_product(K, exact_matrix, normalize=True).numpy()
-                    target_align = qml.math.frobenius_inner_product(K, target, normalize=True).numpy()
+                    align = float(qml.math.frobenius_inner_product(K, exact_matrix, normalize=True))
+                    target_align = float(qml.math.frobenius_inner_product(K, target, normalize=True))
             df = df.append(pd.Series(
                 {
                         'base_noise_rate': np.round(key[0], 3),
                         'shots': key[1],
                         'pipeline': pipeline_name,
-                        'alignment': np.real(align),
-                        'target_alignment': np.real(target_align),
+                        'alignment': align,
+                        'target_alignment': target_align,
                         'shots_sort': key[1] if key[1]>0 else int(1e10),
                     }),
                 ignore_index=True,
@@ -340,9 +342,13 @@ for i, _shots in tqdm(enumerate(shot_numbers), total=len(shot_numbers)):
         sub_df['relative_target'] = sub_df.apply(relative_target_alignment, axis=1)
         for pipe in all_pipelines:
             val = sub_df[sub_df.pipeline==pipe]['relative'].item()
-            if not np.isnan(val):
+            if pipe not in total_relative_score:
+                continue
+            elif not np.isnan(val):
                 total_relative_score[pipe] += val
-
+            else:
+                del total_relative_score[pipe]
+        
         best_sub_df = sub_df.loc[sub_df['alignment'].round(num_decimals).idxmax()]
         best_df = best_df.append(best_sub_df, ignore_index=True)
         best_sub_df_target = sub_df.loc[sub_df['target_alignment'].round(num_decimals).idxmax()]

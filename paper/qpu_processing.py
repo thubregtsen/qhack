@@ -11,7 +11,7 @@ import json
 import seaborn as sns
 # quantum machine learning. Make sure to install a version that has the kernels module (TBD)
 import pennylane as qml
-import tqdm # progress bars
+from tqdm.notebook import tqdm # progress bars
 import rsmf # right size my figures
 
 module_path = os.path.abspath(os.path.join('..'))
@@ -30,12 +30,12 @@ filename_prefix_QPU = 'data/QPU/ionq_kernel_matrix_'
 filename_alignment_plot = 'images/hardware_alignment.pdf'
 
 # If the following flag is set to True, the post-processing methods are recomputed otherwise the stored data will
-# be used and plotted below. The recomputation will take about 15 minutes on a laptop computer. Note that the
+# be used and plotted below. The re-computation will take about 15 minutes on a Laptop computer. Note that the
 # resampling seed was fixed above such that recomputing will not produce new numerics.
 recompute_mitigation = False
 
 # If the following flag is set to True, only the non-redundant an meaningful combinations of post-processing methods
-# will be computed. Otherwise,
+# will be computed.
 _filter = True
 # -
 
@@ -126,10 +126,10 @@ for n_shots in n_shots_array:
             kernel_matrix[j, i] = kernel_matrix[i, j]
             index += 1
 
-    alignment = qml.utils.frobenius_inner_product(
+    alignment = qml.math.frobenius_inner_product(
         kernel_matrix, noiseless_kernel_matrix, normalize=True
     ).item()
-    print('Alignment: ', alignment)
+    print('Alignment for {n_shots} shots: ', alignment)
     df = df.append({
         'n_shots': n_shots,
         'kernel_matrix': kernel_matrix,
@@ -141,7 +141,9 @@ for n_shots in n_shots_array:
 # Regularization methods.
 r_Tikhonov = qml.kernels.displace_matrix
 r_thresh = qml.kernels.threshold_matrix
-r_SDP = qml.kernels.closest_psd_matrix
+# Warning: The results strongly depend on the SDP solver. The MOSEK solver performs significantly
+# better than CVXOPT.
+r_SDP = lambda mat: qml.kernels.closest_psd_matrix(mat, fix_diagonal=True, solver="MOSEK")
 
 # The embedding circuit uses 3 qubits. This information is required for device noise mitigation.
 num_wires = 3
@@ -195,7 +197,6 @@ else:
         key = ', '.join([function_names[function] for function in pipeline])
         filtered_pipelines[key] = pipeline
 
-
 def apply_pipeline(pipeline, mat):
     """Apply a series of post-processing methods to a matrix.
     Args:
@@ -221,34 +222,33 @@ def apply_pipeline(pipeline, mat):
 
     return out
 
-
-# +
 # Apply pipelines if activated/no file was found
-actually_recompute_mitigation = False
+actually_recompute_mitigation = recompute_mitigation
 
-if not recompute_mitigation:
+if not actually_recompute_mitigation:
     try:
         df = pd.read_pickle(filename_mitigated_matrices)
-        print(len(df))
-        actually_recompute_mitigation = False
+        print(f"Loaded dataframe. Number of rows: {len(df)}")
     except FileNotFoundError:
         actually_recompute_mitigation = True
 
-if actually_recompute_mitigation or recompute_mitigation:
-    for n_shots in tqdm.notebook.tqdm(n_shots_array):
+if actually_recompute_mitigation:
+    for n_shots in tqdm(n_shots_array):
         noisy_kernel_matrix = df.loc[
                 (df.n_shots==n_shots)
                 &(df.pipeline=='No post-processing')
                 ].kernel_matrix.item()
-        used_pipelines = set(['No post-processing'])
         for key, pipeline in filtered_pipelines.items():
+            # Already have the raw data in noisy_df
+            if key=="No post-processing":
+                continue
             mitigated_kernel_matrix = apply_pipeline(
                 pipeline, noisy_kernel_matrix
             )
             if mitigated_kernel_matrix is None:
                 alignment = None
             else:
-                alignment = qml.kernels.matrix_inner_product(
+                alignment = qml.math.frobenius_inner_product(
                     mitigated_kernel_matrix, noiseless_kernel_matrix, normalize=True
                 )
             df = df.append({
@@ -269,6 +269,9 @@ mitigated_df = plot_df = df.loc[df.pipeline!='No post-processing']
 num_top_pipelines = 2
 
 def prettify_pipelines(x):
+    return _prettify_pipelines(x.pipeline)
+
+def _prettify_pipelines(pipe):
     fun_reg = {
         'r_Tikhonov': 'TIK',
         'r_thresh': 'THR',
@@ -283,7 +286,7 @@ def prettify_pipelines(x):
         **{k: f'$\\mathsf{{R}}\\mathrm{{-}}\\mathsf{{{v}}}$' for k, v in fun_reg.items()},
         **{k: f'$\\mathsf{{M}}\\mathrm{{-}}\\mathsf{{{v}}}$' for k, v in fun_mit.items()},
     }
-    funs = [fun_names[fun] for fun in x.pipeline.split(', ')]
+    funs = [fun_names[fun] for fun in pipe.split(', ')]
     return ', '.join(funs)
 
 def top_pipelines(n_shots, num_pipelines):    
@@ -291,16 +294,20 @@ def top_pipelines(n_shots, num_pipelines):
             mitigated_df.n_shots==n_shots
             ].alignment.sort_values().index[-num_pipelines:]
     return mitigated_df.loc[indices]
+
 def get_q(x):
     align = x.alignment
+    
     raw_align = noisy_df.loc[noisy_df.n_shots==x.n_shots].alignment.item()
     return (align-raw_align)/(1-raw_align)
+
+mitigated_df['q'] = mitigated_df.apply(get_q, axis=1)
+mitigated_df['pretty_pipeline'] = mitigated_df.apply(prettify_pipelines, axis=1)
+
 
 best_df = pd.DataFrame()
 for n_shots in n_shots_array:
     best_df = pd.concat([best_df, top_pipelines(n_shots, 2)])
-best_df['pretty_pipeline'] = best_df.apply(prettify_pipelines, axis=1)
-best_df['q'] = best_df.apply(get_q, axis=1)
 
 # +
 # %matplotlib notebook
@@ -316,9 +323,9 @@ lw = 2
 hue_order = list(best_df.pretty_pipeline.unique())
 palette = sns.color_palette(n_colors=len(hue_order))
 
-for i in range(2):
+for i in range(num_top_pipelines):
     marker = mpl.markers.MarkerStyle('o', fillstyle=['left', 'right'][i])
-    df_i = best_df.loc[(best_df.pretty_pipeline==hue_order[i])]
+    df_i = mitigated_df.loc[(mitigated_df.pretty_pipeline==hue_order[i])]
     axs[0].scatter(df_i.n_shots, df_i.alignment, label=hue_order[i], color=palette[i],
                    marker=marker, s=ms, ec='1.', lw=0.2)
 
@@ -326,7 +333,6 @@ sns.scatterplot(data=noisy_df, x='n_shots', y='alignment', color='k', marker='d'
                 s=ms, ax=axs[0],)
 axs[0].set_xlabel(f"Measurements $M$")
 axs[0].set_ylabel("Alignment A$(\overline{K}_M,K)$")
-# axs[0].set_ylim((0.88, 1))
 axs[0].set_xticks(n_shots_array)
 handles, labels = axs[0].get_legend_handles_labels()
 
