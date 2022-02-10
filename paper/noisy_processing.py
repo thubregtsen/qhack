@@ -19,13 +19,15 @@
 # This results in the heatmap figures in the paper, one in the results section and one in the appendix.
 # You can decide to recompute the mitigated matrices by activating the corresponding flag in cell 2.
 #
-# ### This notebook takes approximately two minutes
+# ### This notebook takes approximately 2 (30) minutes on a laptop without (with) recomputing the post-processing
 
 # + tags=[]
 import time
+import warnings
 from itertools import product
 from functools import partial
 from dill import load, dump
+import numpy as onp
 
 from tqdm.notebook import tqdm
 import matplotlib as mpl
@@ -42,6 +44,9 @@ import src.kernel_helper_functions as khf
 from src.datasets import checkerboard
 
 formatter = rsmf.setup(r"\documentclass[twocolumn,superscriptaddress,nofootinbib]{revtex4-2}")
+# -
+
+# ### Configuration
 
 # +
 # Deactivate the following flag to recompute the mitigated matrices instead of loading them from repository.
@@ -50,7 +55,7 @@ reuse_mitigated_matrices = True
 use_trained_params = False
 num_wires = 5
 # If activated (default), this skips post-processing pipelines that are redundant/unreasonable
-_filter_pipelines = True
+filter_pipelines = True
 filename = f'data/noisy_sim/kernel_matrices_Checkerboard_{"" if use_trained_params else "un"}trained.dill'
 
 # Set the method for rating the post-processing pipelines across all noise settings
@@ -65,10 +70,399 @@ num_decimals = 5
 
 plot_single_best_filename = f'images/globally_best_postprocessing_Checkerboard_{"" if use_trained_params else "un"}trained.pdf'
 plot_all_best_filename = f'images/locally_best_postprocessing_Checkerboard_{"" if use_trained_params else "un"}trained.pdf'
+# -
+
+# ### Load raw kernel matrices
+
+kernel_matrices = load(open(filename, 'rb+'))
+
+# ### Set up pipelines for postprocessing
+
+# +
+# Regularization methods.
+r_Tikhonov = qml.kernels.displace_matrix
+r_thresh = qml.kernels.threshold_matrix
+# Warning: The results strongly depend on the SDP solver. The MOSEK solver performs significantly
+# better than CVXOPT.
+r_SDP = partial(qml.kernels.closest_psd_matrix, fix_diagonal=True, solver="MOSEK")
+
+# Device noise mititgation methods.
+m_single = partial(qml.kernels.mitigate_depolarizing_noise, num_wires=num_wires, method="single")
+m_mean = partial(qml.kernels.mitigate_depolarizing_noise, num_wires=num_wires, method="average")
+m_split = partial(qml.kernels.mitigate_depolarizing_noise, num_wires=num_wires, method="split_channel")
+
+# The "do-nothing" post-processing method, i.e. the identity.
+Id = lambda mat: mat
+
+# Names for pipeline keys
+function_names = {
+    r_Tikhonov: 'r_Tikhonov',
+    r_thresh: 'r_thresh',
+    r_SDP: 'r_SDP',
+    m_single: 'm_single',
+    m_mean: 'm_mean',
+    m_split: 'm_split',
+    Id: 'Id',
+}
+
+# All combinations of the shape regularize - mitigate - regularize
+regularizations = [Id, r_Tikhonov, r_thresh, r_SDP]
+mitigations = [Id, m_single, m_mean, m_split]
+pipelines = list(product(regularizations, mitigations, regularizations))
+
+filtered_pipelines = {}
+if filter_pipelines:
+    for pipeline in pipelines:
+        key = ', '.join([function_names[function] for function in pipeline if function!=Id])
+        if key=='': # Give the Id-Id-Id pipeline a proper name
+            key = 'No post-processing'
+            
+        if key in filtered_pipelines: # Skip duplicated keys (the dict would be overwritten anyways)
+            continue
+        if pipeline[0]==r_SDP and (pipeline[1]!=Id or pipeline[2]!=Id): # Skip r_SDP - ~ID - ~Id
+            continue
+        if pipeline[1]==Id and pipeline[2] in [r_Tikhonov, r_thresh]: # Skip regularize - Id - r_Tikhonov/thresh
+            continue
+        filtered_pipelines[key] = pipeline
+        
+else:
+    for pipeline in pipelines:
+        key = ', '.join([function_names[function] for function in pipeline])
+        filtered_pipelines[key] = pipeline
+        
+
+
+def pipeline_sorting_key(x):
+    """A key for sorting postprocessing pipelines.
+    
+    First, the number of applied functions in the pipeline (between 1 and 3
+    for all pipelines except "No post-processing") is considered, then
+    whether they start with a regularization (first) or mitigation (later).
+    """
+    reg_or_mit = {
+        'No post-processing': -1,
+        **{function_names[fun]: 0 for fun in regularizations},
+        **{function_names[fun]: 1 for fun in mitigations},
+    }
+    substrings = x.split(', ')
+    return (len(substrings), reg_or_mit[substrings[0]])
+
+
+# -
+
+# ### Load postprocessed matrices or apply postprocessing pipelines
+
+# +
+# Do not manually alter the following flag, unless you know what you are doing.
+actually_reuse_mitigated_matrices = reuse_mitigated_matrices
+if actually_reuse_mitigated_matrices:
+    try:
+        df = pd.read_pickle(filename[:-5]+'_mitigated.dill')
+    except FileNotFoundError:
+        # Can not reuse mitigated matrices if the file is not found...
+        actually_reuse_mitigated_matrices = False
+        
+if not actually_reuse_mitigated_matrices:
+    df = pd.DataFrame()
+    exact_matrix = kernel_matrices[(0., 0)]
+    times_per_fun = {fun :0 for fun in regularizations+mitigations}
+    fun_evals = {fun: 0 for fun in regularizations+mitigations}
+
+    for pipeline_name, pipeline in tqdm(filtered_pipelines.items(), total=len(filtered_pipelines)):
+        for key, mat in kernel_matrices.items():
+            K = np.copy(mat)
+            for fun in pipeline:
+                try:
+                    fun_start = time.process_time()
+                    K = fun(K)
+                    times_per_fun[fun] += time.process_time()-fun_start
+                    fun_evals[fun] += 1
+                    if np.any(np.isinf(K)):
+                        raise ValueError
+                except Exception as e:
+                    K = None
+                    align = np.nan
+                    break
+            else:
+                normK = np.linalg.norm(K, 'fro')
+                if np.isclose(normK, 0.):
+                    align = np.nan
+                else:
+                    align = float(qml.math.frobenius_inner_product(K, exact_matrix, normalize=True))
+            df = df.append(pd.Series(
+                {
+                        'base_noise_rate': np.round(key[0], 3),
+                        'shots': key[1],
+                        'pipeline': pipeline_name,
+                        'alignment': align,
+                        # We will use shots=1e10 for the analytic case to obtain correctly sorted results
+                        'shots_sort': key[1] if key[1]>0 else int(1e10),
+                    }),
+                ignore_index=True,
+                )
+            
+try:
+    print(f"Average execution times of postprocessing functions:")
+    for key, num in fun_evals.items():
+        if num>0:
+            print(f"{key}  -  {times_per_fun[key]/num}")
+except:
+    pass
+# -
+
+
+# ### Store postprocessed matrices
+
+df.reset_index(level=0, inplace=True, drop=True)
+df.to_pickle(filename[:-5]+'_mitigated.dill')
+
+same_shots = lambda dataframe, shots_sort: dataframe.loc[dataframe.shots_sort==shots_sort]
+same_noise = lambda dataframe, base_noise_rate, shots_sort: dataframe.loc[(dataframe.base_noise_rate==base_noise_rate)&(dataframe.shots_sort==shots_sort)]
+same_pipeline = lambda dataframe, pipeline: dataframe.loc[dataframe.pipeline==pipeline]
+best_by_rounded_q = lambda dataframe, num_decimals: dataframe.loc[dataframe.q.round(num_decimals).idxmax()]
+
+# ### Compute relative alignment improvement q
+
+# +
+# Compute the relative improvement q of the alignment with the true kernel matrix
+no_pipeline_df = same_pipeline(df, "No post-processing")
+
+def relative_alignment(x):
+    no_pipe_alignment = same_noise(no_pipeline_df, x["base_noise_rate"], x["shots_sort"])['alignment'].item()
+    if np.isclose(x['alignment'], 1.) and no_pipe_alignment==1.:
+        return 0.
+    return (x['alignment']-no_pipe_alignment)/(1-no_pipe_alignment)
+
+df['q'] = df.apply(relative_alignment, axis=1)
 
 
 # +
-# Helper functions for cell plotting
+# df = df.loc[df.pipeline.isin(accepted_pipelines)]
+# -
+
+# ### Find best pipeline for each combination of `shots` and `base_noise_rate`
+
+# +
+all_shots = sorted(df['shots_sort'].unique())[::-1]
+all_noise_rates = sorted(df['base_noise_rate'].unique())
+num_shots = len(all_shots)
+num_noise_rates = len(all_noise_rates)
+delta_noise_rate = all_noise_rates[1]-all_noise_rates[0]
+
+def obtain_best_pipelines(dataframe):
+    all_pipelines = sorted(dataframe['pipeline'].unique(), key=pipeline_sorting_key)
+    num_pipelines = len(all_pipelines)
+
+    best_pipeline = onp.zeros((num_shots, num_noise_rates), dtype=object)
+    best_pipeline_id = onp.zeros((num_shots, num_noise_rates), dtype=int)
+    vert = np.zeros((num_shots, num_noise_rates-1), dtype=bool)
+    horz = np.zeros((num_shots-1, num_noise_rates), dtype=bool)
+
+    best_df = pd.DataFrame()
+    cumulative_q = {pipe: 0. for pipe in all_pipelines}
+    for i, shots in tqdm(enumerate(all_shots), total=num_shots):
+        for j, bnr in enumerate(all_noise_rates):
+            this_noise_df = same_noise(dataframe, bnr, shots)
+
+            # This loop only is relevant to the cumulative_q score, which currently is not used anymore.
+            for pipeline in all_pipelines:
+                # If the pipeline was deleted from the cumulative score because it failed
+                # for a different noise setting, ignore it here.
+                if pipeline not in cumulative_q:
+                    continue
+                q = same_pipeline(this_noise_df, pipeline).q.item()
+
+                if not np.isnan(q):
+                    cumulative_q[pipeline] += q
+                else:
+                    # Remove the pipeline from the cumulative score
+                    del cumulative_q[pipeline]
+            this_noise_best_df = best_by_rounded_q(this_noise_df, num_decimals)
+
+            # Store the Series belonging to the best pipeline to the global best_df
+            best_df = best_df.append(this_noise_best_df, ignore_index=True)
+            # Store the best pipeline name and whether to draw boundaries in the cell heatmap
+            best_pipeline[i, j] = this_noise_best_df.pipeline
+            if j>0 and best_pipeline[i,j-1]!=best_pipeline[i,j]:
+                vert[i,j-1] = True
+            if i>0 and best_pipeline[i-1,j]!=best_pipeline[i,j]:
+                horz[i-1,j] = True
+
+    # Create a map of ids, mapping a pipeline name to an integer id, for the pipelines that occur in best_pipeline.
+    pipeline_ids = {pipe: i for i, pipe in enumerate([pipe for pipe in all_pipelines if pipe in best_pipeline])}
+    # Apply this map to the best_pipeline array
+    for i, shots in enumerate(all_shots):
+        for j, bnr in enumerate(all_noise_rates):
+            best_pipeline_id[i, j] = pipeline_ids[best_pipeline[i,j]]
+            
+    return pipeline_ids, best_pipeline, best_pipeline_id, vert, horz, best_df
+
+unfilt_pipeline_ids, unfilt_best_pipeline, unfilt_best_pipeline_id, unfilt_vert, unfilt_horz, unfilt_best_df = obtain_best_pipelines(df)
+# -
+
+# ### Group pipelines into "performance and stability groups" and filter the results
+
+# +
+"""Sort the pipelines into groups:
+1. Never produces a negative q
+2. For a given number of shots, produces exclusively positive q below some survival probability threshold,
+   and exclusively negative q above this threshold.
+3. For a given number of shots, produces exclusively negative q below some survival probability threshold,
+   and exclusively positive q above this threshold.
+4. Produces a mixture of positive and negative q.
+
+A pipeline that is not applicable/fails is counted with q=-20.
+"""
+# The threshold that is considered to be "0" to avoid sensitivity to rounding errors
+zero = -1e-3
+
+# Copy the df and set missing data for q to -20
+na_is_neg_df = df.copy()
+na_is_neg_df.loc[na_is_neg_df.q.isna(), "q"] = -20
+
+groups = {1: [], 2: [], 3: [], 4: []}
+unfilt_all_pipelines = sorted(df['pipeline'].unique(), key=pipeline_sorting_key)
+
+for pipeline in unfilt_all_pipelines:
+    this_pipe_df = same_pipeline(na_is_neg_df, pipeline)
+
+    # Filter out group 1
+    if all(this_pipe_df.q>=zero):
+        groups[1].append(pipeline)
+        continue
+        
+    # Check in which group a pipeline belongs per number of shots.
+    group_features = []
+    for shots in all_shots:
+        this_df = same_shots(this_pipe_df, shots)
+        # Check whether all negative entries are in one group from the first base noise rate onwards
+        neg_ids = np.where(this_df.q<zero)[0]
+        neg_is_contiguous = np.allclose(neg_ids, list(range(len(neg_ids))))
+        # Check whether all non-negative entries are in one group from the first base noise rate onwards
+        nonneg_ids = np.where(this_df.q>=zero)[0]
+        nonneg_is_contiguous = np.allclose(nonneg_ids, list(range(len(nonneg_ids))))
+        
+        # Sort into group, based on data for this shots number
+        if nonneg_is_contiguous and len(nonneg_ids)>0:
+            group_features.append(2)
+        elif neg_is_contiguous:
+            group_features.append(3)
+        else:
+            group_features.append(4)
+            
+    # Conclude the group for the pipeline based on all group features per number of shots
+    # group 2 (3) only is returned if *all* features are 2 (3).
+    if all(f==2 for f in group_features):
+        groups[2].append(pipeline)
+    elif all(f==3 for f in group_features):
+        groups[3].append(pipeline)
+    else:
+        groups[4].append(pipeline)
+
+# MANUALLY move r_Tikhonov from group 4 to group 3, because there are only 2 exceptions that shift it into group 4.
+del groups[4][groups[4].index("r_Tikhonov")]
+groups[3].append("r_Tikhonov")
+warnings.warn("The pipeline 'r_Tikhonov' has been manually shifted from group 4 to group 3!")
+
+# Return some statistics:
+for i, g in groups.items():
+    group_bests = [p for p in g if p in unfilt_pipeline_ids]
+    print(f"Group {i} contains {len(g)} pipelines. ({len(group_bests)} of them are best at some point).")
+    
+print(f"\nGroup 1 (no negatives): {groups[1]}\n")
+print(f"Group 2 (no negatives below a certain noise level): {groups[2]}\n")
+print(f"Group 3 (no negatives above a certain noise level): {groups[3]}\n")
+
+accepted_pipelines = groups[1] + groups[2] + groups[3]
+
+# Restrict the data to the accepted pipelines in groups 1 to 3
+accepted_df = df.loc[df.pipeline.isin(accepted_pipelines)]
+
+# Obtain the best results from the data restricted to the accepted pipelines
+acc_pipeline_ids, acc_best_pipeline, acc_best_pipeline_id, acc_vert, acc_horz, acc_best_df = obtain_best_pipelines(accepted_df)
+
+
+# -
+
+# ### Compare filtered to unfiltered best performances
+
+# +
+# %matplotlib notebook
+
+def compare_performances(old_best_pipeline, new_best_pipeline, old_dataframe, new_dataframe):
+    factors = {}
+    for i, shots in enumerate(all_shots):
+        for j, bnr in enumerate(all_noise_rates):
+            if new_best_pipeline[i, j] != old_best_pipeline[i, j]:
+                old_sub_df = same_pipeline(same_noise(old_dataframe, bnr, shots), old_best_pipeline[i, j])
+                old_q = old_sub_df.q.item()
+                old_pipeline = old_sub_df.pipeline.item()
+                new_sub_df = same_pipeline(same_noise(new_dataframe, bnr, shots), new_best_pipeline[i, j])
+                new_q = new_sub_df.q.item()
+                new_pipeline = new_sub_df.pipeline.item()
+                factors[(shots, bnr, old_pipeline, new_pipeline)] = new_q / old_q
+    return factors
+
+orig_to_acc_factors = compare_performances(unfilt_best_pipeline, acc_best_pipeline, df, accepted_df)
+
+# Let's take a look at how the performance compares between the full data set and the filtered one.
+factors = onp.array(list(orig_to_acc_factors.values()))
+fig, ax = plt.subplots(1, 1)
+ax.hist(factors, bins=100);
+ax.set(xlabel="New performance/Old performance", ylabel='frequency')
+print(f"The best pipeline changed for {len(factors)} / {num_noise_rates * num_shots} noise configurations.")
+print(f"The largest performance decrease is {(1-np.min(factors))*100:.2f}%")
+print(f"The median performance decrease is {(1-np.median(factors))*100:.2f}%")
+print(f"The average performance decrease is {(1-np.mean(factors))*100:.2f}%")
+for threshold in [0.01, 0.05, 0.1]:
+    print(f"There are {len(factors[factors<1-threshold])} entries with performance decrease >{int(threshold*100):d}%")
+# -
+
+# ### Second, manual filtering step
+
+# +
+"""Here we further filter the data, by keeping only a few most successful pipelines as well as the 
+do-nothing pipeline. This choice is somewhat arbitrary because it involves a cutoff as to how often 
+pipeline needs to be the best in order to be kept in the following selection.
+"""
+
+final_pipelines = [
+    "No post-processing",
+    "r_Tikhonov",
+    "r_thresh",
+    "m_mean, r_SDP",
+    "m_split, r_thresh",
+    "r_thresh, m_single, r_Tikhonov",
+]
+
+# Restrict the data to the accepted pipelines in groups 1 to 3
+final_df = df.loc[df.pipeline.isin(final_pipelines)]
+
+# Obtain the best results from the data restricted to the accepted pipelines
+fin_pipeline_ids, fin_best_pipeline, fin_best_pipeline_id, fin_vert, fin_horz, fin_best_df = obtain_best_pipelines(final_df)
+
+
+# Again compare the performance before and after the second, manual filtering step
+acc_to_final_factors = compare_performances(acc_best_pipeline, fin_best_pipeline, accepted_df, final_df)
+
+# Let's take a look at how the performance compares between the full data set and the filtered one.
+factors = onp.array(list(acc_to_final_factors.values()))
+fig, ax = plt.subplots(1, 1)
+ax.hist(factors, bins=100);
+ax.set(xlabel="New performance/Old performance", ylabel='frequency')
+print(f"The best pipeline changed for {len(factors)} / {num_noise_rates * num_shots} noise configurations.")
+print(f"The largest performance decrease is {(1-np.min(factors))*100:.2f}%")
+print(f"The median performance decrease is {(1-np.median(factors))*100:.2f}%")
+print(f"The average performance decrease is {(1-np.mean(factors))*100:.2f}%")
+for threshold in [0.01, 0.05, 0.1]:
+    print(f"There are {len(factors[factors<1-threshold])} entries with performance decrease >{int(threshold*100):d}%")
+
+
+# -
+
+# ### Helper functions for plotting contiguous cells of pipeline choices, custom labels
+
+# +
 def get_cells(vert, horz, iterations=None):
     """Given boolean boundary matrices, obtain cells via spreading iterations
     Args:
@@ -141,237 +535,7 @@ def get_cell_label_pos(cells):
         
     return label_pos
 
-
-# -
-
-# # Load raw kernel matrices
-
-kernel_matrices = load(open(filename, 'rb+'))
-
-# +
-# kernel_matrices[(0.0,0)]
-# -
-
-# # Get target matrix from training labels of Checkerboard dataset
-
-np.random.seed(43)
-_, y_train, _, _ = checkerboard(30, 30, 4, 4)
-
-
-# # Set up pipelines for postprocessing
-
-# +
-# Regularization methods.
-r_Tikhonov = qml.kernels.displace_matrix
-r_thresh = qml.kernels.threshold_matrix
-# Warning: The results strongly depend on the SDP solver. The MOSEK solver performs significantly
-# better than CVXOPT.
-r_SDP = partial(qml.kernels.closest_psd_matrix, solver="MOSEK", fix_diagonal=True)
-
-# Device noise mititgation methods.
-m_single = partial(qml.kernels.mitigate_depolarizing_noise, num_wires=num_wires, method="single")
-m_mean = partial(qml.kernels.mitigate_depolarizing_noise, num_wires=num_wires, method="average")
-m_split = partial(qml.kernels.mitigate_depolarizing_noise, num_wires=num_wires, method="split_channel")
-
-# The "do-nothing" post-processing method, i.e. the identity.
-Id = lambda mat: mat
-
-# Names for pipeline keys
-function_names = {
-    r_Tikhonov: 'r_Tikhonov',
-    r_thresh: 'r_thresh',
-    r_SDP: 'r_SDP',
-    m_single: 'm_single',
-    m_mean: 'm_mean',
-    m_split: 'm_split',
-    Id: 'Id',
-}
-
-# All combinations of the shape regularize - mitigate - regularize
-regularizations = [Id, r_Tikhonov, r_thresh, r_SDP]
-mitigations = [Id, m_single, m_mean, m_split]
-pipelines = list(product(regularizations, mitigations, regularizations))
-
-filtered_pipelines = {}
-if _filter_pipelines:
-    for pipeline in pipelines:
-        key = ', '.join([function_names[function] for function in pipeline if function!=Id])
-        if key=='': # Give the Id-Id-Id pipeline a proper name
-            key = 'No post-processing'
-            
-        if key in filtered_pipelines: # Skip duplicated keys (the dict would be overwritten anyways)
-            continue
-        if pipeline[0]==r_SDP and (pipeline[1]!=Id or pipeline[2]!=Id): # Skip r_SDP - ~ID - ~Id
-            continue
-        if pipeline[1]==Id and pipeline[2] in [r_Tikhonov, r_thresh]: # Skip regularize - Id - r_Tikhonov/thresh
-            continue
-        filtered_pipelines[key] = pipeline
-        
-else:
-    for pipeline in pipelines:
-        key = ', '.join([function_names[function] for function in pipeline])
-        filtered_pipelines[key] = pipeline
-# -
-
-# # Apply mitigation techniques
-
-# +
-# Do not manually alter the following flag, unless you know what you are doing.
-actually_reuse_mitigated_matrices = reuse_mitigated_matrices
-if actually_reuse_mitigated_matrices:
-    try:
-        df = pd.read_pickle(filename[:-5]+'_mitigated.dill')
-    except FileNotFoundError:
-        # Can not reuse mitigated matrices if the file is not found...
-        actually_reuse_mitigated_matrices = False
-        
-if not actually_reuse_mitigated_matrices:
-    df = pd.DataFrame()
-    exact_matrix = kernel_matrices[(0., 0)]
-    target = np.outer(y_train, y_train)
-
-    times_per_fun = {fun :0 for fun in regularizations+mitigations}
-    fun_evals = {fun: 0 for fun in regularizations+mitigations}
-
-    for pipeline_name, pipeline in tqdm(filtered_pipelines.items(), total=len(filtered_pipelines)):
-        for key, mat in kernel_matrices.items():
-            K = np.copy(mat)
-            for fun in pipeline:
-                try:
-                    fun_start = time.process_time()
-                    K = fun(K)
-                    times_per_fun[fun] += time.process_time()-fun_start
-                    fun_evals[fun] += 1
-                    if np.any(np.isinf(K)):
-                        raise ValueError
-                except Exception as e:
-                    K = None
-                    align = np.nan
-                    break
-            else:
-                normK = np.linalg.norm(K, 'fro')
-                if np.isclose(normK, 0.):
-                    align = np.nan
-                    target_align = np.nan
-                else:
-                    align = float(qml.math.frobenius_inner_product(K, exact_matrix, normalize=True))
-                    target_align = float(qml.math.frobenius_inner_product(K, target, normalize=True))
-            df = df.append(pd.Series(
-                {
-                        'base_noise_rate': np.round(key[0], 3),
-                        'shots': key[1],
-                        'pipeline': pipeline_name,
-                        'alignment': align,
-                        'target_alignment': target_align,
-                        'shots_sort': key[1] if key[1]>0 else int(1e10),
-                    }),
-                ignore_index=True,
-                )
-# -
-
-
-df.reset_index(level=0, inplace=True, drop=True)
-df.to_pickle(filename[:-5]+'_mitigated.dill')
-
-# +
-no_pipeline_df = df.loc[df['pipeline']=='No post-processing']
-
-def relative_alignment(x):
-    no_pipe_A = no_pipeline_df.loc[
-        (no_pipeline_df['shots']==x['shots'])
-        &(no_pipeline_df['base_noise_rate']==x['base_noise_rate'])
-    ]['alignment'].item()
-    if np.isclose(x['alignment'], 1.) and no_pipe_A==1.:
-        return 0.
-#     print(no_pipe_A, x['alignment'])
-    return (x['alignment']-no_pipe_A)/(1-no_pipe_A)
-
-def relative_target_alignment(x):
-    no_pipe_A = no_pipeline_df.loc[
-        (no_pipeline_df['shots']==x['shots'])
-        &(no_pipeline_df['base_noise_rate']==x['base_noise_rate'])
-    ]['target_alignment'].item()
-#     print(no_pipe_A)
-    
-    return (x['target_alignment']-no_pipe_A)/(1-no_pipe_A)
-
-
-# +
-# print(df.pipeline.unique())
-# -
-
-try:
-    print(f"Average execution times of postprocessing functions:")
-    for key, num in fun_evals.items():
-        if num>0:
-            print(f"{key}  -  {times_per_fun[key]/num}")
-except:
-    pass
-
-
-# +
-# Find best pipeline for each combination of shots and noise_rate
-
-def pipeline_sorting_key(x):
-    reg_or_mit = {
-        'No post-processing': -1,
-        **{function_names[fun]: 0 for fun in regularizations},
-        **{function_names[fun]: 1 for fun in mitigations},
-    }
-    substrings = x.split(', ')
-    return (len(substrings), reg_or_mit[substrings[0]])
-
-shot_numbers = sorted(list(df['shots_sort'].unique()))[::-1]
-noise_rates = sorted(list(df['base_noise_rate'].unique()))
-all_pipelines = sorted(list(df['pipeline'].unique()), key=pipeline_sorting_key)
-
-best_pipeline = np.zeros((len(shot_numbers), len(noise_rates)), dtype=object)
-best_pipeline_id = np.zeros((len(shot_numbers), len(noise_rates)), dtype=int)
-vert = np.zeros((len(shot_numbers), len(noise_rates)-1), dtype=bool)
-horz = np.zeros((len(shot_numbers)-1, len(noise_rates)), dtype=bool)
-best_pipeline_target = np.zeros((len(shot_numbers), len(noise_rates)), dtype=object)
-best_pipeline_id_target = np.zeros((len(shot_numbers), len(noise_rates)), dtype=int)
-
-best_df = pd.DataFrame()
-best_df_target = pd.DataFrame()
-total_relative_score = {pipe: 0. for pipe in all_pipelines}
-for i, _shots in tqdm(enumerate(shot_numbers), total=len(shot_numbers)):
-    for j, _lambda in enumerate(noise_rates):
-        sub_df = df.loc[(df['shots_sort']==_shots)&(df['base_noise_rate']==_lambda)]
-        sub_df['relative'] = sub_df.apply(relative_alignment, axis=1)
-        sub_df['relative_target'] = sub_df.apply(relative_target_alignment, axis=1)
-        for pipe in all_pipelines:
-            val = sub_df[sub_df.pipeline==pipe]['relative'].item()
-            if pipe not in total_relative_score:
-                continue
-            elif not np.isnan(val):
-                total_relative_score[pipe] += val
-            else:
-                del total_relative_score[pipe]
-        
-        best_sub_df = sub_df.loc[sub_df['alignment'].round(num_decimals).idxmax()]
-        best_df = best_df.append(best_sub_df, ignore_index=True)
-        best_sub_df_target = sub_df.loc[sub_df['target_alignment'].round(num_decimals).idxmax()]
-        best_df_target = best_df_target.append(best_sub_df_target, ignore_index=True)
-
-        best_pipeline[i, j] = best_sub_df['pipeline']
-        best_pipeline_target[i, j] = best_sub_df_target['pipeline']
-        if j>0 and best_pipeline[i,j-1]!=best_pipeline[i,j]:
-            vert[i,j-1] = True
-        if i>0 and best_pipeline[i-1,j]!=best_pipeline[i,j]:
-            horz[i-1,j] = True
-
-pipeline_ids = {pipe: i for i, pipe in enumerate([pipe for pipe in all_pipelines if pipe in best_pipeline])}
-pipeline_ids_target = {pipe: i for i, pipe in enumerate(sorted([pipe for pipe in all_pipelines if pipe in best_pipeline_target]))}
-for i, _shots in enumerate(shot_numbers):
-    for j, _lambda in enumerate(noise_rates):
-        best_pipeline_id[i, j] = pipeline_ids[best_pipeline[i,j].item()]
-        best_pipeline_id_target[i, j] = pipeline_ids_target[best_pipeline_target[i,j].item()]
-
-
-# +
-# Legend handler artist to allow for Text/numeric handles, adds a round box around text
-
+# Legend handler artist to allow for Text/numeric handles, adds a rounded box around text
 class AnyObject(object):
     def __init__(self, num, color='k'):
         self.my_text = str(num)
@@ -391,6 +555,10 @@ class AnyObjectHandler(object):
         handlebox.add_artist(patch)
         return patch
 
+
+# -
+
+# ### Create pretty-print versions of a pipeline name
 
 # +
 fun_reg = {
@@ -413,37 +581,55 @@ def prettify_pipeline(pipe):
 
 
 # +
+# Choose the data to use for plots: unfiltered, filtered by groups, or manually filtered
+use_data = "manually filtered"
+# use_data = "unfiltered"
+
+if use_data=="unfiltered":
+    pipeline_ids, best_pipeline, best_pipeline_id, vert, horz, best_df = (
+        unfilt_pipeline_ids, unfilt_best_pipeline, unfilt_best_pipeline_id, unfilt_vert, unfilt_horz, unfilt_best_df
+    )
+elif use_data=="filtered by groups":
+    pipeline_ids, best_pipeline, best_pipeline_id, vert, horz, best_df = (
+        acc_pipeline_ids, acc_best_pipeline, acc_best_pipeline_id, acc_vert, acc_horz, acc_best_df
+    )
+elif use_data=="manually filtered":
+    pipeline_ids, best_pipeline, best_pipeline_id, vert, horz, best_df = (
+        fin_pipeline_ids, fin_best_pipeline, fin_best_pipeline_id, fin_vert, fin_horz, fin_best_df
+    )
+
 # Get boundary lines to draw
-shot_coords = {_shots: shot_numbers.index(_shots)+0.5 for _shots in shot_numbers}
-noise_coords = {_lambda: _lambda / (noise_rates[1]-noise_rates[0]) + 0.5 for _lambda in noise_rates}
 boundaries = []
-for i, _shots in enumerate(shot_numbers):
-    for j, _lambda in enumerate(noise_rates):
-        if j<len(noise_rates)-1 and vert[i,j]:
-            _x = [noise_coords[_lambda]+0.5, noise_coords[_lambda]+0.5]
-            _y = [shot_coords[_shots]-0.5, shot_coords[_shots]+0.5]
+for i, shots in enumerate(all_shots):
+    shots_coord = all_shots.index(shots)
+    for j, bnr in enumerate(all_noise_rates):
+        bnr_coord = bnr / delta_noise_rate
+        if j<num_noise_rates-1 and vert[i, j]:
+            _x = [bnr_coord + 1., bnr_coord + 1.]
+            _y = [shots_coord, shots_coord + 1.]
             boundaries.append((_x, _y))
-        if i<len(shot_numbers)-1 and horz[i,j]:
-            _x = [noise_coords[_lambda]-0.5, noise_coords[_lambda]+0.5]
-            _y = [shot_coords[_shots]+0.5, shot_coords[_shots]+0.5]
+        if i<num_shots-1 and horz[i, j]:
+            _x = [bnr_coord, bnr_coord + 1.]
+            _y = [shots_coord + 1., shots_coord + 1.]
             boundaries.append((_x, _y))
         
 # Get labels and coordinates and prepare legend entries
 cells = get_cells(vert, horz, None)
 centers = get_cell_label_pos(cells)
-revert_pipeline_ids = {v: k for k,v in pipeline_ids.items()}
+revert_pipeline_ids = {v: k for k, v in pipeline_ids.items()}
 legend_entries = []
-handles = []
 texts = []
 text_coords = []
 for _id, coord in centers.items():
     x, y = np.round(coord).astype(int)
+    # obtain the best pipeline
+    pipe = best_pipeline[x, y]
     pipe_id = best_pipeline_id[x, y]
     texts.append(str(pipe_id))
     text_coords.append((coord[1]+0.5, coord[0]+0.5))
-    if int(pipe_id) not in handles:
-        legend_entries.append((int(pipe_id), revert_pipeline_ids[int(pipe_id)]))
-        handles.append(int(pipe_id))
+    if (pipe_id, pipe) not in legend_entries:
+        legend_entries.append((pipe_id, pipe))
+
 legend_entries = sorted(legend_entries, key=lambda x: x[0])
 handles = [AnyObject(han) for han, _ in legend_entries]
 labels = [(prettify_pipeline(lab) if lab!='No post-processing' else lab) for _, lab in legend_entries]  
@@ -456,19 +642,23 @@ sep_col1 = 'k'
 sep_col2 = '1.0'
 sep_lw = 1.1
 # Parameters for cell labels
-cell_label_ec = '1'
-cell_label_fc = '1'
-cell_label_falpha = 0.7
-cell_label_tc = 'k'
-cell_label_talpha = 1.
-cell_label_pad = 0.08
+cell_label_kwargs = {
+    "alpha": 1.,
+    "color": "k",
+    "fontsize": 11,
+    "bbox": {
+        "boxstyle": "round, pad=0.08",
+        "ec": "1",
+        "fc": "1",
+        "alpha": 0.7,
+    },
+}
 # fontsizes
 xlabel_fs = 13.5
 ylabel_fs = xlabel_fs
 cbar_label_fs = xlabel_fs
 tick_fs = 13.5
 cbar_tick_fs = tick_fs
-cell_label_fs = 11
 legend_handle_fs = 12
 legend_label_fs = 10.5
 
@@ -476,7 +666,8 @@ figsize = (13, 7)
 
 fig, ax = plt.subplots(1, 1, figsize=figsize)
 
-best_df_pivot = best_df.pivot('shots_sort', 'base_noise_rate', 'relative')
+print(best_df.index)
+best_df_pivot = best_df.pivot('shots_sort', 'base_noise_rate', 'q')
 best_df_pivot = best_df_pivot.sort_index(axis='rows', ascending=False)
 ticklabel_kwarg_to_heatmap = {
     'yticklabels': (list(np.round(df['shots_sort'].astype(int).unique()[:-1],0))+['analytic'])[::-1]
@@ -491,26 +682,11 @@ plot = sns.heatmap(data=best_df_pivot,
             **ticklabel_kwarg_to_heatmap,
            )
 
-for _x, _y in boundaries:
-    ax.plot(_x, _y, color=sep_col1, linewidth=sep_lw, zorder=98)
+for x, y in boundaries:
+    ax.plot(x, y, color=sep_col1, linewidth=sep_lw, zorder=98)
 
 for pipe_id, (x, y) in zip(texts, text_coords):
-    ax.text(
-        x,
-        y,
-        pipe_id,
-        ha='center',
-        va='center',
-        bbox={
-            'boxstyle': f"round, pad={cell_label_pad}",
-            'ec': cell_label_ec,
-            'fc': cell_label_fc,
-            'alpha': cell_label_falpha,
-        },
-        alpha=cell_label_talpha,
-        color=cell_label_tc,
-        fontsize=cell_label_fs,
-    )
+    ax.text(x, y, pipe_id, ha='center', va='center', **cell_label_kwargs)
 
 cbar = ax.collections[0].colorbar
 
@@ -529,7 +705,7 @@ ax.legend(
     handles, 
     labels,
     handler_map=handler_map,
-    ncol=4,
+    ncol=3,
     bbox_to_anchor=(0.0, 1.),
     loc='lower left',
     labelspacing=0.75,
@@ -541,9 +717,9 @@ ax.legend(
 plt.tight_layout()
 plt.savefig(plot_all_best_filename, bbox_inches='tight')
 
-min_improve = best_df['relative'].min()
-max_improve_ana = best_df.loc[best_df.shots==0]['relative'].max()
-max_improve_nonana = best_df.loc[best_df.shots!=0]['relative'].max()
+min_improve = best_df['q'].min()
+max_improve_ana = best_df.loc[best_df.shots==0]['q'].max()
+max_improve_nonana = best_df.loc[best_df.shots!=0]['q'].max()
 print(f"The locally best pipeline improved the alignment by minimally "
       f"{np.round(min_improve*100, 1)}% and maximally {np.round(max_improve_nonana*100, 1)}% (without M='analytic') " 
       f"or {np.round(max_improve_ana*100, 1)}% (for M='analytic').")
@@ -573,8 +749,8 @@ max_tick_c = 'k'
 figsize = (6.5, 3.5)
 fig, ax = plt.subplots(1, 1, figsize=figsize)
 
-shot_coords = {_shots: shot_numbers.index(_shots)+0.5 for _shots in shot_numbers}
-noise_coords = {_lambda: _lambda / (noise_rates[1]-noise_rates[0]) + 0.5 for _lambda in noise_rates}
+shot_coords = {_shots: all_shots.index(_shots)+0.5 for _shots in all_shots}
+noise_coords = {_lambda: _lambda / delta_noise_rate + 0.5 for _lambda in all_noise_rates}
 
 
 subdf = df.loc[df['pipeline']==best_rated]
@@ -622,3 +798,42 @@ cbar.ax.tick_params(labelsize=cbar_tick_fs)
 formatter.set_rcParams()
 plt.tight_layout()
 plt.savefig(plot_single_best_filename, bbox_inches='tight')
+# -
+
+best_pipelines = [p for p in filtered_pipelines if p in best_pipeline]
+
+# + tags=[]
+fig, axs = plt.subplots(7, 1, figsize=(9, 35))
+for ax, shots in zip(axs, df.shots.unique()):
+    sns.lineplot(data=df.loc[(df.shots==shots) & (df.pipeline.isin(best_pipelines))], x="base_noise_rate", y="q", hue="pipeline", ax=ax)
+    leg = ax.get_legend()
+    leg.set_bbox_to_anchor((1., 1.))
+    leg.set_title(f"{int(shots)} shots")
+    ylim = ax.get_ylim()
+    ax.set(xlabel="$1-\lambda_0$", ylim=(max(-3, ylim[0]), min(1, ylim[1])))
+plt.tight_layout()
+
+# + tags=[]
+
+
+# + tags=[]
+# Look at the post-processing quality for a single pipeline
+
+# Choose the pipeline
+pipeline = "m_mean, r_SDP"
+
+fig, ax = plt.subplots(1, 1, figsize=(9, 5))
+data = df.loc[(df.pipeline==pipeline)]
+data["hue_shots"] = data.apply(lambda x: str(int(x.shots)), axis=1)
+sns.lineplot(data=data, x="base_noise_rate", y="q", hue="hue_shots", ax=ax)
+leg = ax.get_legend()
+leg.set_bbox_to_anchor((1., 1.))
+leg.set_title(pipeline)
+ylim = ax.get_ylim()
+ax.set(xlabel="$1-\lambda_0$", )
+plt.tight_layout()
+# -
+
+
+
+
