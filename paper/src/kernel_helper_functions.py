@@ -4,10 +4,39 @@ from collections.abc import Iterable
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+def square_kernel_matrix_batched(X, kernel, assume_normalized_kernel=False, num_batches=1):
+    """This is a copy of qml.kernels.square_kernel_matrix that supports batch execution.
+    """
+    N = len(X)
+    NN = num_batches * N
+    matrix = [0] * (N * NN)
+    ones = [1.] * num_batches
+    
+    for i in range(N):
+        for j in range(i, N):
+            if assume_normalized_kernel and i == j:
+                for k in range(num_batches):
+                    matrix[NN * i + num_batches * j: NN * i + num_batches * (j + 1)] = ones
+            else:
+                if num_batches==1:
+                    matrix[N * i + j] = kernel(X[i], X[j])
+                    matrix[N * j + i] = matrix[N * i + j]
+                else:
+                    slices = (
+                        slice(NN * i + j * num_batches, NN * i + (j + 1) * num_batches),
+                        slice(NN * j + i * num_batches, NN * j + (i + 1) * num_batches),
+                    )
+                    matrix[slices[0]] = matrix[slices[1]] = kernel(X[i], X[j])
+    if num_batches==1:
+        return np.array(matrix).reshape((1, N, N))
+    
+    return np.array(matrix).reshape((N, N, num_batches)).transpose(2, 0, 1)
+
+
 def add_noise_channel(operation_list, noise_channel, idling_gate_noise_channel=None, adjoint=False):
     """This is not tested yet! A less hacky version to add noise to the circuit, copied from qml.inv 
     Args:
-      operation_list (list<qml.Operation>):
+      tape (.QuantumTape):
       noise_channel (callable): Signature: (gate_parameters, wires) -> list<qml.Operation>
         Warning: The callable needs to handle gate_parameters of any length, incl. 0!
       idling_gate_noise_channel (callable): Signature: (wires) -> list<qml.Operation>
@@ -210,7 +239,7 @@ class noisy_kernel():
             self.idling_gate_noise_channel = idling_gate_noise_channel
 
         @qml.qnode(device)
-        def circuit(x1, x2, params, **kwargs):
+        def qnode(x1, x2, params, **kwargs):
             if self.noise_application_level == 'per_gate':
                 add_noise_channel(
                     ansatz(x1, params, **kwargs),
@@ -232,7 +261,7 @@ class noisy_kernel():
                     adjoint=True,
                 )
             else:
-                qml.inv(ansatz(x2, params, **kwargs))
+                qml.adjoint(ansatz)(x2, params, **kwargs)
 
             if self.noise_application_level in ('per_embedding', 'global'):
                 # Invoke noise channel with default kwarg data.
@@ -240,7 +269,8 @@ class noisy_kernel():
 
             return qml.probs(wires=device.wires)
 
-        self.circuit = lambda x1, x2, params, **kwargs: circuit(x1, x2, params, **kwargs)[0]
+        self.qnode = qnode
+        self.circuit = lambda x1, x2, params, **kwargs: qnode(x1, x2, params, **kwargs)[..., 0]
 
 def visualize_kernel_matrices(kernel_matrices, draw_last_cbar=False):
     num_mat = len(kernel_matrices)

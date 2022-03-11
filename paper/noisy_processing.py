@@ -19,7 +19,7 @@
 # This results in the heatmap figures in the paper, one in the results section and one in the appendix.
 # You can decide to recompute the mitigated matrices by activating the corresponding flag in cell 2.
 #
-# ### This notebook takes approximately 2 (30) minutes on a laptop without (with) recomputing the post-processing
+# ### This notebook takes approximately 2 (25) minutes on a laptop without (with) recomputing the post-processing
 
 # + tags=[]
 import time
@@ -71,6 +71,11 @@ num_decimals = 5
 plot_single_best_filename = f'images/globally_best_postprocessing_Checkerboard_{"" if use_trained_params else "un"}trained.pdf'
 plot_all_best_filename = f'images/locally_best_postprocessing_Checkerboard_{"" if use_trained_params else "un"}trained.pdf'
 # -
+
+# ### Load target vector with training labels
+
+np.random.seed(43)
+_, y_train, _, _ = checkerboard(30, 30, 4, 4)
 
 # ### Load raw kernel matrices
 
@@ -165,6 +170,7 @@ if actually_reuse_mitigated_matrices:
 if not actually_reuse_mitigated_matrices:
     df = pd.DataFrame()
     exact_matrix = kernel_matrices[(0., 0)]
+    target = np.outer(y_train, y_train)
     times_per_fun = {fun :0 for fun in regularizations+mitigations}
     fun_evals = {fun: 0 for fun in regularizations+mitigations}
 
@@ -182,19 +188,23 @@ if not actually_reuse_mitigated_matrices:
                 except Exception as e:
                     K = None
                     align = np.nan
+                    target_align = np.nan
                     break
             else:
                 normK = np.linalg.norm(K, 'fro')
                 if np.isclose(normK, 0.):
                     align = np.nan
+                    target_align = np.nan
                 else:
                     align = float(qml.math.frobenius_inner_product(K, exact_matrix, normalize=True))
+                    target_align = float(qml.math.frobenius_inner_product(K, target, normalize=True))
             df = df.append(pd.Series(
                 {
                         'base_noise_rate': np.round(key[0], 3),
                         'shots': key[1],
                         'pipeline': pipeline_name,
                         'alignment': align,
+                        'target_alignment': target_align,
                         # We will use shots=1e10 for the analytic case to obtain correctly sorted results
                         'shots_sort': key[1] if key[1]>0 else int(1e10),
                     }),
@@ -234,11 +244,8 @@ def relative_alignment(x):
     return (x['alignment']-no_pipe_alignment)/(1-no_pipe_alignment)
 
 df['q'] = df.apply(relative_alignment, axis=1)
-
-
-# +
-# df = df.loc[df.pipeline.isin(accepted_pipelines)]
 # -
+
 
 # ### Find best pipeline for each combination of `shots` and `base_noise_rate`
 
@@ -435,8 +442,9 @@ final_pipelines = [
     "r_thresh, m_single, r_Tikhonov",
 ]
 
-# Restrict the data to the accepted pipelines in groups 1 to 3
-final_df = df.loc[df.pipeline.isin(final_pipelines)]
+# Restrict the data to the accepted pipelines in final_pipelines
+final_df = df.copy()
+final_df = final_df.loc[final_df.pipeline.isin(final_pipelines)]
 
 # Obtain the best results from the data restricted to the accepted pipelines
 fin_pipeline_ids, fin_best_pipeline, fin_best_pipeline_id, fin_vert, fin_horz, fin_best_df = obtain_best_pipelines(final_df)
@@ -753,7 +761,8 @@ shot_coords = {_shots: all_shots.index(_shots)+0.5 for _shots in all_shots}
 noise_coords = {_lambda: _lambda / delta_noise_rate + 0.5 for _lambda in all_noise_rates}
 
 
-subdf = df.loc[df['pipeline']==best_rated]
+subdf = df.copy()
+subdf = subdf.loc[subdf['pipeline']==best_rated]
 subdf.loc[:, 'relative'] = subdf.apply(relative_alignment, axis=1)
 subdf_pivot = subdf.pivot('shots_sort', 'base_noise_rate', 'relative').sort_index(axis='rows', ascending=False)
 max_alignment = np.max(subdf['relative'])
@@ -769,7 +778,7 @@ plot = sns.heatmap(
     ax=ax,
     cmap=mpl.cm.viridis,
     linewidth=0.1,
-    yticklabels=(list(np.round(df['shots_sort'].astype(int).unique()[:-1],0))+['analytic'])[::-1],
+    yticklabels=(['analytic']+[int(s) for s in all_shots[1:]]),
 )
 cbar = ax.collections[0].colorbar
 
@@ -800,21 +809,20 @@ plt.tight_layout()
 plt.savefig(plot_single_best_filename, bbox_inches='tight')
 # -
 
-best_pipelines = [p for p in filtered_pipelines if p in best_pipeline]
+# ### Accepted pipelines before manual filtering
+#
+# The following plots show the performance, as measured by the relative alignment improvement $q$, before the second, manual filtering step.
 
 # + tags=[]
 fig, axs = plt.subplots(7, 1, figsize=(9, 35))
-for ax, shots in zip(axs, df.shots.unique()):
-    sns.lineplot(data=df.loc[(df.shots==shots) & (df.pipeline.isin(best_pipelines))], x="base_noise_rate", y="q", hue="pipeline", ax=ax)
+for ax, shots in zip(axs, accepted_df.shots_sort.unique()):
+    sns.lineplot(data=same_shots(accepted_df, shots), x="base_noise_rate", y="q", hue="pipeline", ax=ax)
     leg = ax.get_legend()
     leg.set_bbox_to_anchor((1., 1.))
     leg.set_title(f"{int(shots)} shots")
     ylim = ax.get_ylim()
     ax.set(xlabel="$1-\lambda_0$", ylim=(max(-3, ylim[0]), min(1, ylim[1])))
 plt.tight_layout()
-
-# + tags=[]
-
 
 # + tags=[]
 # Look at the post-processing quality for a single pipeline
@@ -828,12 +836,31 @@ data["hue_shots"] = data.apply(lambda x: str(int(x.shots)), axis=1)
 sns.lineplot(data=data, x="base_noise_rate", y="q", hue="hue_shots", ax=ax)
 leg = ax.get_legend()
 leg.set_bbox_to_anchor((1., 1.))
-leg.set_title(pipeline)
+leg.set_title(pipeline+"\n\n       shots")
 ylim = ax.get_ylim()
 ax.set(xlabel="$1-\lambda_0$", )
 plt.tight_layout()
-# -
+# +
+shots = 300
+bnr = 0.0
 
+no_proc_df = same_pipeline(df, "No post-processing")
+true_TA = same_noise(no_proc_df, 0.0, int(1e10)).target_alignment.item()
+no_proc_TA = same_noise(no_proc_df, bnr, shots).target_alignment.item()
+excluded_df = same_noise(df.loc[~df.pipeline.isin(accepted_pipelines)], bnr, shots)
+only_accepted_df = same_noise(df.loc[(df.pipeline.isin(accepted_pipelines))&(~df.pipeline.isin(final_pipelines))], bnr, shots)
+final = same_noise(final_df, bnr, shots)
+
+fig, ax = plt.subplots(1, 1)
+n1, bins, _ = ax.hist(excluded_df.target_alignment, bins=40, alpha=0.7, label="Excluded")
+n2, *_ = ax.hist(only_accepted_df.target_alignment, bins=bins, alpha=0.7, label="Accepted")
+n3, *_ = ax.hist(final.target_alignment, bins=bins, alpha=0.7, label="Final")
+ylim = [0, max(np.max(n) for n in [n1, n2, n3])]
+ax.plot([true_TA] * 2, ylim, ls='--', label="Noiseless")
+ax.plot([no_proc_TA] * 2, ylim, ls='-', color='k', label="No post-processing")
+ax.set(xlabel="Target alignment", ylabel="frequency")
+ax.legend(title=f"{shots if shots<1e10 else 0} Shots, 1-$\lambda_0$={bnr}")
+# -
 
 
 
