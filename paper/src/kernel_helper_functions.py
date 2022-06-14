@@ -241,8 +241,10 @@ class noisy_kernel():
         @qml.qnode(device)
         def qnode(x1, x2, params, **kwargs):
             if self.noise_application_level == 'per_gate':
+                with qml.tape.stop_recording():
+                    ops = ansatz(x1, params, **kwargs)
                 add_noise_channel(
-                    ansatz(x1, params, **kwargs),
+                    ops,
                     self.noise_channel_mapped,
                     self.idling_gate_noise_channel,
                 )
@@ -254,8 +256,10 @@ class noisy_kernel():
                 self.noise_channel(*self.args_noise_channel, wires=device.wires)
 
             elif self.noise_application_level == 'per_gate':
+                with qml.tape.stop_recording():
+                    ops = ansatz(x2, params, **kwargs)
                 add_noise_channel(
-                    ansatz(x2, params, **kwargs),
+                    ops,
                     self.noise_channel_mapped,
                     self.idling_gate_noise_channel,
                     adjoint=True,

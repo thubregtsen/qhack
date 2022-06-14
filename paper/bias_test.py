@@ -6,9 +6,9 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.13.0
+#       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
@@ -155,10 +155,8 @@ def noise_channel(base_p, data=None, wires=None):
 rigetti_ansatz_mapped = partial(rigetti_ansatz, wires=range(num_wires))
 
 shot_numbers = [10, 30, 100, 300, 1000, 3000]
-noise_probabilities = [0.01*i for i in range(11)]
-noise_probabilities = [0.001*i for i in range(1, 4)]
-# noise_probabilities = [0.0]
-num_reps = 200
+noise_probabilities = [0.001*i for i in range(101)]
+num_reps = 100
 
 # + tags=[]
 my_time = lambda *args: ":".join(str(datetime.datetime.now()).split(':')[:-1])
@@ -202,7 +200,7 @@ def run(bnr):
     # Run the shot-noise-free job
     K_no_shots = job(bnr, 0, num_reps)
     # and store it
-    sub_kernel_matrices[(float(bnr), 0)] = K_no_shots
+    sub_kernel_matrices[(float(bnr), 0)] = K_no_shots[0]
     
     print(f"Starting job with base noise rate {bnr}, with shots and num_reps={num_reps} ({my_time()})\n")
     # Run the shot-noisy job
@@ -214,8 +212,10 @@ def run(bnr):
     
     sub_pure_np_kernel_matrices = {key: pure_np.asarray(mat) for key, mat in sub_kernel_matrices.items()}
     sub_fn = f"{sub_filename.split('.')[0]}_{float(bnr)}_{str([0]+shot_numbers).replace(' ', '').replace(',', '_')}_{num_reps}.dill"
-    dump(sub_pure_np_kernel_matrices, open(sub_fn, 'wb+'))
+    with open(sub_fn, 'wb+') as sub_file:
+        dump(sub_pure_np_kernel_matrices, sub_file)
     print(f"Base noise rate {bnr}: {(time.process_time()-sub_start)/60:.3f} minutes")
+    return
 
 
 pool = multiprocessing.Pool()
@@ -237,8 +237,10 @@ for bnr in noise_probabilities:
         print(sub_fn)
     
 
-# pure_np_kernel_matrices = {key: pure_np.asarray(mat) for key, mat in kernel_matrices.items()}
-# dump(pure_np_kernel_matrices, open(filename, 'wb+'))
+pure_np_kernel_matrices = {key: pure_np.asarray(mat) for key, mat in kernel_matrices.items()}
+dump(pure_np_kernel_matrices, open(filename, 'wb+'))
+exit()
+
 # + tags=[]
 target = np.outer(y_train, y_train)
 TA = {}
@@ -281,17 +283,90 @@ for bnr, ax in zip(noise_probabilities, axs):
     ax[0].set(xlabel=label, ylabel="frequency")
     ax[1].set(xlabel="Shots", ylabel=label, xscale="log")
 
-# + tags=[]
-shots = [10, 10]
-dev = qml.device("cirq.mixedsimulator", wires=3, shots=shots)
-print(dev.shots)
 
-@qml.qnode(dev)
-def qnode(x):
-    [qml.RX(x, wires=w) for w in dev.wires]
-    return qml.expval(qml.PauliZ(0))
 
-qnode(0.3)
+# +
+shots = [1000000]
+bnr = 0.002
+num_reps = 2
+param = param[:1]
+print(shots)
+print(bnr)
+
+orig_shots = shots
+if shots == 0:
+    num_batches = 1
+    device_shots = None
+else:
+    shots = sum([[s] * num_reps for s in shots], start=[])
+    num_batches = len(shots)
+    device_shots = shots
+
+if bnr==0.:
+    dev = qml.device("lightning.qubit", wires=num_wires, shots=device_shots)
+    noise_application_level = "never"
+    print(dev)
+else:
+    dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=device_shots)
+    noise_application_level = 'per_gate'
+    print(dev)
+    print(dev._shot_vector)
+
+k = khf.noisy_kernel(
+    rigetti_ansatz_mapped,
+    dev,
+    noise_channel=noise_channel,
+    args_noise_channel=(bnr,),
+    noise_application_level=noise_application_level,
+)
+k_mapped = partial(k.circuit, params=param)
+K = khf.square_kernel_matrix_batched(X, k_mapped, assume_normalized_kernel=False, num_batches=num_batches)
+
 # -
+
+num_batches
+
+K.shape
+
+# +
+shots = 1000000
+
+if bnr==0.:
+    dev = qml.device("lightning.qubit", wires=num_wires, shots=shots)
+    noise_application_level = "never"
+    print(dev)
+else:
+    dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots)
+    noise_application_level = 'per_gate'
+    print(dev)
+    print(dev._shot_vector)
+
+k = khf.noisy_kernel(
+    rigetti_ansatz_mapped,
+    dev,
+    noise_channel=noise_channel,
+    args_noise_channel=(bnr,),
+    noise_application_level=noise_application_level,
+)
+k_mapped = partial(k.circuit, params=param)
+K_single = qml.kernels.square_kernel_matrix(X, k_mapped, assume_normalized_kernel=False)
+# -
+
+fig, axs = plt.subplots(1, 4, figsize=(15, 6), gridspec_kw={"width_ratios": [9, 9, 9, 1]})
+K1 = K[0, :, :]
+K2 = K_single
+axs[0].imshow(K1)
+axs[1].imshow(K2)
+frac = axs[2].imshow((K1-K2)/K2)
+plt.colorbar(frac, cax=axs[3], ax=axs[2])
+
+M = 5
+IKS = np.arange(2*M).reshape((M, 2))
+fn = lambda x, y: np.array([np.dot(x, y), -np.dot(x, y)])
+fn2 = lambda x, y: fn(x, y)[0]
+print(khf.square_kernel_matrix_batched(IKS, fn, num_batches=2))
+print(qml.kernels.square_kernel_matrix(IKS, fn2))
+
+print(qml.draw(k.qnode)(X[0], X[1], param))
 
 

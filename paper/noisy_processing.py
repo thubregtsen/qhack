@@ -19,7 +19,7 @@
 # This results in the heatmap figures in the paper, one in the results section and one in the appendix.
 # You can decide to recompute the mitigated matrices by activating the corresponding flag in cell 2.
 #
-# ### This notebook takes approximately 2 (25) minutes on a laptop without (with) recomputing the post-processing
+# ### This notebook takes approximately ?? (??) minutes on a laptop without (with) recomputing the post-processing
 
 # + tags=[]
 import time
@@ -29,7 +29,7 @@ from functools import partial
 from dill import load, dump
 import numpy as onp
 
-from tqdm import tqdm
+from tqdm.notebook import tqdm
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -80,8 +80,11 @@ _, y_train, _, _ = checkerboard(30, 30, 4, 4)
 # ### Load raw kernel matrices
 
 kernel_matrices = load(open(filename, 'rb+'))
+print(len(kernel_matrices))
+print(f"Noise_probabilities: {sorted(set(np.round(k[0], 3) for k in kernel_matrices.keys()))}")
+print(f"Shots: {sorted(set(k[1] for k in kernel_matrices.keys()))}")
 
-kernel_matrices[(0.01, 0)]
+kernel_matrices[(0.01, 30, 4)].shape
 
 # ### Set up pipelines for postprocessing
 
@@ -166,7 +169,8 @@ actually_reuse_mitigated_matrices = reuse_mitigated_matrices
 if actually_reuse_mitigated_matrices:
     try:
         df = pd.read_pickle(mitigated_filename)
-    except FileNotFoundError:
+    except FileNotFoundError as e:
+        print(e)
         # Can not reuse mitigated matrices if the file is not found...
         actually_reuse_mitigated_matrices = False
         
@@ -183,6 +187,7 @@ if not actually_reuse_mitigated_matrices:
     }
 
     for pipeline_name, pipeline in tqdm(filtered_pipelines.items(), total=len(filtered_pipelines)):
+        print(pipeline_name)
         for key, mat in tqdm(kernel_matrices.items(), total=len(kernel_matrices)):
             K = np.copy(mat)
             if len(K.shape)>2:
@@ -200,6 +205,8 @@ if not actually_reuse_mitigated_matrices:
                     K = None
                     align = np.nan
                     target_align = np.nan
+                    if fun==r_SDP:
+                        print(e)
                     break
             else:
                 normK = np.linalg.norm(K, 'fro')
@@ -242,15 +249,13 @@ same_noise = lambda dataframe, base_noise_rate, shots_sort: dataframe.loc[(dataf
 same_pipeline = lambda dataframe, pipeline: dataframe.loc[dataframe.pipeline==pipeline]
 best_by_rounded_q = lambda dataframe, num_decimals: dataframe.loc[dataframe.q.round(num_decimals).idxmax()]
 
-# -
-
 # +
 # Compute the average alignment improvement
-mean_df = df.groupby(["base_noise_rate", "shots_sort", "pipeline"])["q", "target_alignment"].mean()
+mean_df = df.groupby(["base_noise_rate", "shots_sort", "pipeline"])["q"].mean()
 print(mean_df)
 for i in range(3):
     mean_df = mean_df.reset_index(level=0, drop=False, inplace=False)
-    print(mean_df)
+    print(mean_df.head(10))
 
 df = mean_df
 # ### Find best pipeline for each combination of `shots` and `base_noise_rate`
@@ -300,7 +305,6 @@ def obtain_best_pipelines(dataframe):
                 vert[i,j-1] = True
             if i>0 and best_pipeline[i-1,j]!=best_pipeline[i,j]:
                 horz[i-1,j] = True
-
     best_df = pd.DataFrame(best_data, columns=["pipeline", "shots_sort", "base_noise_rate", "q"])
 
     # Create a map of ids, mapping a pipeline name to an integer id, for the pipelines that occur in best_pipeline.
@@ -374,10 +378,11 @@ for pipeline in unfilt_all_pipelines:
     else:
         groups[4].append(pipeline)
 
-# MANUALLY move r_Tikhonov from group 4 to group 3, because there are only 2 exceptions that shift it into group 4.
-del groups[4][groups[4].index("r_Tikhonov")]
-groups[3].append("r_Tikhonov")
-warnings.warn("The pipeline 'r_Tikhonov' has been manually shifted from group 4 to group 3!")
+# [old data statement:] MANUALLY move r_Tikhonov from group 4 to group 3, 
+# because there are only 2 exceptions that shift it into group 4.
+# del groups[4][groups[4].index("r_Tikhonov")]
+# groups[3].append("r_Tikhonov")
+# warnings.warn("The pipeline 'r_Tikhonov' has been manually shifted from group 4 to group 3!")
 
 # Return some statistics:
 for i, g in groups.items():
@@ -428,10 +433,10 @@ factors = onp.array(list(orig_to_acc_factors.values()))
 fig, ax = plt.subplots(1, 1)
 ax.hist(factors, bins=100);
 ax.set(xlabel="New performance/Old performance", ylabel='frequency')
-#print(f"The best pipeline changed for {len(factors)} / {num_noise_rates * num_shots} noise configurations.")
-#print(f"The largest performance decrease is {(1-np.min(factors))*100:.2f}%")
-#print(f"The median performance decrease is {(1-np.median(factors))*100:.2f}%")
-#print(f"The average performance decrease is {(1-np.mean(factors))*100:.2f}%")
+print(f"The best pipeline changed for {len(factors)} / {num_noise_rates * num_shots} noise configurations.")
+print(f"The largest performance decrease is {(1-np.min(factors))*100:.2f}%")
+print(f"The median performance decrease is {(1-np.median(factors))*100:.2f}%")
+print(f"The average performance decrease is {(1-np.mean(factors))*100:.2f}%")
 for threshold in [0.01, 0.05, 0.1]:
     print(f"There are {len(factors[factors<1-threshold])} entries with performance decrease >{int(threshold*100):d}%")
 # -
