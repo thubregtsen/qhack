@@ -86,6 +86,8 @@ print(f"Shots: {sorted(set(k[1] for k in kernel_matrices.keys()))}")
 
 kernel_matrices[(0.01, 30, 4)].shape
 
+len([k for k in kernel_matrices.keys() if k[0]==0.001 and k[1]==1000])
+
 # ### Set up pipelines for postprocessing
 
 # +
@@ -380,9 +382,9 @@ for pipeline in unfilt_all_pipelines:
 
 # [old data statement:] MANUALLY move r_Tikhonov from group 4 to group 3, 
 # because there are only 2 exceptions that shift it into group 4.
-# del groups[4][groups[4].index("r_Tikhonov")]
-# groups[3].append("r_Tikhonov")
-# warnings.warn("The pipeline 'r_Tikhonov' has been manually shifted from group 4 to group 3!")
+del groups[4][groups[4].index("r_Tikhonov")]
+groups[3].append("r_Tikhonov")
+warnings.warn("The pipeline 'r_Tikhonov' has been manually shifted from group 4 to group 3!")
 
 # Return some statistics:
 for i, g in groups.items():
@@ -395,6 +397,8 @@ print(f"Group 2 (no negatives below a certain noise level): {groups[2]}\n")
 print(f"\n                                       best ones: {[p for p in groups[2] if p in unfilt_pipeline_ids]}\n")
 print(f"Group 3 (no negatives above a certain noise level): {groups[3]}\n")
 print(f"\n                                       best ones: {[p for p in groups[3] if p in unfilt_pipeline_ids]}\n")
+print(f"Group 4 (the rest)                                : {groups[4]}\n")
+print(f"\n                                       best ones: {[p for p in groups[4] if p in unfilt_pipeline_ids]}\n")
 
 accepted_pipelines = groups[1] + groups[2] + groups[3]
 
@@ -405,12 +409,7 @@ accepted_df = df.loc[df.pipeline.isin(accepted_pipelines)]
 acc_pipeline_ids, acc_best_pipeline, acc_best_pipeline_id, acc_vert, acc_horz, acc_best_df = obtain_best_pipelines(accepted_df)
 
 
-# -
-
-# ### Compare filtered to unfiltered best performances
-
 # +
-# %matplotlib notebook
 
 def compare_performances(old_best_pipeline, new_best_pipeline, old_dataframe, new_dataframe):
     factors = {}
@@ -426,6 +425,13 @@ def compare_performances(old_best_pipeline, new_best_pipeline, old_dataframe, ne
                 factors[(shots, bnr, old_pipeline, new_pipeline)] = new_q / old_q
     return factors
 
+
+# -
+
+# ### Compare filtered to unfiltered best performances
+
+# +
+# %matplotlib notebook
 orig_to_acc_factors = compare_performances(unfilt_best_pipeline, acc_best_pipeline, df, accepted_df)
 
 # Let's take a look at how the performance compares between the full data set and the filtered one.
@@ -454,8 +460,8 @@ final_pipelines = [
     "r_Tikhonov",
     "r_thresh",
     "m_mean, r_SDP",
-    "m_split, r_thresh",
-    "r_thresh, m_single, r_Tikhonov",
+    "m_split, r_Tikhonov",
+    "m_single, r_Tikhonov",
 ]
 
 # Restrict the data to the accepted pipelines in final_pipelines
@@ -467,7 +473,8 @@ fin_pipeline_ids, fin_best_pipeline, fin_best_pipeline_id, fin_vert, fin_horz, f
 
 
 # Again compare the performance before and after the second, manual filtering step
-acc_to_final_factors = compare_performances(acc_best_pipeline, fin_best_pipeline, accepted_df, final_df)
+acc_to_final_factors = compare_performances(unfilt_best_pipeline, fin_best_pipeline, df, final_df)
+warnings.warn("Comparing the manually filtered pipelines to the completely unfiltered, not to the auto-filtered pipelines")
 
 # Let's take a look at how the performance compares between the full data set and the filtered one.
 factors = onp.array(list(acc_to_final_factors.values()))
@@ -601,6 +608,8 @@ fun_names = {
 }
 
 def prettify_pipeline(pipe):
+    if pipe=='No post-processing':
+        return pipe
     return ', '.join([fun_names[name] for name in pipe.split(", ")])
 
 
@@ -608,6 +617,7 @@ def prettify_pipeline(pipe):
 # Choose the data to use for plots: unfiltered, filtered by groups, or manually filtered
 use_data = "manually filtered"
 use_data = "unfiltered"
+# use_data = "filtered by groups"
 
 if use_data=="unfiltered":
     pipeline_ids, best_pipeline, best_pipeline_id, vert, horz, best_df = (
@@ -656,7 +666,7 @@ for _id, coord in centers.items():
 
 legend_entries = sorted(legend_entries, key=lambda x: x[0])
 handles = [AnyObject(han) for han, _ in legend_entries]
-labels = [(prettify_pipeline(lab) if lab!='No post-processing' else lab) for _, lab in legend_entries]  
+labels = [prettify_pipeline(lab) for _, lab in legend_entries]  
 handler_map = {han:AnyObjectHandler() for han in handles}
 
 # +
@@ -761,6 +771,18 @@ elif choose_best_by=="total score":
     # Show the ratings
     print(*sorted_rating, sep='\n')
 
+for p in ["r_Tikhonov", "r_thresh", "m_mean, r_SDP", "m_single, r_Tikhonov", "m_split, r_Tikhonov"]:
+    __df = same_pipeline(final_df.loc[(final_df.shots_sort==10000000000)&(final_df.base_noise_rate>0.0)], p)
+    print(p, "min", __df.q.min(), f"@ lambda={__df.iloc[__df.q.argmin()].base_noise_rate}, M={__df.iloc[__df.q.argmin()].shots_sort}")
+    print(p, "max", __df.q.max(), f"@ lambda={__df.iloc[__df.q.argmax()].base_noise_rate}, M={__df.iloc[__df.q.argmax()].shots_sort}")
+
+__df = best_df.loc[best_df.pipeline=="m_mean, r_SDP"]
+_df = df.loc[df.pipeline=="m_mean, r_Tikhonov"]
+simple_over_old = []
+for n, line in __df.iterrows():
+    simple_over_old.append(same_noise(_df, line.base_noise_rate, line.shots_sort).q.item() / line.q)
+print(simple_over_old)
+
 # +
 xlabel_fs = 15
 ylabel_fs = xlabel_fs
@@ -831,14 +853,91 @@ plt.savefig(plot_single_best_filename, bbox_inches='tight')
 # The following plots show the performance, as measured by the relative alignment improvement $q$, before the second, manual filtering step.
 
 # + tags=[]
-fig, axs = plt.subplots(7, 1, figsize=(9, 35))
-for ax, shots in zip(axs, accepted_df.shots_sort.unique()):
-    sns.lineplot(data=same_shots(accepted_df, shots), x="base_noise_rate", y="q", hue="pipeline", ax=ax)
-    leg = ax.get_legend()
-    leg.set_bbox_to_anchor((1., 1.))
-    leg.set_title(f"{int(shots)} shots")
+FS = dict(ticks=12, texts=13, legend=13, labels=12)
+fig, axs = plt.subplots(3, 1, figsize=(8, 12), gridspec_kw={"hspace": 0})
+pipelines = sorted(best_df.pipeline.unique(), key=pipeline_sorting_key)
+show_shots = [10000000000, 3000, 100]
+show_df = df.loc[
+    (df.pipeline.isin(pipelines))
+    & (df.base_noise_rate<=0.08)
+]
+prop_cycle = plt.rcParams['axes.prop_cycle']
+colors = prop_cycle.by_key()['color']
+assert len(pipelines)//3 * 3 == len(pipelines)
+colors_and_styles = list(product(colors[:len(best_df.pipeline.unique())//3], ["-", "--", ":"]))
+# print(show_df)
+show_df["ppipeline"] = show_df.apply(lambda x: prettify_pipeline(x.pipeline), axis=1)
+j = 0
+for shots in df.shots_sort.unique():
+    if shots not in show_shots:
+        continue
+    ax = axs[j]
+    data_df = same_shots(show_df, shots)
+#     data_df = data_df.loc[data_df.q.unique().len()>1]
+    for (color, style), p in zip(colors_and_styles, pipelines):
+        _data_df = data_df.loc[data_df.pipeline==p]
+        ax.plot(
+            _data_df.base_noise_rate, 
+            _data_df.q, 
+            label=(_data_df.ppipeline.unique().item() if j==0 else ""), 
+            color=color,
+#             marker="x",
+            ls=style,
+        )
     ylim = ax.get_ylim()
-    ax.set(xlabel="$1-\lambda_0$", ylim=(max(-3, ylim[0]), min(1, ylim[1])))
+    lower_y = -0.5 if shots<1e5 else 0.55
+    new_ylim = (max(lower_y, ylim[0]), min(1, ylim[1]))
+    ax.set(xlabel="$1-\lambda_0$", ylim=new_ylim, ylabel="$q$")
+    if j==0:
+        leg = ax.legend(
+            ncol=3,
+            bbox_to_anchor=(0.5, 1.),
+            loc="lower center",
+            fontsize=FS["legend"],
+        )
+
+    ax.set_yticks(ax.get_yticks()[1:-1])
+    ax.tick_params(labelsize=FS["ticks"])
+    ax.text(
+        0.06,
+        new_ylim[1] - 0.2*(new_ylim[1]-new_ylim[0]),
+        f"{int(shots)} shots" if shots < 1e5 else "analytic",
+        bbox=dict(boxstyle="round, pad=0.22", facecolor="1", alpha=0.4),
+        fontsize=FS["texts"],
+    )
+    ax.text(
+        0.0015,
+        ylim[1] - 0.04*(ylim[1]-ylim[0]),
+        "abc"[j],
+        fontsize=FS["texts"],
+#         bbox=dict(boxstyle="round, pad=0.22", facecolor="1", alpha=0.7),
+    )
+    ax.xaxis.label.set_size(FS["labels"])
+    ax.yaxis.label.set_size(FS["labels"])
+    ax.set_xlim(-0.001, 0.08)
+    print(j)
+    if j<2:
+        ax.xaxis.set_ticks([])
+    j += 1
+plt.tight_layout()
+plt.savefig("images/postprocessing_lineplot.pdf")
+
+# +
+fig, ax = plt.subplots(1, 1, figsize=(9, 5))
+show_shots = [10000000000, 3000, 100]
+show_df = df.loc[
+    (df.shots_sort.isin(show_shots))
+#     & (df.pipeline.isin(accepted_pipelines))
+    & (df.pipeline.isin(best_df.pipeline.unique()))
+]
+show_df["shots"] = show_df.shots_sort.replace(10000000000, "analytic")
+sns.lineplot(data=show_df, x="base_noise_rate", y="q", hue="pipeline", style="shots", ax=ax)
+
+leg = ax.get_legend()
+leg.set_bbox_to_anchor((1., 1.))
+# leg.set_title(f"{int(shots)} shots")
+ylim = ax.get_ylim()
+ax.set(xlabel="$1-\lambda_0$", ylim=(max(-1.5, ylim[0]), min(1, ylim[1])))
 plt.tight_layout()
 
 # + tags=[]
