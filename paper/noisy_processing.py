@@ -79,12 +79,15 @@ _, y_train, _, _ = checkerboard(30, 30, 4, 4)
 
 # ### Load raw kernel matrices
 
-kernel_matrices = load(open(filename, 'rb+'))
-print(len(kernel_matrices))
-print(f"Noise_probabilities: {sorted(set(np.round(k[0], 3) for k in kernel_matrices.keys()))}")
-print(f"Shots: {sorted(set(k[1] for k in kernel_matrices.keys()))}")
+# +
+# kernel_matrices = load(open(filename, 'rb+'))
+# print(len(kernel_matrices))
+# print(f"Noise_probabilities: {sorted(set(np.round(k[0], 3) for k in kernel_matrices.keys()))}")
+# print(f"Shots: {sorted(set(k[1] for k in kernel_matrices.keys()))}")
 
-kernel_matrices[(0.01, 30, 4)].shape
+# +
+# kernel_matrices[(0.01, 30, 4)].shape
+# -
 
 # ### Set up pipelines for postprocessing
 
@@ -164,7 +167,7 @@ def pipeline_sorting_key(x):
 
 # +
 # Do not manually alter the following flag, unless you know what you are doing.
-mitigated_filename = filename[:-5]+'_mitigated.zip'
+mitigated_filename = filename.split(".")[0] + '_mitigated.zip'
 actually_reuse_mitigated_matrices = reuse_mitigated_matrices
 if actually_reuse_mitigated_matrices:
     try:
@@ -697,7 +700,6 @@ figsize = (13, 7)
 
 fig, ax = plt.subplots(1, 1, figsize=figsize)
 
-print(best_df.index)
 best_df_pivot = best_df.pivot('shots_sort', 'base_noise_rate', 'q')
 best_df_pivot = best_df_pivot.sort_index(axis='rows', ascending=False)
 ticklabel_kwarg_to_heatmap = {
@@ -846,12 +848,9 @@ elif choose_best_by=="total score":
 FS = dict(ticks=14, texts=15, legend=15, labels=14)
 fig, axs = plt.subplots(3, 1, figsize=(8, 10), gridspec_kw={"hspace": 0})
 pipelines = sorted(
-    list(best_df.pipeline.unique()) + ["m_split, r_SDP"],
+    list(best_df.pipeline.unique()) + ["m_split, r_SDP", "r_thresh, m_mean, r_SDP"],
     key=pipeline_sorting_key,
 )
-# Remove the following pipelines that performed best only once or twice.
-del pipelines[pipelines.index("r_thresh, m_split")]
-del pipelines[pipelines.index("r_thresh, m_split, r_SDP")]
 
 show_shots = [10000000000, 3000, 100]
 show_df = df.loc[
@@ -860,9 +859,7 @@ show_df = df.loc[
 ]
 prop_cycle = plt.rcParams['axes.prop_cycle']
 colors = prop_cycle.by_key()['color']
-# assert len(pipelines)//3 * 3 == len(pipelines)
-colors_and_styles = list(product(colors[:len(best_df.pipeline.unique())//3], ["-", "--", ":"]))
-# print(show_df)
+colors_and_styles = list(product(colors[:len(pipelines)//3+1], ["-", "--", ":"]))
 show_df["ppipeline"] = show_df.apply(lambda x: prettify_pipeline(x.pipeline), axis=1)
 j = 0
 for shots in df.shots_sort.unique():

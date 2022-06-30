@@ -1,5 +1,7 @@
 *.ipynb
-.ipynb_checkpoints/**
+**/old_notebooks/**
+**/.ipynb_checkpoints/**
 floq_key
 **/__pycache__/**
 **/noisy_sim/sub_kernel*
+
