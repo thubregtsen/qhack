@@ -8,7 +8,7 @@
 #       format_version: '1.5'
 #       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -26,7 +26,7 @@ import time
 import warnings
 from itertools import product
 from functools import partial
-from dill import load, dump
+from dill import load
 import numpy as onp
 
 from tqdm.notebook import tqdm
@@ -56,7 +56,7 @@ use_trained_params = False
 num_wires = 5
 # If activated (default), this skips post-processing pipelines that are redundant/unreasonable
 filter_pipelines = True
-filename = f'data/noisy_sim/kernel_matrices_Checkerboard_{"" if use_trained_params else "un"}trained.dill'
+filename = f'data/noisy_sim/kernel_matrices_Checkerboard_{"" if use_trained_params else "un"}trained.zip'
 
 # Set the method for rating the post-processing pipelines across all noise settings
 # For our data, the two methods practically yield the same conclusions
@@ -85,8 +85,6 @@ print(f"Noise_probabilities: {sorted(set(np.round(k[0], 3) for k in kernel_matri
 print(f"Shots: {sorted(set(k[1] for k in kernel_matrices.keys()))}")
 
 kernel_matrices[(0.01, 30, 4)].shape
-
-len([k for k in kernel_matrices.keys() if k[0]==0.001 and k[1]==1000])
 
 # ### Set up pipelines for postprocessing
 
@@ -166,7 +164,7 @@ def pipeline_sorting_key(x):
 
 # +
 # Do not manually alter the following flag, unless you know what you are doing.
-mitigated_filename = filename[:-5]+'_mitigated.dill'
+mitigated_filename = filename[:-5]+'_mitigated.zip'
 actually_reuse_mitigated_matrices = reuse_mitigated_matrices
 if actually_reuse_mitigated_matrices:
     try:
@@ -246,21 +244,20 @@ except:
 df.reset_index(level=0, inplace=True, drop=True)
 df.to_pickle(mitigated_filename)
 
+# Helper functions to pick parts of a dataframe with desired specs
 same_shots = lambda dataframe, shots_sort: dataframe.loc[dataframe.shots_sort==shots_sort]
 same_noise = lambda dataframe, base_noise_rate, shots_sort: dataframe.loc[(dataframe.base_noise_rate==base_noise_rate)&(dataframe.shots_sort==shots_sort)]
 same_pipeline = lambda dataframe, pipeline: dataframe.loc[dataframe.pipeline==pipeline]
 best_by_rounded_q = lambda dataframe, num_decimals: dataframe.loc[dataframe.q.round(num_decimals).idxmax()]
 
 # +
-# Compute the average alignment improvement
+# Compute the average alignment improvement across all samples per noise setting and pipeline.
 mean_df = df.groupby(["base_noise_rate", "shots_sort", "pipeline"])["q"].mean()
-print(mean_df)
+
+# Restructure the dataframe
 for i in range(3):
     mean_df = mean_df.reset_index(level=0, drop=False, inplace=False)
-    print(mean_df.head(10))
-
 df = mean_df
-# ### Find best pipeline for each combination of `shots` and `base_noise_rate`
 
 # +
 all_shots = sorted(df['shots_sort'].unique())[::-1]
@@ -321,7 +318,7 @@ def obtain_best_pipelines(dataframe):
 unfilt_pipeline_ids, unfilt_best_pipeline, unfilt_best_pipeline_id, unfilt_vert, unfilt_horz, unfilt_best_df = obtain_best_pipelines(df)
 # -
 
-# ### Group pipelines into "performance and stability groups" and filter the results
+# ### Group pipelines into "performance and stability groups"
 
 # +
 """Sort the pipelines into groups:
@@ -380,7 +377,7 @@ for pipeline in unfilt_all_pipelines:
     else:
         groups[4].append(pipeline)
 
-# [old data statement:] MANUALLY move r_Tikhonov from group 4 to group 3, 
+# MANUALLY move r_Tikhonov from group 4 to group 3, 
 # because there are only 2 exceptions that shift it into group 4.
 del groups[4][groups[4].index("r_Tikhonov")]
 groups[3].append("r_Tikhonov")
@@ -397,8 +394,8 @@ print(f"Group 2 (no negatives below a certain noise level): {groups[2]}\n")
 print(f"\n                                       best ones: {[p for p in groups[2] if p in unfilt_pipeline_ids]}\n")
 print(f"Group 3 (no negatives above a certain noise level): {groups[3]}\n")
 print(f"\n                                       best ones: {[p for p in groups[3] if p in unfilt_pipeline_ids]}\n")
-print(f"Group 4 (the rest)                                : {groups[4]}\n")
-print(f"\n                                       best ones: {[p for p in groups[4] if p in unfilt_pipeline_ids]}\n")
+# print(f"Group 4 (the rest)                                : {groups[4]}\n")
+# print(f"\n                                       best ones: {[p for p in groups[4] if p in unfilt_pipeline_ids]}\n")
 
 accepted_pipelines = groups[1] + groups[2] + groups[3]
 
@@ -409,7 +406,7 @@ accepted_df = df.loc[df.pipeline.isin(accepted_pipelines)]
 acc_pipeline_ids, acc_best_pipeline, acc_best_pipeline_id, acc_vert, acc_horz, acc_best_df = obtain_best_pipelines(accepted_df)
 
 
-# +
+# -
 
 def compare_performances(old_best_pipeline, new_best_pipeline, old_dataframe, new_dataframe):
     factors = {}
@@ -425,8 +422,6 @@ def compare_performances(old_best_pipeline, new_best_pipeline, old_dataframe, ne
                 factors[(shots, bnr, old_pipeline, new_pipeline)] = new_q / old_q
     return factors
 
-
-# -
 
 # ### Compare filtered to unfiltered best performances
 
@@ -447,12 +442,14 @@ for threshold in [0.01, 0.05, 0.1]:
     print(f"There are {len(factors[factors<1-threshold])} entries with performance decrease >{int(threshold*100):d}%")
 # -
 
-# ### Second, manual filtering step
+# ### Alternative, manual filtering step
 
 # +
-"""Here we further filter the data, by keeping only a few most successful pipelines as well as the 
+"""Here we filter the data in a different way, by keeping only a few most successful pipelines as well as the 
 do-nothing pipeline. This choice is somewhat arbitrary because it involves a cutoff as to how often 
-pipeline needs to be the best in order to be kept in the following selection.
+pipeline needs to be the best in order to be kept in the following selection. However, there is a large
+gap between those pipelines that perform best on a sizeable fraction of all experiments and those that
+only perform best for a few settings.
 """
 
 final_pipelines = [
@@ -615,9 +612,9 @@ def prettify_pipeline(pipe):
 
 # +
 # Choose the data to use for plots: unfiltered, filtered by groups, or manually filtered
+# The plot in Fig. 6 shows the data for "manually filtered" as explained in the main text.
 use_data = "manually filtered"
-use_data = "unfiltered"
-# use_data = "filtered by groups"
+# use_data = "unfiltered"
 
 if use_data=="unfiltered":
     pipeline_ids, best_pipeline, best_pipeline_id, vert, horz, best_df = (
@@ -771,91 +768,91 @@ elif choose_best_by=="total score":
     # Show the ratings
     print(*sorted_rating, sep='\n')
 
-for p in ["r_Tikhonov", "r_thresh", "m_mean, r_SDP", "m_single, r_Tikhonov", "m_split, r_Tikhonov"]:
-    __df = same_pipeline(final_df.loc[(final_df.shots_sort==10000000000)&(final_df.base_noise_rate>0.0)], p)
-    print(p, "min", __df.q.min(), f"@ lambda={__df.iloc[__df.q.argmin()].base_noise_rate}, M={__df.iloc[__df.q.argmin()].shots_sort}")
-    print(p, "max", __df.q.max(), f"@ lambda={__df.iloc[__df.q.argmax()].base_noise_rate}, M={__df.iloc[__df.q.argmax()].shots_sort}")
-
-__df = best_df.loc[best_df.pipeline=="m_mean, r_SDP"]
-_df = df.loc[df.pipeline=="m_mean, r_Tikhonov"]
-simple_over_old = []
-for n, line in __df.iterrows():
-    simple_over_old.append(same_noise(_df, line.base_noise_rate, line.shots_sort).q.item() / line.q)
-print(simple_over_old)
-
 # +
-xlabel_fs = 15
-ylabel_fs = xlabel_fs
-cbar_label_fs = xlabel_fs
-tick_fs = 15
-cbar_tick_fs = tick_fs
+# This is an old plotting cell for a figure in the first version of the paper.
 
-max_tick_c = 'k'
+# xlabel_fs = 15
+# ylabel_fs = xlabel_fs
+# cbar_label_fs = xlabel_fs
+# tick_fs = 15
+# cbar_tick_fs = tick_fs
 
-figsize = (6.5, 3.5)
-fig, ax = plt.subplots(1, 1, figsize=figsize)
+# max_tick_c = 'k'
 
-shot_coords = {_shots: all_shots.index(_shots)+0.5 for _shots in all_shots}
-noise_coords = {_lambda: _lambda / delta_noise_rate + 0.5 for _lambda in all_noise_rates}
+# figsize = (6.5, 3.5)
+# fig, ax = plt.subplots(1, 1, figsize=figsize)
+
+# shot_coords = {_shots: all_shots.index(_shots)+0.5 for _shots in all_shots}
+# noise_coords = {_lambda: _lambda / delta_noise_rate + 0.5 for _lambda in all_noise_rates}
 
 
-subdf = df.copy()
-subdf = subdf.loc[subdf['pipeline']==best_rated]
-print(subdf)
-#subdf.loc[:, 'relative'] = subdf.apply(relative_alignment, axis=1)
-subdf_pivot = subdf.pivot('shots_sort', 'base_noise_rate', 'q').sort_index(axis='rows', ascending=False)
-max_alignment = np.max(subdf['q'])
-min_alignment = np.min(subdf['q'])
-max_df = subdf.loc[[subdf['q'].idxmax()]]
-plot = sns.heatmap(
-    data=subdf_pivot,
-    vmin=0-1e-5,
-    vmax=0.5+1e-5,
-#     vmin=min_alignment,
-#     vmax=max_alignment,
-    cbar=True,
-    ax=ax,
-    cmap=mpl.cm.viridis,
-    linewidth=0.1,
-    yticklabels=(['analytic']+[int(s) for s in all_shots[1:]]),
-)
-cbar = ax.collections[0].colorbar
+# subdf = df.copy()
+# subdf = subdf.loc[subdf['pipeline']==best_rated]
+# print(subdf)
+# #subdf.loc[:, 'relative'] = subdf.apply(relative_alignment, axis=1)
+# subdf_pivot = subdf.pivot('shots_sort', 'base_noise_rate', 'q').sort_index(axis='rows', ascending=False)
+# max_alignment = np.max(subdf['q'])
+# min_alignment = np.min(subdf['q'])
+# max_df = subdf.loc[[subdf['q'].idxmax()]]
+# plot = sns.heatmap(
+#     data=subdf_pivot,
+#     vmin=0-1e-5,
+#     vmax=0.5+1e-5,
+# #     vmin=min_alignment,
+# #     vmax=max_alignment,
+#     cbar=True,
+#     ax=ax,
+#     cmap=mpl.cm.viridis,
+#     linewidth=0.1,
+#     yticklabels=(['analytic']+[int(s) for s in all_shots[1:]]),
+# )
+# cbar = ax.collections[0].colorbar
 
-# Tick for max improvement
-min_improve = subdf['q'].min()
-max_improve = subdf['q'].max()
-print(f"The pipeline <{best_rated}> improved the alignment by minimally "
-      f"{np.round(min_improve*100, 1)}% and maximally {np.round(max_improve*100, 1)}%.")
-max_df = subdf.loc[[subdf['q'].idxmax()]]
-cbar.ax.hlines(max_improve, -1.2, 1.2, color=max_tick_c)
-ax.plot(noise_coords[max_df['base_noise_rate'].item()], 
-           shot_coords[max_df['shots_sort'].item()], marker='o', markersize=4, color=max_tick_c)
+# # Tick for max improvement
+# min_improve = subdf['q'].min()
+# max_improve = subdf['q'].max()
+# print(f"The pipeline <{best_rated}> improved the alignment by minimally "
+#       f"{np.round(min_improve*100, 1)}% and maximally {np.round(max_improve*100, 1)}%.")
+# max_df = subdf.loc[[subdf['q'].idxmax()]]
+# cbar.ax.hlines(max_improve, -1.2, 1.2, color=max_tick_c)
+# ax.plot(noise_coords[max_df['base_noise_rate'].item()], 
+#            shot_coords[max_df['shots_sort'].item()], marker='o', markersize=4, color=max_tick_c)
 
-# Tick settings
-plt.setp( ax.yaxis.get_majorticklabels(), rotation=0 )
-ax.set_xticklabels([ticklabel.get_text()[:4] for ticklabel in ax.get_xticklabels()])
-ax.set_xticks(ax.get_xticks()[::5])
+# # Tick settings
+# plt.setp( ax.yaxis.get_majorticklabels(), rotation=0 )
+# ax.set_xticklabels([ticklabel.get_text()[:4] for ticklabel in ax.get_xticklabels()])
+# ax.set_xticks(ax.get_xticks()[::5])
 
-plt.setp( ax.xaxis.get_majorticklabels(), rotation=0 )
-ax.set_xlabel('$1-\\lambda_0$', fontsize=xlabel_fs)
-ax.set_ylabel('Measurements  $M$', fontsize=ylabel_fs)
-cbar.ax.set_ylabel('Relative improvement $q$', fontsize=cbar_label_fs)
-ax.tick_params(labelsize=tick_fs)
-cbar.ax.tick_params(labelsize=cbar_tick_fs)
+# plt.setp( ax.xaxis.get_majorticklabels(), rotation=0 )
+# ax.set_xlabel('$1-\\lambda_0$', fontsize=xlabel_fs)
+# ax.set_ylabel('Measurements  $M$', fontsize=ylabel_fs)
+# cbar.ax.set_ylabel('Relative improvement $q$', fontsize=cbar_label_fs)
+# ax.tick_params(labelsize=tick_fs)
+# cbar.ax.tick_params(labelsize=cbar_tick_fs)
 
-formatter.set_rcParams()
-plt.tight_layout()
-plt.savefig(plot_single_best_filename, bbox_inches='tight')
+# formatter.set_rcParams()
+# plt.tight_layout()
+# plt.savefig(plot_single_best_filename, bbox_inches='tight')
 # -
 
 # ### Accepted pipelines before manual filtering
 #
-# The following plots show the performance, as measured by the relative alignment improvement $q$, before the second, manual filtering step.
+# The following plots show the performance in more detail for 
+# - the manually filtered pipelines shown in Fig. 6, 
+# - R-THR, M-MEAN, R-SDP, and
+# - M-SPLIT, R-SDP to allow for a comparison with our hardware results (see Appendix of the paper, in particular Fig. 9)
 
 # + tags=[]
-FS = dict(ticks=12, texts=13, legend=13, labels=12)
-fig, axs = plt.subplots(3, 1, figsize=(8, 12), gridspec_kw={"hspace": 0})
-pipelines = sorted(best_df.pipeline.unique(), key=pipeline_sorting_key)
+FS = dict(ticks=14, texts=15, legend=15, labels=14)
+fig, axs = plt.subplots(3, 1, figsize=(8, 10), gridspec_kw={"hspace": 0})
+pipelines = sorted(
+    list(best_df.pipeline.unique()) + ["m_split, r_SDP"],
+    key=pipeline_sorting_key,
+)
+# Remove the following pipelines that performed best only once or twice.
+del pipelines[pipelines.index("r_thresh, m_split")]
+del pipelines[pipelines.index("r_thresh, m_split, r_SDP")]
+
 show_shots = [10000000000, 3000, 100]
 show_df = df.loc[
     (df.pipeline.isin(pipelines))
@@ -863,7 +860,7 @@ show_df = df.loc[
 ]
 prop_cycle = plt.rcParams['axes.prop_cycle']
 colors = prop_cycle.by_key()['color']
-assert len(pipelines)//3 * 3 == len(pipelines)
+# assert len(pipelines)//3 * 3 == len(pipelines)
 colors_and_styles = list(product(colors[:len(best_df.pipeline.unique())//3], ["-", "--", ":"]))
 # print(show_df)
 show_df["ppipeline"] = show_df.apply(lambda x: prettify_pipeline(x.pipeline), axis=1)
@@ -890,7 +887,7 @@ for shots in df.shots_sort.unique():
     ax.set(xlabel="$1-\lambda_0$", ylim=new_ylim, ylabel="$q$")
     if j==0:
         leg = ax.legend(
-            ncol=3,
+            ncol=2,
             bbox_to_anchor=(0.5, 1.),
             loc="lower center",
             fontsize=FS["legend"],
@@ -915,7 +912,6 @@ for shots in df.shots_sort.unique():
     ax.xaxis.label.set_size(FS["labels"])
     ax.yaxis.label.set_size(FS["labels"])
     ax.set_xlim(-0.001, 0.08)
-    print(j)
     if j<2:
         ax.xaxis.set_ticks([])
     j += 1
@@ -923,6 +919,8 @@ plt.tight_layout()
 plt.savefig("images/postprocessing_lineplot.pdf")
 
 # +
+# This cell produces a preliminary, messy overview plot of more methods.
+
 fig, ax = plt.subplots(1, 1, figsize=(9, 5))
 show_shots = [10000000000, 3000, 100]
 show_df = df.loc[
@@ -941,7 +939,7 @@ ax.set(xlabel="$1-\lambda_0$", ylim=(max(-1.5, ylim[0]), min(1, ylim[1])))
 plt.tight_layout()
 
 # + tags=[]
-# Look at the post-processing quality for a single pipeline
+# Look at the post-processing quality for a single pipeline - not a final plot but a useful tool
 
 # Choose the pipeline
 pipeline = "m_mean, r_SDP"
@@ -956,26 +954,6 @@ leg.set_title(pipeline+"\n\n       shots")
 ylim = ax.get_ylim()
 ax.set(xlabel="$1-\lambda_0$", )
 plt.tight_layout()
-# +
-shots = 300
-bnr = 0.0
-
-no_proc_df = same_pipeline(df, "No post-processing")
-true_TA = same_noise(no_proc_df, 0.0, int(1e10)).target_alignment.item()
-no_proc_TA = same_noise(no_proc_df, bnr, shots).target_alignment.item()
-excluded_df = same_noise(df.loc[~df.pipeline.isin(accepted_pipelines)], bnr, shots)
-only_accepted_df = same_noise(df.loc[(df.pipeline.isin(accepted_pipelines))&(~df.pipeline.isin(final_pipelines))], bnr, shots)
-final = same_noise(final_df, bnr, shots)
-
-fig, ax = plt.subplots(1, 1)
-n1, bins, _ = ax.hist(excluded_df.target_alignment, bins=40, alpha=0.7, label="Excluded")
-n2, *_ = ax.hist(only_accepted_df.target_alignment, bins=bins, alpha=0.7, label="Accepted")
-n3, *_ = ax.hist(final.target_alignment, bins=bins, alpha=0.7, label="Final")
-ylim = [0, max(np.max(n) for n in [n1, n2, n3])]
-ax.plot([true_TA] * 2, ylim, ls='--', label="Noiseless")
-ax.plot([no_proc_TA] * 2, ylim, ls='-', color='k', label="No post-processing")
-ax.set(xlabel="Target alignment", ylabel="frequency")
-ax.legend(title=f"{shots if shots<1e10 else 0} Shots, 1-$\lambda_0$={bnr}")
 # -
 
 

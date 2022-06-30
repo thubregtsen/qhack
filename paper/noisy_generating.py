@@ -6,9 +6,9 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.10.2
+#       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -20,7 +20,11 @@
 #
 # ### Note that this notebook takes a signficant amount of time to run (hours)
 
+# + tags=[]
 import time
+import datetime
+from functools import partial
+
 import matplotlib.pyplot as plt
 import pennylane as qml
 import numpy as pure_np
@@ -30,11 +34,12 @@ from dill import dump, load
 import multiprocessing
 import src.kernel_helper_functions as khf
 from src.datasets import checkerboard
+# -
 
 
 # # Some global variables (used below!)
 
-# +
+# + tags=[]
 num_wires = 5
 use_trained_params = False
 
@@ -44,7 +49,7 @@ filename = f'data/noisy_sim/kernel_matrices_Checkerboard_{"" if use_trained_para
 
 # # Checkerboard dataset
 
-# +
+# + tags=[]
 np.random.seed(43)
 X_train, y_train, X_test, y_test = checkerboard(30, 30, 4, 4)
 
@@ -89,7 +94,7 @@ else:
 
 # # Rigetti Circuit
 
-# +
+# + tags=[]
 def rigetti_layer(x, params, wires, i0=0, inc=1):
     i = i0
     N = len(wires)
@@ -109,10 +114,11 @@ def rigetti_layer(x, params, wires, i0=0, inc=1):
         qml.CRZ(params[1][-1], wires=[wires[-1], wires[0]])
 
 
-@qml.template
 def rigetti_ansatz(x, params, wires):
-    for j, layer_params in enumerate(params):
-        rigetti_layer(x, layer_params, wires, i0=j * len(wires))
+    with qml.tape.QuantumTape() as tape:
+        for j, layer_params in enumerate(params):
+            rigetti_layer(x, layer_params, wires, i0=j * len(wires))
+    return tape
 
 
 # -
@@ -121,6 +127,7 @@ def rigetti_ansatz(x, params, wires):
 
 # ## Circuit Level Noise single qubit depolarizing channel
 
+# + tags=[]
 def noise_channel(base_p, data=None, wires=None):
     if data is None:
         # Idling gate
@@ -137,62 +144,98 @@ def noise_channel(base_p, data=None, wires=None):
     return noise_ops
 
 
+# -
+
 # # Noise mitigation computations
 #
 # ## Compute noisy kernel matrix
 
-# +
+# + tags=[]
 # Parallelization of the previous cell
-rigetti_ansatz_mapped = lambda x, params: rigetti_ansatz(x, params, range(num_wires))
+rigetti_ansatz_mapped = partial(rigetti_ansatz, wires=range(num_wires))
 
-shot_numbers = [10, 30, 100, 300, 1000, 3000, 0]
-noise_probabilities = np.arange(0.0, 0.1, 0.002)
+shot_numbers = [10, 30, 100, 300, 1000, 3000]
+noise_probabilities = [0.001*i for i in range(101)]
+num_reps = 100
+
+# + tags=[]
+my_time = lambda *args: ":".join(str(datetime.datetime.now()).split(':')[:-1])
+
+def job(bnr, shots, num_reps):
+    orig_shots = shots
+    if shots == 0:
+        num_batches = 1
+        device_shots = None
+    else:
+        shots = sum([[s] * num_reps for s in shots], start=[])
+        num_batches = len(shots)
+        device_shots = shots
     
+    if bnr==0.:
+        dev = qml.device("lightning.qubit", wires=num_wires, shots=device_shots)
+        noise_application_level = "never"
+    else:
+        dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=device_shots)
+        noise_application_level = 'per_gate'
+        
+    k = khf.noisy_kernel(
+        rigetti_ansatz_mapped,
+        dev,
+        noise_channel=noise_channel,
+        args_noise_channel=(bnr,),
+        noise_application_level=noise_application_level,
+    )
+    k_mapped = partial(k.circuit, params=param)
+    K = khf.square_kernel_matrix_batched(X, k_mapped, assume_normalized_kernel=False, num_batches=num_batches)
+    return K
+
 start = time.time()
 
-def run(shots):
+def run(bnr):
+    print(f"Starting run with base noise rate {bnr} ({my_time()})\n")
     sub_start = time.process_time()
     sub_kernel_matrices = {}
-    for noise_p in noise_probabilities:
-        analytic_device = (shots==0)
-        shots_device = None if shots==0 else shots # shots=0 raises an error...
-
-        dev = qml.device("cirq.mixedsimulator", wires=num_wires, shots=shots_device, analytic=analytic_device)
-        k = khf.noisy_kernel(
-            rigetti_ansatz_mapped,
-            dev,
-            noise_channel=noise_channel,
-            args_noise_channel=(noise_p,),
-            noise_application_level='per_gate',
-        )
-        k_mapped = lambda x1, x2: k.circuit(x1, x2, param)
-
-        K = qml.kernels.square_kernel_matrix(X, k_mapped, assume_normalized_kernel=False)       
-        sub_kernel_matrices[(float(noise_p), shots)] = K
     
-    sub_fn = f"{sub_filename.split('.')[0]}_{shots}.dill"
+    print(f"Starting job with base noise rate {bnr} without shots ({my_time()})\n")
+    # Run the shot-noise-free job
+    K_no_shots = job(bnr, 0, num_reps)
+    # and store it
+    sub_kernel_matrices[(float(bnr), 0)] = K_no_shots[0]
+    
+    print(f"Starting job with base noise rate {bnr}, with shots and num_reps={num_reps} ({my_time()})\n")
+    # Run the shot-noisy job
+    K = job(bnr, shot_numbers, num_reps)
+    # and extract all repetition experiments from it
+    for shots_idx, s in enumerate(shot_numbers):
+        for r in range(num_reps):
+            sub_kernel_matrices[(float(bnr), s, r)] = K[shots_idx*num_reps+r]
+    
     sub_pure_np_kernel_matrices = {key: pure_np.asarray(mat) for key, mat in sub_kernel_matrices.items()}
-    dump(sub_pure_np_kernel_matrices, open(sub_fn, 'wb+'))
-    print(f"{(time.process_time()-sub_start)/60} minutes")
+    sub_fn = f"{sub_filename.split('.')[0]}_{float(bnr)}_{str([0]+shot_numbers).replace(' ', '').replace(',', '_')}_{num_reps}.dill"
+    with open(sub_fn, 'wb+') as sub_file:
+        dump(sub_pure_np_kernel_matrices, sub_file)
+    print(f"Base noise rate {bnr}: {(time.process_time()-sub_start)/60:.3f} minutes")
+    return
 
 
 pool = multiprocessing.Pool()
-pool.map(run, shot_numbers)
+pool.map(run, noise_probabilities)
 print(f"{(time.time()-start)/60} minutes")
 # -
 
 # # Save data
 
-# +
+# + tags=[]
 # Merge matrix sets
-# kernel_matrices = {}
-# for shots in shot_numbers:
-#     sub_mats = load(open(f"{sub_filename.split('.')[0]}_{shots}.dill", 'rb+'))
-#     kernel_matrices.update(sub_mats)
+kernel_matrices = {}
+for bnr in noise_probabilities:
+    sub_fn = f"{sub_filename.split('.')[0]}_{float(bnr)}_{str([0]+shot_numbers).replace(' ', '').replace(',', '_')}_{num_reps}.dill"
+    try:
+        sub_mats = load(open(sub_fn, 'rb+'))
+        kernel_matrices.update(sub_mats)
+    except:
+        print(sub_fn)
+    
 
-
-# pure_np_kernel_matrices = {key: pure_np.asarray(mat) for key, mat in kernel_matrices.items()}
-# dump(pure_np_kernel_matrices, open(filename, 'wb+'))
-# -
-
-
+pure_np_kernel_matrices = {key: pure_np.asarray(mat) for key, mat in kernel_matrices.items()}
+dump(pure_np_kernel_matrices, open(filename, 'wb+'))
