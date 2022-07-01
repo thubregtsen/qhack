@@ -56,7 +56,10 @@ use_trained_params = False
 num_wires = 5
 # If activated (default), this skips post-processing pipelines that are redundant/unreasonable
 filter_pipelines = True
-filename = f'data/noisy_sim/kernel_matrices_Checkerboard_{"" if use_trained_params else "un"}trained.zip'
+# Note that the file ending in ".selection" contains only 10 sampled matrices per noise setting in order
+# to keep data files small enough. If you want to reproduce plots from the paper exactly, you may rerun
+# the noisy_generating.ipynb notebook or could contact us to obtain the full file.
+filename = f'data/noisy_sim/kernel_matrices_Checkerboard_{"" if use_trained_params else "un"}trained.selection'
 
 # Set the method for rating the post-processing pipelines across all noise settings
 # For our data, the two methods practically yield the same conclusions
